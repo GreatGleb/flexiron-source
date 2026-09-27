@@ -35,6 +35,15 @@ SCHEMA_INSTRUCTION = (
 )
 
 
+class UnreadableCallLog(RuntimeError):
+    """Вызов кончился, не напечатав отчёта о сессии: считать по нему нечего.
+
+    Не то же самое, что вывод без `modelUsage`: там отчёт есть, и молчаливый ноль
+    сломал бы потолок, поэтому такой вывод по-прежнему отвергается. Здесь вывода нет
+    вовсе — процесс умер или был убит до печати, и лог уже не дописать никогда.
+    """
+
+
 class Backend:
     """Общий контракт. Реализация обязана оставить результат в result_path."""
 
@@ -158,7 +167,11 @@ class ClaudeBackend(Backend):
         В деньгах чтение кэша платное, но предел владельца — лимит, а не счёт.
         Молча вернуть ноль нельзя: потолок, который не срабатывает, хуже отсутствующего.
         """
-        printed = json.loads(prefix.with_suffix(".stdout.log").read_text())
+        printed = prefix.with_suffix(".stdout.log").read_text()
+        try:
+            printed = json.loads(printed)
+        except json.JSONDecodeError as error:
+            raise UnreadableCallLog(f"{prefix.name}: отчёта о сессии нет ({error})") from None
         usage = printed.get("modelUsage")
         if not isinstance(usage, dict) or not usage:
             raise RuntimeError(f"В выводе {prefix.name} нет учёта токенов (modelUsage)")

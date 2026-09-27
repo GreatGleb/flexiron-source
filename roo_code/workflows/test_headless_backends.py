@@ -39,6 +39,8 @@ assert (role == 'review') == ('--restricted' in args)
 with pathlib.Path(os.environ['NIGHT_TEST_CALLS']).open('a') as calls:
     calls.write(f"{task['id']}:{role}:claude\n")
 mode = os.environ.get('NIGHT_TEST_MODE', '')
+if role == 'review' and mode == 'review-silent':
+    raise SystemExit(0)   # вышел с нулём, не напечатав ничего: ни результата, ни учёта
 if role == 'review' and mode in ('review-quotes-code', 'review-no-json'):
     body = {'review-quotes-code': 'Ожидание `{ timeout: DATA_READY_TIMEOUT }` верно.\n```json\n'
                                   + json.dumps({'status': 'done', 'summary': 'ок', 'evidence': ['дифф']}) + '\n```',
@@ -351,6 +353,20 @@ class TokenCountTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.write({})
 
+    def test_call_that_printed_nothing_is_not_a_measurement(self):
+        # Пустой лог — вызов, чей отчёт о сессии уже не дописать. Это отдельный вид
+        # отказа: по нему прогон не падает, потому что его задача разобрана сама по себе.
+        self.prefix.with_suffix(".stdout.log").write_text("")
+        with self.assertRaises(backends.UnreadableCallLog):
+            backends.ClaudeBackend({}).tokens(self.prefix)
+
+    def test_missing_accounting_is_not_confused_with_a_missing_report(self):
+        # Ответ есть, а учёта в нём нет — прогон обязан встать: молчаливый ноль здесь
+        # сломал бы потолок. Граница между двумя отказами держится этим тестом.
+        with self.assertRaises(RuntimeError) as caught:
+            self.write({})
+        self.assertNotIsInstance(caught.exception, backends.UnreadableCallLog)
+
 
 class BudgetTest(unittest.TestCase):
     """Потолок токенов: он защищает недельный лимит, поэтому обязан срабатывать.
@@ -479,6 +495,22 @@ class ReviewOnClaudeTest(unittest.TestCase):
         # beta читает plan.md, который пишет alpha, — ждёт её, а прогон доходит до конца.
         self.assertEqual([x["task"] for x in state["waiting"]], ["beta"])
         self.assertIn("Ответ приёмщика непригоден", state["blocked"][0]["reason"])
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+        self.assertFalse(self.git("status", "--porcelain"))
+
+    def test_reviewer_that_printed_nothing_does_not_stop_the_night(self):
+        # Ночь 2026-09-28-0022 встала так: приёмщик вышел с кодом 0 и пустым stdout.
+        # Задачу ядро забраковало верно, а следом умерло на учёте токенов по тому же
+        # пустому логу — и умирало бы на каждой проверке потолка, включая возобновление.
+        result = self.invoke("review-silent")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.state()
+        self.assertNotEqual(state["status"], "stopped", state)
+        self.assertEqual([x["task"] for x in state["blocked"]], ["alpha"])
+        self.assertIn("Ответ приёмщика непригоден", state["blocked"][0]["reason"])
+        # Единственный вызов в счёт потолка — та самая приёмка; её лог не измерить,
+        # и в счёт она не пошла, а не уронила прогон.
+        self.assertEqual(state["tokens"], 0)
         self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
         self.assertFalse(self.git("status", "--porcelain"))
 

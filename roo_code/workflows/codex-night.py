@@ -30,7 +30,7 @@ HERE = Path(__file__).resolve().parent
 DIFF_LIMIT = 120_000
 LOG_TAIL_LIMIT = 2_000
 sys.path.insert(0, str(HERE))
-from headless_backends import ROLES, load_routing  # noqa: E402  (нужен HERE в sys.path)
+from headless_backends import ROLES, UnreadableCallLog, load_routing  # noqa: E402  (нужен HERE в sys.path)
 import night_db  # noqa: E402
 import refs_shift  # noqa: E402
 
@@ -303,6 +303,14 @@ def spent_tokens(backends, run_dir, unfinished=()):
     возобновлённый прогон видит тот же расход, что и непрерывный. Авторы из
     `unfinished` ещё пишут: их лог пуст или недописан, и разбор уронил бы ночь —
     их расход засчитается, когда они закончат.
+
+    Законченный вызов, не оставивший отчёта о сессии, пропускается — так же, как его
+    пропускает `measure()` супервизора, то есть два счётчика ночи дают одно число.
+    Ронять на нём прогон нельзя: ночь 2026-09-28-0022 встала так после того, как ядро
+    УЖЕ разобрало этот случай — задача забракована («Ответ приёмщика непригоден»), а
+    лог остался в каталоге и валил каждую следующую проверку потолка. Молчания тут
+    нет: тот же лог лежит в доказательствах забракованной задачи. Вывод БЕЗ учёта
+    токенов — другое дело, он по-прежнему останавливает прогон.
     """
     total = 0
     for path in sorted(run_dir.glob("*.stdout.log")):
@@ -311,7 +319,10 @@ def spent_tokens(backends, run_dir, unfinished=()):
             continue
         role = match.group(2) if match else None
         if role and backends[role].metered:
-            total += backends[role].tokens(Path(str(path)[: -len(".stdout.log")]))
+            try:
+                total += backends[role].tokens(Path(str(path)[: -len(".stdout.log")]))
+            except UnreadableCallLog:
+                continue
     return total
 
 

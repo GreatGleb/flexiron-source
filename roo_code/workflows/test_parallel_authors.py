@@ -414,8 +414,13 @@ class ParallelRunTest(unittest.TestCase):
         (self.logs / "beta-work.stdout.log").write_text(json.dumps(done))
         backends = core.load_routing(self.routing)
         self.assertEqual(core.spent_tokens(backends, self.logs, {"alpha"}), 10)
-        with self.assertRaises(json.JSONDecodeError):
-            core.spent_tokens(backends, self.logs)
+        # Тот же пустой лог без пометки «ещё пишет» прогон больше не роняет, а
+        # пропускает — как его пропускает measure() супервизора. Ночь 2026-09-28-0022
+        # встала именно на законченном вызове с пустым логом: приёмщик вышел с кодом 0,
+        # не напечатав ничего, задача была забракована как надо, а учёт токенов падал на
+        # её логе при каждой следующей проверке потолка. Громкий отказ остался там, где
+        # он и нужен: ответ ЕСТЬ, а учёта в нём нет (test_headless_backends).
+        self.assertEqual(core.spent_tokens(backends, self.logs), 10)
         # Задача с id, начинающимся так же, в счёт идёт: сопоставление — по id целиком.
         (self.logs / "alpha-work-work.stdout.log").write_text(json.dumps(done))
         self.assertEqual(core.spent_tokens(backends, self.logs, {"alpha"}), 20)
