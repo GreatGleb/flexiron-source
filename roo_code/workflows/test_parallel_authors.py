@@ -173,6 +173,15 @@ class ParallelRunTest(unittest.TestCase):
         prompt = (self.logs / "alpha-work.prompt.txt").read_text()
         self.assertIn(f"PW_PORT={ports[0]}", prompt)
 
+    def test_batch_authors_get_own_tmpdir_and_no_load_rule(self):
+        """Авторы пачки писали в одни /tmp/mine.ts и грузили машину соседа (ночь 27.09-2225)."""
+        self.assertEqual(self.invoke(parallel=2, barrier=2).returncode, 0)
+        for task in ("alpha", "beta"):
+            prompt = (self.logs / f"{task}-work.prompt.txt").read_text()
+            self.assertIn(f"`{self.logs / f'tmp-{task}'}`", prompt)
+            self.assertIn("pkill", prompt)
+            self.assertTrue((self.logs / f"tmp-{task}").is_dir())
+
     def test_batch_author_gets_node_modules_inside_its_worktree(self):
         """Симлинк уводил настоящий путь за корень worktree: vite отвечал 403 на шрифты
         `@fontsource`, и у автора пачки краснели все снимки."""
@@ -189,7 +198,10 @@ class ParallelRunTest(unittest.TestCase):
     def test_single_author_keeps_the_default_port(self):
         self.assertEqual(self.invoke(parallel=1).returncode, 0)
         self.assertEqual(self.spans()["alpha"]["port"], 0)
-        self.assertNotIn("PW_PORT", (self.logs / "alpha-work.prompt.txt").read_text())
+        prompt = (self.logs / "alpha-work.prompt.txt").read_text()
+        self.assertNotIn("PW_PORT", prompt)
+        self.assertNotIn("TMPDIR", prompt)
+        self.assertNotIn("pkill", prompt)
 
     def test_sequential_run_keeps_authors_apart(self):
         result = self.invoke(parallel=1)

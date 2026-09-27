@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 
 def _load(name):
@@ -172,6 +173,13 @@ class LiveTest(unittest.TestCase):
     """То, чего протоколист не докажет: база действительно появляется и исчезает."""
 
     def setUp(self):
+        # Свой префикс той же длины (SLUG_LIMIT посчитан от него при импорте). С боевым
+        # `prepare` сносил все `nightdb_*` как застарелые, а уборка — шаблон: ночь
+        # 2026-09-27-2225 шла, пока гонялся этот набор, и в 00:03 не смогла создать базу
+        # задачи — `template database "nightdb_template" does not exist`.
+        patcher = mock.patch.multiple(night_db, PREFIX="nightts_", TEMPLATE="nightts_template")
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.pool = night_db.TaskDatabases(LIVE_URL)
         self.addCleanup(self.pool.dispose)
         self.addCleanup(lambda: self.pool._admin(*self.pool._drop(night_db.TEMPLATE)))

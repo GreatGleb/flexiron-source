@@ -738,6 +738,38 @@ class GitFilterTest(unittest.TestCase):
                         "echo x && git checkout -- f", "ls | xargs git rm", "git", "python3 roo_code/workflows/refs_shift.py --fix"):
             self.assertIsNotNone(aider_agent.command_refusal(command), command)
 
+    # Формы из ночи 2026-09-27-2225: так автор пачки поднимал и снимал нагрузку.
+    LOAD = ("for i in $(seq 1 160); do (yes > /dev/null &); done; npx playwright test a.spec.ts",
+            "npx playwright test > /tmp/x.txt 2>&1; echo \"exit=$?\"; pkill -x yes", "killall node",
+            "stress-ng --cpu 8", "yes | head -1", "echo $(pkill -f vite)")
+    HARMLESS = ("grep -n yes a.spec.ts", "echo yes", "git log --grep yes", "rg 'pkill' roo_code")
+
+    def test_batch_author_may_not_load_the_shared_machine(self):
+        with mock.patch.dict(os.environ, {"PW_PORT": "5412"}):
+            for command in self.LOAD:
+                self.assertIsNotNone(aider_agent.command_refusal(command), command)
+            for command in self.HARMLESS:
+                self.assertIsNone(aider_agent.command_refusal(command), command)
+
+    def test_single_author_keeps_the_load_recipe_of_the_plan(self):
+        with mock.patch.dict(os.environ):
+            os.environ.pop("PW_PORT", None)
+            for command in self.LOAD:
+                self.assertIsNone(aider_agent.command_refusal(command), command)
+
+    def test_shared_guard_catches_what_the_parser_misses(self):
+        """`bash -c 'yes …'` разбор строки не видит — видит обёртка первой в PATH."""
+        saved = aider_agent.GUARD_DIR
+        with tempfile.TemporaryDirectory() as guard, mock.patch.dict(os.environ, {"PW_PORT": "5412"}):
+            try:
+                aider_agent.install_shared_guard(guard)
+                out = subprocess.run(["bash", "-c", "bash -c 'yes > /dev/null'; echo code=$?"],
+                                     env=aider_agent.guarded_env(), capture_output=True, text=True, timeout=10)
+            finally:
+                aider_agent.GUARD_DIR = saved
+        self.assertIn("code=1", out.stdout)
+        self.assertIn("машина общая", out.stderr)
+
     def test_git_guard_decides_on_the_parsed_command(self):
         for args in (["add", "."], ["-C", "/x", "commit", "-m", "y"], ["--git-dir=.git", "stash"], ["-c", "a=b", "reset"]):
             self.assertIsNotNone(aider_agent.guard_refusal(args), args)

@@ -617,7 +617,18 @@ def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1, env
         instruction += (
             f"Порты. Рядом с тобой одновременно работают другие авторы. Твой порт playwright — "
             f"PW_PORT={env['PW_PORT']} (и следующий за ним), он уже в окружении. Не задавай "
-            "PW_PORT и --port руками и не занимай 5173: там чужой сервер.\n")
+            "PW_PORT и --port руками и не занимай 5173: там чужой сервер.\n"
+            # Ночь 2026-09-27-2225: автор пачки поднял 160 `yes` на 8 ядрах ради инверсии
+            # под нагрузкой, а сосед в это время гнал свои e2e под этой нагрузкой.
+            "Машина общая: пока ты работаешь, на ней идут тесты других авторов. Не создавай "
+            "искусственную нагрузку на процессор (`yes`, `stress`, пустые циклы) и не гаси "
+            "процессы по имени (`pkill`, `killall`) — это бьёт по чужим тестам. Если задача "
+            "просит прогон или инверсию под нагрузкой, сделай вместо этого замер фактического "
+            "времени ожидания и так и напиши в результате.\n")
+    if env and "TMPDIR" in env:
+        instruction += (
+            f"Временные файлы — только в `$TMPDIR` (`{env['TMPDIR']}`, уже в окружении), не в "
+            "`/tmp`: одноимённый файл соседа затрёт твой.\n")
     backend = backends[role]
     instruction += backend.result_instruction(result_path)
     prompt = instruction + "\nЗадание (JSON):\n" + json.dumps(task, ensure_ascii=False, indent=2)
@@ -1063,8 +1074,13 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                     port = author_ports(1, taken={p + d for p in ports.values() for d in (-1, 0, 1)})[0]
                     ports[task["id"]] = port
                     add_worktree(root, task, run_dir)
+                    # Свой TMPDIR: авторы пачки писали в одни и те же /tmp/mine.ts и
+                    # /tmp/head-load.txt (ночь 2026-09-27-2225) и затёрли бы друг другу.
+                    temp = run_dir / f'tmp-{task["id"]}'
+                    temp.mkdir(exist_ok=True)
                     future = pool.submit(write_author, root, backends, task, run_dir, deadline,
-                                         {**databases.env_for(task["id"]), "PW_PORT": str(port)})
+                                         {**databases.env_for(task["id"]), "PW_PORT": str(port),
+                                          "TMPDIR": str(temp)})
                     running[future] = task
                     writing.add(task["id"])
                     started.append(task["id"])
