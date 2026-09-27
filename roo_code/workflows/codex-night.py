@@ -143,13 +143,11 @@ def link_report(root, doc, prefix, deadline):
     """
     if not (root / doc).is_file():
         return 0
-    execute(["env", f"CONTRACT_REFS={doc}", "./node_modules/.bin/vitest", "run",
-             "src/services/contractRefs.spec.ts"], root / "frontend_vue", prefix, deadline)
-    report = prefix.with_suffix(".stdout.log").read_text(errors="replace")
-    found = re.findall(r"\[ссылки\][^\n]*битых (\d+)", report)
-    if not found:
+    execute(refs_shift.link_check_argv(doc), root / "frontend_vue", prefix, deadline)
+    found = refs_shift.broken_links(prefix.with_suffix(".stdout.log").read_text(errors="replace"))
+    if found is None:
         raise CommandFailed(f"Проверка ссылок не дала отчёта по {doc}; см. {prefix.name}")
-    return int(found[-1])
+    return found
 
 
 def disjoint_batch(candidates, size, owned=()):
@@ -583,8 +581,11 @@ def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1, env
             "остальное верно и машинные проверки зелёные.\n"
             "НОВЫХ ссылок с номерами строк не вводи: место в коде называй цитатой — именем "
             "функции, класса или токеном в бэктиках без `:номер`. Такую ссылку нечему "
-            "сломать, и резолвер её не судит. Номера в уже написанных ссылках контроллер "
-            "правит сам после твоей работы; тебе их трогать не нужно. "
+            "сломать, и резолвер её не судит. Номера ссылок, чьи строки переехали "
+            "ДОСЛОВНО, контроллер правит сам после твоей работы — их не трогай. Ссылки в "
+            "твоих outputs на строки, которые ИЗМЕНИЛИСЬ, контроллер не трогает: их "
+            "исправляешь ты, и рядом с номером в том же предложении должен стоять токен в "
+            "бэктиках с целевой строки. "
             "НЕ запускай refs_shift.py — ни с --fix, ни без: он правит документы, которых "
             "нет в твоих outputs, и задача будет забракована за выход за границы. "
             "Замер 2026-09-26: так погибла ночь на первой же задаче.\n"
@@ -817,7 +818,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             state["current"] = task["id"]
             save("task-start")
             links_before = {}
-            if (root / "frontend_vue/src/services/contractRefs.spec.ts").is_file():
+            if (root / "frontend_vue" / refs_shift.RESOLVER_SPEC).is_file():
                 for n, doc in enumerate(link_documents(task)):
                     links_before[doc] = link_report(root, doc, run_dir / f'{task["id"]}-links-before-{n}', deadline)
             return git_state(root), links_before

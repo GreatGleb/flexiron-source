@@ -15,6 +15,9 @@ import unittest
 
 
 RUNNER = Path(__file__).with_name("codex-night.py").resolve()
+_refs = importlib.util.spec_from_file_location("refs_shift", RUNNER.with_name("refs_shift.py"))
+refs_shift = importlib.util.module_from_spec(_refs)
+_refs.loader.exec_module(refs_shift)
 _spec = importlib.util.spec_from_file_location("night_db", RUNNER.with_name("night_db.py"))
 night_db = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(night_db)
@@ -581,6 +584,31 @@ class PilotTest(unittest.TestCase):
         self.assertEqual([x["task"] for x in state["completed"]], ["third"])
         self.assertNotEqual(state["blocked"][0]["stash"], state["blocked"][1]["stash"])
         self.assertEqual(self.git("diff", "--name-only", self.baseline, "HEAD"), "third.md")
+
+    def test_more_broken_links_block_the_task_at_checks(self):
+        # Поддельный резолвер: битая ссылка — строка «prepared», которую пишет автор.
+        spec = self.root / "frontend_vue/src/services/contractRefs.spec.ts"
+        spec.parent.mkdir(parents=True)
+        spec.write_text("// резолвер\n")
+        (self.root / ".gitignore").write_text("node_modules/\n")
+        self.git("add", "-A")
+        self.git("commit", "-m", "резолвер")
+        vitest = self.root / "frontend_vue/node_modules/.bin/vitest"
+        vitest.parent.mkdir(parents=True)
+        vitest.write_text("#!/usr/bin/env python3\nimport os, pathlib\n"
+                          "doc = pathlib.Path('..', os.environ['CONTRACT_REFS']).read_text()\n"
+                          "print(f'[ссылки] документов 1 · ссылок 3 · битых {doc.count(\"prepared\")}')\n")
+        vitest.chmod(0o755)
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        blocked = self.state()["blocked"]
+        self.assertEqual([(b["task"], b["phase"]) for b in blocked], [("plan", "checks")])
+        self.assertIn("plan.md: битых ссылок стало больше — было 0, стало 1", blocked[0]["reason"])
+
+    def test_link_report_is_parsed_from_the_last_count(self):
+        self.assertIsNone(refs_shift.broken_links("vitest упал до отчёта"))
+        self.assertEqual(refs_shift.broken_links("[ссылки] документов 1 · ссылок 9 · битых 2\n"
+                                                 "[ссылки] документов 1 · ссылок 9 · битых 7"), 7)
 
     def test_archive_preserves_deletion_binary_mode_and_symlink(self):
         self.tasks(("plan", {"outputs": ["plan.md", "new.bin", "script.sh", "link"]}),

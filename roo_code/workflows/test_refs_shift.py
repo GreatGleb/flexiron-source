@@ -44,6 +44,30 @@ class ShiftTest(unittest.TestCase):
         self.assertEqual(unsafe, [])
         self.assertIn("code.ts:4", self.doc.read_text())
 
+    def test_number_the_author_already_fixed_is_not_shifted_again(self):
+        # Ночь 2026-09-27-0224: автор верно переписал 3 → 4 под вставку сверху, контроллер
+        # прочёл 4 как старый номер и сдвинул ещё раз — ссылка ушла мимо, задачу забраковали.
+        # Непохожие строки кода — чтобы «дословно» не спасло случайным совпадением.
+        self.code.write_text("один\nдва\nтри\nчетыре\nпять\nшесть\n")
+        self.commit("Ссылка на `три` — code.ts:3\nДругая на `пять` — code.ts:5\n")
+        self.code.write_text("ноль\nодин\nдва\nтри\nчетыре\nпять\nшесть\n")
+        self.doc.write_text("Ссылка на `три` — code.ts:4\nДругая на `пять` — code.ts:5\n")
+        safe, unsafe = refs_shift.renumber(self.root)
+        # Строку, которую не трогал автор, механика двигает как прежде.
+        self.assertEqual([(i["строка"], i["стало"]) for i in safe], [(2, "code.ts:6")])
+        # Строку автора — нет: номер уже новый, её проверяет приёмщик.
+        self.assertEqual([(i["строка"], i["было"]) for i in unsafe], [(1, "code.ts:4")])
+        self.assertEqual(self.doc.read_text(), "Ссылка на `три` — code.ts:4\nДругая на `пять` — code.ts:6\n")
+
+    def test_new_document_is_written_against_the_new_code(self):
+        self.commit("")
+        self.code.write_text("ноль\nодин\nдва\nтри\nчетыре\n")
+        new = self.root / "roo_code" / "новый.md"
+        new.write_text("Ссылка на `три` — code.ts:4\n")
+        safe, unsafe = refs_shift.renumber(self.root)
+        self.assertEqual(safe, [])
+        self.assertEqual(new.read_text(), "Ссылка на `три` — code.ts:4\n")
+
     def test_changed_line_is_left_for_human_eyes(self):
         self.commit("Ссылка на `три` — code.ts:3\n")
         self.code.write_text("ноль\nодин\nдва\nТРИ ДРУГОЕ\nчетыре\n")
