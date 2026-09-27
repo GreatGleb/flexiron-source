@@ -1,0 +1,10 @@
+[Unit]
+Description=Flexiron: обход сторожа ночи каждые 15 минут
+
+[Timer]
+OnCalendar=*:0/15
+# Пропущенный во сне обход не нужен: следующий через 15 минут посмотрит на то же.
+Persistent=false
+
+[Install]
+WantedBy=timers.target

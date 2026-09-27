@@ -8,6 +8,34 @@ set -euo pipefail
 repo="${FLEXIRON_REPO:-$HOME/PycharmProjects/flexiron-source}"
 routing="${FLEXIRON_ROUTING:-$HOME/.config/flexiron/night-routing.json}"
 state_root="${FLEXIRON_NIGHTS:-$HOME/.local/share/flexiron}"
+
+# Продолжение уже начатой ночи — так её поднимает сторож (night-watchdog.py):
+#   night-run.sh --resume <каталог ночи> [--retry-review <каталог прогона>]
+# Ветка, checkout и параметры — из night.json этой ночи; новой ветки нет.
+if [ "${1:-}" = "--resume" ]; then
+    out="${2:?нужен каталог ночи}"
+    shift 2
+    meta="$out/night.json"
+    test -f "$meta" || { echo "Нет $meta — продолжать нечего" >&2; exit 2; }
+    field() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$meta" "$1"; }
+    repo="$(field workspace)"
+    branch="$(field branch)"
+    if [ "$(git -C "$repo" branch --show-current)" != "$branch" ]; then
+        echo "Checkout $repo не на ветке ночи $branch — продолжение не начинается" >&2
+        exit 3
+    fi
+    # Грязное дерево законно только для повтора приёмки: там лежит работа автора.
+    if [ "${1:-}" != "--retry-review" ] && [ -n "$(git -C "$repo" status --porcelain)" ]; then
+        echo "Дерево занято — продолжение без повтора приёмки не начинается" >&2
+        exit 3
+    fi
+    status=0
+    python3 "$repo/roo_code/workflows/night-supervisor.py" --resume --out "$out" "$@" || status=$?
+    python3 "$repo/roo_code/workflows/night-report.py" --out "$out" --repo "$repo" \
+        > "$out/СВОДКА.md" 2>&1 || true
+    echo "Сводка: $out/СВОДКА.md"
+    exit "$status"
+fi
 stamp="$(date +%F-%H%M)"
 out="$state_root/night-$stamp"
 

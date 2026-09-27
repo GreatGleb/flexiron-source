@@ -67,6 +67,42 @@ class NightRunTest(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertEqual(self.git("branch", "--show-current").strip(), "main")
 
+    # --- продолжение ночи: так её поднимает сторож ---
+
+    def resume(self, *extra):
+        out = self.nights / "night-старая"
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "night.json").write_text(
+            '{"workspace": "%s", "branch": "auto/night-старая"}' % self.repo)
+        # Без FLEXIRON_REPO и маршрутизации: сторож их не знает, всё берётся из night.json.
+        env = {k: v for k, v in os.environ.items() if not k.startswith("FLEXIRON_")}
+        result = subprocess.run(["bash", str(SCRIPT), "--resume", str(out), *extra],
+                                capture_output=True, text=True, env=env, timeout=60)
+        return result, out
+
+    def test_resume_continues_on_the_night_branch_without_a_new_one(self):
+        self.git("switch", "-c", "auto/night-старая")
+        result, out = self.resume()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"супервизор: --resume --out {out}", result.stdout)
+        self.assertEqual(self.git("branch", "--list", "auto/*").split(), ["*", "auto/night-старая"])
+        self.assertIn("# сводка", (out / "СВОДКА.md").read_text())
+
+    def test_resume_refuses_a_foreign_branch(self):
+        result, _ = self.resume()
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("не на ветке ночи", result.stderr)
+
+    def test_resume_on_a_busy_tree_only_for_a_review_retry(self):
+        self.git("switch", "-c", "auto/night-старая")
+        (self.repo / "работа-автора.md").write_text("ждёт приёмки\n")
+        result, _ = self.resume()
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("Дерево занято", result.stderr)
+        result, out = self.resume("--retry-review", "run-2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"--resume --out {out} --retry-review run-2", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

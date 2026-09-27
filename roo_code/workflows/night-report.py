@@ -83,6 +83,18 @@ def main():
               f"Остановка: {supervisor.get('stopped')}**")
     print()
     print("\n".join(body))
+    watchdog = args.out / "watchdog.jsonl"
+    if watchdog.is_file():
+        # Что сторож увидел и сделал: без этого утром подъём ночи неотличим от ровной ночи.
+        import time
+        print("\n## Сторож\n")
+        for line in watchdog.read_text().splitlines():
+            if not line.strip():
+                continue
+            entry = json.loads(line)
+            stamp = time.strftime("%H:%M", time.localtime(entry.get("time", 0)))
+            reason = f" (причина: {entry['причина']})" if entry.get("причина") else ""
+            print(f"- {stamp} — {entry.get('увидел')} → {entry.get('сделал')}{reason}")
     if blocked:
         print("\nЗабракованное не потеряно: черновик каждой задачи лежит в архиве прогона "
               "и в git stash — смотреть по путям выше.")
