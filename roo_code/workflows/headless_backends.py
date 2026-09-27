@@ -91,6 +91,21 @@ class CodexBackend(Backend):
                 "--output-last-message", str(result_path), "-"]
 
 
+def newest_claude(extensions):
+    """CLI из самой свежей версии расширения Claude Code; без расширения — `claude` из PATH.
+
+    Путь с зашитой версией устаревал молча: VS Code обновляет расширение и со временем
+    удаляет старую папку, и в ту же ночь приёмка, оператор и сторож не находили CLI.
+    Ищется на каждый вызов — обновление посреди ночи подхватывается следующим вызовом.
+    """
+    found = []
+    for binary in Path(extensions).glob("anthropic.claude-code-*/resources/native-binary/claude"):
+        match = re.match(r"anthropic\.claude-code-(\d+(?:\.\d+)*)", binary.parents[2].name)
+        if match and os.access(binary, os.X_OK):
+            found.append((tuple(int(part) for part in match.group(1).split(".")), str(binary)))
+    return max(found)[1] if found else "claude"
+
+
 class ClaudeBackend(Backend):
     """Claude Code в режиме --print.
 
@@ -101,12 +116,11 @@ class ClaudeBackend(Backend):
 
     name = "claude"
     metered = True
-    DEFAULT_BINARY = str(Path.home() / ".vscode/extensions/anthropic.claude-code-2.1.278-linux-x64"
-                                        "/resources/native-binary/claude")
+    EXTENSIONS = Path.home() / ".vscode/extensions"
 
     @property
     def binary(self):
-        return self.options.get("binary", self.DEFAULT_BINARY)
+        return self.options.get("binary") or newest_claude(self.EXTENSIONS)
 
     def check(self):
         if not shutil.which(self.binary):

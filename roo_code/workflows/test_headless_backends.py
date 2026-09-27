@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import headless_backends as backends  # noqa: E402
@@ -173,6 +174,49 @@ class RoutingTest(unittest.TestCase):
                         {"work": {"backend": "codex"}}):
             with self.assertRaises(ValueError):
                 backends.load_routing(self.write(routing))
+
+
+class NewestClaudeTest(unittest.TestCase):
+    """Путь к CLI не зашит: VS Code обновляет расширение и удаляет старую папку."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.extensions = Path(self.tmp.name)
+
+    def install(self, version, executable=True):
+        binary = self.extensions / f"anthropic.claude-code-{version}-linux-x64/resources/native-binary/claude"
+        binary.parent.mkdir(parents=True)
+        binary.write_text("#!/bin/sh\n")
+        binary.chmod(0o755 if executable else 0o644)
+        return str(binary)
+
+    def test_newest_version_wins_by_number_not_by_text(self):
+        self.install("2.1.99")
+        newest = self.install("2.1.283")
+        self.install("2.1.278")
+        self.assertEqual(backends.newest_claude(self.extensions), newest)
+
+    def test_version_without_executable_cli_is_skipped(self):
+        usable = self.install("2.1.282")
+        self.install("2.1.283", executable=False)   # распаковка ещё не дописана
+        self.assertEqual(backends.newest_claude(self.extensions), usable)
+
+    def test_without_extension_falls_back_to_path(self):
+        self.assertEqual(backends.newest_claude(self.extensions), "claude")
+
+    def test_backend_looks_up_on_every_call(self):
+        with mock.patch.object(backends.ClaudeBackend, "EXTENSIONS", self.extensions):
+            backend = backends.ClaudeBackend({})
+            self.install("2.1.278")
+            newer = self.install("2.1.283")
+            self.assertEqual(backend.binary, newer)
+            self.assertEqual(backend.build("review", Path("/repo"), Path("/run"), Path("/run/r.json"))[0], newer)
+
+    def test_binary_from_routing_wins(self):
+        with mock.patch.object(backends.ClaudeBackend, "EXTENSIONS", self.extensions):
+            self.install("2.1.283")
+            self.assertEqual(backends.ClaudeBackend({"binary": "/opt/claude"}).binary, "/opt/claude")
 
 
 class CommandTest(unittest.TestCase):
