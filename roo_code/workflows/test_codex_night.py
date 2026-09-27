@@ -384,6 +384,24 @@ class PilotTest(unittest.TestCase):
         self.assertTrue((self.logs / "plan-check-verify.stdout.log").is_file())
         self.assertFalse((self.logs / "plan-work.prompt.txt").exists())
 
+    def test_retry_accepts_references_renumbered_by_the_controller(self):
+        """Ночь 2026-09-27-0224: после остановки на приёмке в checkout лежал и документ,
+        перенумерованный контроллером, — повтор отказывал «вне области задачи»."""
+        (self.root / "ref.md").write_text("ссылка plan.md:1\n")
+        self.git("add", "ref.md")
+        self.git("commit", "-m", "документ со ссылкой")
+        self.assertEqual(self.invoke("review-cli-error").returncode, 1)
+        previous = self.logs
+        (self.root / "ref.md").write_text("ссылка plan.md:2\n")   # как после refs_shift
+        (previous / "plan-refs.json").write_text(json.dumps(
+            {"перенумеровано": [{"документ": "ref.md", "строка": 1, "было": "plan.md:1", "стало": "plan.md:2"}],
+             "требуют_глаз": []}, ensure_ascii=False))
+        self.logs = self.base / "retry"
+        result = self.invoke("must-not-repeat-author", previous=previous)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["status"], "completed", self.state())
+        self.assertIn("ref.md", self.git("show", "--name-only", "--format=", "HEAD").split())
+
     def test_retry_rejects_unrelated_changes(self):
         self.assertEqual(self.invoke("review-cli-error").returncode, 1)
         previous = self.logs

@@ -38,6 +38,14 @@ assert (role == 'review') == ('--restricted' in args)
 with pathlib.Path(os.environ['NIGHT_TEST_CALLS']).open('a') as calls:
     calls.write(f"{task['id']}:{role}:claude\n")
 mode = os.environ.get('NIGHT_TEST_MODE', '')
+if role == 'review' and mode in ('review-quotes-code', 'review-no-json'):
+    body = {'review-quotes-code': 'Ожидание `{ timeout: DATA_READY_TIMEOUT }` верно.\n```json\n'
+                                  + json.dumps({'status': 'done', 'summary': 'ок', 'evidence': ['дифф']}) + '\n```',
+            'review-no-json': 'Всё проверил, замечаний нет.'}[mode]
+    print(json.dumps({'type': 'result', 'is_error': False, 'result': body, 'total_cost_usd': 0.01,
+                      'modelUsage': {'m': {'inputTokens': 1, 'outputTokens': 0,
+                                           'cacheCreationInputTokens': 0, 'cacheReadInputTokens': 0}}}))
+    raise SystemExit(0)
 if role == 'work':
     body = {'links-keep-broken': 'БИТАЯ ссылка досталась по наследству\nновый вердикт\n',
             'links-add-broken': 'БИТАЯ ссылка досталась по наследству\nи БИТАЯ своя\n',
@@ -111,6 +119,12 @@ class ExtractTest(unittest.TestCase):
     def test_brace_inside_string_does_not_end_the_object(self):
         text = '{"summary": "закрыл } скобку", "nested": {"a": 1}}'
         self.assertEqual(json.loads(backends.extract_json_object(text))["nested"], {"a": 1})
+
+    def test_code_quoted_before_the_result_is_skipped(self):
+        """Ночь 2026-09-27-0224: приёмщик процитировал `{ timeout: … }` раньше результата."""
+        text = ('Ожидание `{ timeout: DATA_READY_TIMEOUT }` верно, пример `{"a": 1}`.\n```json\n'
+                '{"status": "done", "summary": "ок", "evidence": ["x"]}\n```')
+        self.assertEqual(json.loads(backends.extract_json_object(text))["status"], "done")
 
     def test_escaped_quote_does_not_end_the_string(self):
         text = r'{"summary": "он сказал \"да\" }", "evidence": []}'
@@ -379,6 +393,50 @@ class BudgetTest(unittest.TestCase):
         # нему начинал лишнюю порцию сверх потолка.
         self.assertEqual(self.state()["tokens"], 2000)
         self.assertEqual(len(self.state()["completed"]), 2)
+
+
+class ReviewOnClaudeTest(unittest.TestCase):
+    """Приёмка на Claude Code: её ответ разбирается из прозы, а не навязан схемой."""
+
+    def setUp(self):
+        _pilot.PilotTest.setUp(self)
+        claude = self.bin / "claude"
+        claude.write_text(FAKE_CLAUDE)
+        claude.chmod(0o755)
+        self.routing = self.base / "routing.json"
+        self.routing.write_text(json.dumps({"work": {"backend": "codex", "binary": str(self.bin / "codex")},
+                                            "review": {"backend": "claude", "binary": str(claude)}}))
+        self.queue.write_text(json.dumps({"tasks": [
+            {"id": "alpha", "sources": ["plan.md"], "outputs": ["plan.md"], "task": "первая"},
+            {"id": "beta", "sources": ["plan.md"], "outputs": ["plan2.md"], "task": "вторая"}]}))
+
+    git = _pilot.PilotTest.git
+    state = _pilot.PilotTest.state
+
+    def invoke(self, mode):
+        command = [sys.executable, str(RUNNER), "--workspace", str(self.root), "--queue", str(self.queue),
+                   "--routing", str(self.routing), "--run", "--run-dir", str(self.logs),
+                   "--minutes", "1", "--max-tasks", "2"]
+        return subprocess.run(command, env={**self.env, "NIGHT_TEST_MODE": mode},
+                              capture_output=True, text=True, timeout=60)
+
+    def test_code_quoted_by_the_reviewer_does_not_stop_the_night(self):
+        result = self.invoke("review-quotes-code")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["status"], "completed", self.state())
+        self.assertEqual(len(self.state()["completed"]), 2)
+
+    def test_unusable_review_blocks_its_task_and_the_night_goes_on(self):
+        result = self.invoke("review-no-json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.state()
+        self.assertNotEqual(state["status"], "stopped", state)
+        self.assertEqual([x["task"] for x in state["blocked"]], ["alpha"])
+        # beta читает plan.md, который пишет alpha, — ждёт её, а прогон доходит до конца.
+        self.assertEqual([x["task"] for x in state["waiting"]], ["beta"])
+        self.assertIn("Ответ приёмщика непригоден", state["blocked"][0]["reason"])
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+        self.assertFalse(self.git("status", "--porcelain"))
 
 
 class MixedRunTest(unittest.TestCase):
