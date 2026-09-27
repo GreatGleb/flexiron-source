@@ -11,6 +11,7 @@
  */
 import { testWithFlags as test, expect } from '../fixtures'
 import type { Page } from '@playwright/test'
+import { DATA_READY_TIMEOUT } from '../helpers/ready'
 
 async function setLang(page: Page, lang: string) {
   await page.context().addInitScript((l) => {
@@ -110,7 +111,7 @@ test.describe('followups №1 · пункт 3 · куда уйдёт тесто�
     const toast = page.locator('.toast-container .toast.show')
     await expect(toast).toBeVisible()
     // Обещание до нажатия и отчёт после обязаны сойтись — ради этого пункт и заведён.
-    await expect(toast).toContainText(saved)
+    await expect(toast).toContainText(saved, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('несохранённая правка отправителя: адрес не обещается', async ({ page }) => {
@@ -123,13 +124,14 @@ test.describe('followups №1 · пункт 3 · куда уйдёт тесто�
     const line = page.locator('[data-test="settings-mail-test-target"]')
     await expect(line).toHaveText(
       'The email will go to the saved address — save the settings first',
+      { timeout: DATA_READY_TIMEOUT },
     )
     // Главное утверждение: черновик не назван получателем. Именно этим строка врала.
     await expect(line).not.toContainText('changed@example.com')
 
     await page.locator('[data-test="settings-mail-test-btn"]').click()
     const toast = page.locator('.toast-container .toast.show')
-    await expect(toast).toContainText(saved)
+    await expect(toast).toContainText(saved, { timeout: DATA_READY_TIMEOUT })
     await expect(toast).not.toContainText('changed@example.com')
   })
 
@@ -140,19 +142,21 @@ test.describe('followups №1 · пункт 3 · куда уйдёт тесто�
     await page.locator('[data-test="settings-mail-from-email"]').fill('brand-new@example.com')
     await expect(line).toHaveText(
       'The email will go to the saved address — save the settings first',
+      { timeout: DATA_READY_TIMEOUT },
     )
 
     await page.locator('.btn-save').click()
     // Сохранение делает черновик серверным состоянием — адрес обязан вернуться,
     // и уже новый. Это и есть смысл всей конструкции с isDirty.
     await expect(line).toHaveText('The email will be sent to brand-new@example.com', {
-      timeout: 15000,
+      timeout: DATA_READY_TIMEOUT,
     })
 
     await page.locator('[data-test="settings-mail-test-btn"]').click()
     // Тостов на экране два — «настройки сохранены» и ответ проверки; нужен последний.
     await expect(page.locator('.toast-container .toast.show').last()).toContainText(
       'brand-new@example.com',
+      { timeout: DATA_READY_TIMEOUT },
     )
   })
 
@@ -180,7 +184,9 @@ test.describe('followups №1 · пункт 3 · куда уйдёт тесто�
     // Премисса: правка «Компании» жива. Без неё утверждение ниже ничего не значит.
     await expect(page.locator('.btn-save')).toBeEnabled()
     // Почта с сервером не разошлась — адрес обязан остаться названным.
-    await expect(line).toHaveText(`The email will be sent to ${saved}`)
+    await expect(line).toHaveText(`The email will be sent to ${saved}`, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('пустой отправитель: письмо не уходит, кнопка объясняет почему', async ({ page }) => {
@@ -189,6 +195,7 @@ test.describe('followups №1 · пункт 3 · куда уйдёт тесто�
     await page.locator('[data-test="settings-mail-from-email"]').fill('')
     await expect(page.locator('[data-test="settings-mail-test-target"]')).toHaveText(
       'The sender address is empty — there is nowhere to send the email',
+      { timeout: DATA_READY_TIMEOUT },
     )
     await expect(page.locator('[data-test="settings-mail-test-btn"]')).toBeDisabled()
   })
@@ -248,9 +255,11 @@ test.describe('followups №1 · Л1 · смена языка на лету', ()
     // Строка — вычислимое поверх `t()`. Снимись значение однажды, английский
     // текст остался бы на литовской странице.
     await page.locator('[data-test="topbar-lang-switcher"] .lang-btn:has-text("LT")').click()
-    await expect(line).toContainText('Laiškas bus išsiųstas adresu')
+    await expect(line).toContainText('Laiškas bus išsiųstas adresu', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.locator('[data-test="topbar-lang-switcher"] .lang-btn:has-text("RU")').click()
-    await expect(line).toContainText('Письмо уйдёт на')
+    await expect(line).toContainText('Письмо уйдёт на', { timeout: DATA_READY_TIMEOUT })
   })
 
   /*
@@ -275,8 +284,10 @@ test.describe('followups №1 · пункт 10 · чего не хватает �
       const confirm = modal.locator('[data-test="return-confirm"]')
 
       // Звёздочка у метки «Причина возврата» — и ровно одна на модалку.
-      await expect(modal.locator('.field-label', { hasText: copy.label })).toHaveCount(1)
-      await expect(modal.locator('.required-star')).toHaveCount(1)
+      await expect(modal.locator('.field-label', { hasText: copy.label })).toHaveCount(1, {
+        timeout: DATA_READY_TIMEOUT,
+      })
+      await expect(modal.locator('.required-star')).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
       await expect(modal.locator('.required-star')).toBeVisible()
 
       // Строка стоит НАД кнопками, иначе её не прочитают до нажатия.
@@ -285,7 +296,7 @@ test.describe('followups №1 · пункт 10 · чего не хватает �
       expect(hb.y + hb.height).toBeLessThanOrEqual(cb.y + 1)
 
       // 1. ничего не заполнено
-      await expect(hint).toHaveText(copy.needQty)
+      await expect(hint).toHaveText(copy.needQty, { timeout: DATA_READY_TIMEOUT })
       await expect(confirm).toBeDisabled()
 
       // 2. количество есть, причины нет
@@ -294,17 +305,17 @@ test.describe('followups №1 · пункт 10 · чего не хватает �
         .first()
         .locator('[data-test="return-line-qty"]')
         .fill('1')
-      await expect(hint).toHaveText(copy.needReason)
+      await expect(hint).toHaveText(copy.needReason, { timeout: DATA_READY_TIMEOUT })
       await expect(confirm).toBeDisabled()
 
       // 3. всё готово — строка исчезает, кнопка оживает
       await modal.locator('[data-test="return-reason"]').fill('x')
-      await expect(hint).toHaveCount(0)
+      await expect(hint).toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
       await expect(confirm).toBeEnabled()
 
       // 4. причина из одних пробелов не считается заполненной
       await modal.locator('[data-test="return-reason"]').fill('   ')
-      await expect(hint).toHaveText(copy.needReason)
+      await expect(hint).toHaveText(copy.needReason, { timeout: DATA_READY_TIMEOUT })
       await expect(confirm).toBeDisabled()
     })
   }

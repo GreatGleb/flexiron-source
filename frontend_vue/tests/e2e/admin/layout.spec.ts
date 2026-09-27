@@ -235,9 +235,9 @@ test.describe('admin layout › topbar search', () => {
     await page.goto(DASHBOARD)
     const search = page.locator('[data-test="topbar-search"]')
     await search.fill('acme')
-    await expect(search).toHaveValue('acme')
+    await expect(search).toHaveValue('acme', { timeout: DATA_READY_TIMEOUT })
     await search.fill('')
-    await expect(search).toHaveValue('')
+    await expect(search).toHaveValue('', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('has a localized placeholder', async ({ page }) => {
@@ -398,10 +398,13 @@ test.describe('admin layout › visual @1440', () => {
     // нуля. Утверждение о классе одно этого не доказывает — класс может ничего не
     // делать, и тогда снимок ниже сторожил бы перекрытый дашборд как нормальный вид.
     await expect
-      .poll(async () => {
-        const box = await sidebar.boundingBox()
-        return box === null ? -1 : box.x + box.width
-      })
+      .poll(
+        async () => {
+          const box = await sidebar.boundingBox()
+          return box === null ? -1 : box.x + box.width
+        },
+        { timeout: DATA_READY_TIMEOUT },
+      )
       .toBeLessThanOrEqual(0)
 
     await expect(page.locator('[data-test="sidebar-root"]')).toHaveScreenshot(

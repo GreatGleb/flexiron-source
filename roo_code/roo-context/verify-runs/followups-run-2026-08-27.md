@@ -137,7 +137,7 @@ E2E_EXIT=0
    ```
    Единственное попадание в `tests/` — значение в моке. Утверждения нет. То есть изменённое
    поведение `submitAddSupplier()` (`ProductCardPage.vue:209`) не проверяет ничто: тест
-   `products.spec.ts:462` «confirm adds supplier to list» смотрит только, что модалка скрылась
+   `products.spec.ts:464` «confirm adds supplier to list» смотрит только, что модалка скрылась
    и текста «No suppliers linked» нет, — его устроило бы и возвращённое `EUR/pcs`.
 
 2. **Л9 в журнале записана по коду, которого коммит не менял.**

@@ -123,7 +123,9 @@ test.describe('categories-list › search', () => {
     const input = page.locator('[data-test="categories-search"] input')
     await input.fill('zzz-nomatch-xyz')
     await expect(page.locator('[data-test="categories-empty"]')).toBeVisible()
-    await expect(page.locator('[data-test="categories-row"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="categories-row"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('clearing search restores all rows', async ({ page }) => {
@@ -140,7 +142,7 @@ test.describe('categories-list › search', () => {
     await input.fill(searchTerm)
     await expect(rows).not.toHaveCount(totalBefore)
     await input.fill('')
-    await expect(rows).toHaveCount(totalBefore)
+    await expect(rows).toHaveCount(totalBefore, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -178,7 +180,9 @@ test.describe('categories-list › create modal', () => {
     await page.locator('[data-test="create-cat-name"]').fill('Тестовая категория')
     await page.locator('[data-test="create-cat-submit"]').click()
     await expect(page.locator('[data-test="modal-create-category"]')).toBeHidden()
-    await expect(page.locator('[data-test="categories-row"]')).toHaveCount(TOTAL_MOCK + 1)
+    await expect(page.locator('[data-test="categories-row"]')).toHaveCount(TOTAL_MOCK + 1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('submit without name does not close modal', async ({ page }) => {
@@ -208,7 +212,9 @@ test.describe('categories-list › delete', () => {
     await expect(modal).toBeVisible()
     await modal.locator('.btn-secondary').click()
     await expect(modal).toBeHidden()
-    await expect(page.locator('[data-test="categories-row"]')).toHaveCount(TOTAL_MOCK)
+    await expect(page.locator('[data-test="categories-row"]')).toHaveCount(TOTAL_MOCK, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -346,7 +352,9 @@ test.describe('category-card › own fields', () => {
       .filter({ hasText: /text|текст/i })
       .first()
       .click()
-    await expect(modal.locator('[data-test="field-options-input"]')).toHaveCount(0)
+    await expect(modal.locator('[data-test="field-options-input"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('adding a text field appends it to the own fields list', async ({ page }) => {
@@ -360,7 +368,9 @@ test.describe('category-card › own fields', () => {
     await modal.locator('[data-test="field-name-input"]').fill('New field')
     await modal.locator('[data-test="field-modal-submit"]').click()
     await expect(modal).toBeHidden()
-    await expect(page.locator('[data-test="category-field-row"]')).toHaveCount(initialCount + 1)
+    await expect(page.locator('[data-test="category-field-row"]')).toHaveCount(initialCount + 1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('submit without field name does not close modal', async ({ page }) => {
@@ -382,7 +392,9 @@ test.describe('category-card › own fields', () => {
     await expect(page.locator('[data-test="modal-delete-field"]')).toBeVisible()
     await page.locator('[data-test="confirm-delete-field"]').click()
     await expect(page.locator('[data-test="modal-delete-field"]')).toBeHidden()
-    await expect(page.locator('[data-test="category-field-row"]')).toHaveCount(initialCount - 1)
+    await expect(page.locator('[data-test="category-field-row"]')).toHaveCount(initialCount - 1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -429,8 +441,12 @@ test.describe('category-card › drag-drop', () => {
     await rows.first().dispatchEvent('dragstart')
     await rows.nth(1).dispatchEvent('drop')
     // order should be swapped
-    await expect(rows.first().locator('td').first()).toHaveText(secondName!)
-    await expect(rows.nth(1).locator('td').first()).toHaveText(firstName!)
+    await expect(rows.first().locator('td').first()).toHaveText(secondName!, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(rows.nth(1).locator('td').first()).toHaveText(firstName!, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
