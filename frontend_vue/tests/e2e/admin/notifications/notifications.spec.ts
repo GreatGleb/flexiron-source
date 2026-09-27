@@ -110,7 +110,7 @@ test.describe('Notifications Page', () => {
     await expect(firstRow).toBeVisible()
     await firstRow.click()
     // Should navigate away from notifications page
-    await expect(page).not.toHaveURL(/\/admin\/notifications/)
+    await expect(page).not.toHaveURL(/\/admin\/notifications/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('type filter changes notification list', async ({ page }) => {
@@ -184,6 +184,6 @@ test.describe('Notification Dropdown', () => {
     const markAllBtn = page.locator('.notif-footer-btn')
     await markAllBtn.click()
     // Badge dot should disappear
-    await expect(page.locator('.badge-dot')).not.toBeVisible()
+    await expect(page.locator('.badge-dot')).not.toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 })

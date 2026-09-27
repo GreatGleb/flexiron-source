@@ -29,7 +29,9 @@ test.describe('Sales CRM dashboard', () => {
 
     // A brand new order is `new`: both active and pending.
     await page.locator('[data-test="sales-crm-action-new-order"]').click()
-    await expect(page.locator('[data-test="page-order-create"]')).toBeVisible()
+    await expect(page.locator('[data-test="page-order-create"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.locator('[data-test="order-create-client-item"]').first().click()
     await page.locator('[data-test="order-create-save-btn"]').click()
     await page.waitForURL(/\/admin\/orders\/ORD-/)

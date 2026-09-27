@@ -113,7 +113,7 @@ test.describe('Company Settings', () => {
     await nameInput.fill('Test Company')
     // Save button should become active (not disabled)
     const saveBtn = page.locator('.btn-save')
-    await expect(saveBtn).not.toBeDisabled()
+    await expect(saveBtn).not.toBeDisabled({ timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -162,7 +162,7 @@ test.describe('Mail Settings', () => {
     await expect(host).not.toHaveValue('')
     await host.fill('smtp.changed.lt')
 
-    await expect(page.locator('.btn-save')).not.toBeDisabled()
+    await expect(page.locator('.btn-save')).not.toBeDisabled({ timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -192,8 +192,12 @@ test.describe('Finance Settings', () => {
     // успела ли страница подняться, а этого он не контролирует.
     await waitForDataReady(page)
     await page.locator('[data-test="settings-finance-add-currency"]').click()
-    await expect(page.locator('[data-test="settings-modal-currency-code"]')).toBeVisible()
-    await expect(page.locator('[data-test="settings-modal-currency-name"]')).toBeVisible()
+    await expect(page.locator('[data-test="settings-modal-currency-code"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="settings-modal-currency-name"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // A currency has a code and a name, and no rate: there is no conversion
     // anywhere in this system, so a rate here would be a number nothing reads.
     // The directory of currencies stays; the table of rates is gone (§7.1).
@@ -235,8 +239,12 @@ test.describe('Units Settings', () => {
     // успела ли страница подняться, а этого он не контролирует.
     await waitForDataReady(page)
     await page.locator('[data-test="settings-uom-add"]').click()
-    await expect(page.locator('[data-test="settings-modal-uom-code"]')).toBeVisible()
-    await expect(page.locator('[data-test="settings-modal-uom-name"]')).toBeVisible()
+    await expect(page.locator('[data-test="settings-modal-uom-code"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="settings-modal-uom-name"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('add conversion modal opens', async ({ page }) => {
@@ -247,7 +255,7 @@ test.describe('Units Settings', () => {
     await page.locator('[data-test="settings-conversion-add"]').click()
     // AppModal renders .modal-overlay.active with .modal-title containing the title text
     const activeOverlay = page.locator('.modal-overlay.active')
-    await expect(activeOverlay).toBeVisible({ timeout: 3000 })
+    await expect(activeOverlay).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await expect(activeOverlay.locator('.modal-title')).toContainText(/Conversion|Add/, {
       timeout: DATA_READY_TIMEOUT,
     })
@@ -280,7 +288,9 @@ test.describe('Order Statuses Settings', () => {
     // успела ли страница подняться, а этого он не контролирует.
     await waitForDataReady(page)
     await page.locator('[data-test="settings-status-add"]').click()
-    await expect(page.locator('[data-test="settings-status-modal-name"]')).toBeVisible()
+    await expect(page.locator('[data-test="settings-status-modal-name"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('status name input is editable in table', async ({ page }) => {

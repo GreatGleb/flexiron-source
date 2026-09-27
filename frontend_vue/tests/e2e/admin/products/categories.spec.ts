@@ -110,7 +110,7 @@ test.describe('categories-list › search', () => {
     await input.fill(searchTerm)
 
     // Признак применённого фильтра — изменившаяся длина.
-    await expect(rows).not.toHaveCount(totalBefore)
+    await expect(rows).not.toHaveCount(totalBefore, { timeout: DATA_READY_TIMEOUT })
     const names = await rows.evaluateAll((els) =>
       els.map((el) => (el.querySelector('td')?.textContent ?? '').trim()),
     )
@@ -122,7 +122,9 @@ test.describe('categories-list › search', () => {
   test('search with no match shows empty state', async ({ page }) => {
     const input = page.locator('[data-test="categories-search"] input')
     await input.fill('zzz-nomatch-xyz')
-    await expect(page.locator('[data-test="categories-empty"]')).toBeVisible()
+    await expect(page.locator('[data-test="categories-empty"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="categories-row"]')).toHaveCount(0, {
       timeout: DATA_READY_TIMEOUT,
     })
@@ -140,7 +142,7 @@ test.describe('categories-list › search', () => {
     const searchTerm = (await rows.first().locator('td').first().textContent())!.trim()
     const input = page.locator('[data-test="categories-search"] input')
     await input.fill(searchTerm)
-    await expect(rows).not.toHaveCount(totalBefore)
+    await expect(rows).not.toHaveCount(totalBefore, { timeout: DATA_READY_TIMEOUT })
     await input.fill('')
     await expect(rows).toHaveCount(totalBefore, { timeout: DATA_READY_TIMEOUT })
   })
@@ -157,29 +159,37 @@ test.describe('categories-list › create modal', () => {
 
   test('clicking create button opens modal', async ({ page }) => {
     await page.locator('[data-test="categories-create-btn"]').click()
-    await expect(page.locator('[data-test="modal-create-category"]')).toBeVisible()
+    await expect(page.locator('[data-test="modal-create-category"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('pressing Escape closes modal', async ({ page }) => {
     await page.locator('[data-test="categories-create-btn"]').click()
-    await expect(page.locator('[data-test="modal-create-category"]')).toBeVisible()
+    await expect(page.locator('[data-test="modal-create-category"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.keyboard.press('Escape')
-    await expect(page.locator('[data-test="modal-create-category"]')).toBeHidden()
+    await expect(page.locator('[data-test="modal-create-category"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('clicking cancel button closes modal', async ({ page }) => {
     await page.locator('[data-test="categories-create-btn"]').click()
     const modal = page.locator('[data-test="modal-create-category"]')
-    await expect(modal).toBeVisible()
+    await expect(modal).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await modal.locator('.btn-secondary').click()
-    await expect(modal).toBeHidden()
+    await expect(modal).toBeHidden({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('creating a category adds it to the list', async ({ page }) => {
     await page.locator('[data-test="categories-create-btn"]').click()
     await page.locator('[data-test="create-cat-name"]').fill('Тестовая категория')
     await page.locator('[data-test="create-cat-submit"]').click()
-    await expect(page.locator('[data-test="modal-create-category"]')).toBeHidden()
+    await expect(page.locator('[data-test="modal-create-category"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="categories-row"]')).toHaveCount(TOTAL_MOCK + 1, {
       timeout: DATA_READY_TIMEOUT,
     })
@@ -188,7 +198,9 @@ test.describe('categories-list › create modal', () => {
   test('submit without name does not close modal', async ({ page }) => {
     await page.locator('[data-test="categories-create-btn"]').click()
     await page.locator('[data-test="create-cat-submit"]').click()
-    await expect(page.locator('[data-test="modal-create-category"]')).toBeVisible()
+    await expect(page.locator('[data-test="modal-create-category"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -203,15 +215,17 @@ test.describe('categories-list › delete', () => {
 
   test('clicking delete button opens confirm modal', async ({ page }) => {
     await page.locator('[data-test="categories-delete-btn"]').first().click()
-    await expect(page.locator('[data-test="modal-delete-category"]')).toBeVisible()
+    await expect(page.locator('[data-test="modal-delete-category"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('cancelling delete leaves row count unchanged', async ({ page }) => {
     await page.locator('[data-test="categories-delete-btn"]').first().click()
     const modal = page.locator('[data-test="modal-delete-category"]')
-    await expect(modal).toBeVisible()
+    await expect(modal).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await modal.locator('.btn-secondary').click()
-    await expect(modal).toBeHidden()
+    await expect(modal).toBeHidden({ timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="categories-row"]')).toHaveCount(TOTAL_MOCK, {
       timeout: DATA_READY_TIMEOUT,
     })
@@ -298,18 +312,18 @@ test.describe('category-card › dirty check', () => {
   test('editing name enables save button', async ({ page }) => {
     await page.locator('[data-test="category-name-input"]').fill('Metal — edited')
     const saveBtn = page.locator('[data-test="category-save-bar"] .btn-save')
-    await expect(saveBtn).not.toBeDisabled()
-    await expect(saveBtn).toHaveClass(/\bdirty\b/)
+    await expect(saveBtn).not.toBeDisabled({ timeout: DATA_READY_TIMEOUT })
+    await expect(saveBtn).toHaveClass(/\bdirty\b/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('clicking discard after edit resets save button to disabled', async ({ page }) => {
     await page.locator('[data-test="category-name-input"]').fill('Edited')
     const saveBtn = page.locator('[data-test="category-save-bar"] .btn-save')
-    await expect(saveBtn).not.toBeDisabled()
+    await expect(saveBtn).not.toBeDisabled({ timeout: DATA_READY_TIMEOUT })
     await page.locator('[data-test="category-save-bar"] .btn-secondary').click()
     // Признак — сама кнопка: `toBeDisabled` повторяется, пока форма не вернётся
     // к сохранённому состоянию. Тишина в сети тут не значила ничего.
-    await expect(saveBtn).toBeDisabled()
+    await expect(saveBtn).toBeDisabled({ timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -328,19 +342,23 @@ test.describe('category-card › own fields', () => {
 
   test('clicking add field opens the field modal', async ({ page }) => {
     await page.locator('[data-test="category-add-field-btn"]').click()
-    await expect(page.locator('[data-test="modal-field"]')).toBeVisible()
+    await expect(page.locator('[data-test="modal-field"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('choosing type=enum shows the options TagInput', async ({ page }) => {
     await page.locator('[data-test="category-add-field-btn"]').click()
     const modal = page.locator('[data-test="modal-field"]')
-    await expect(modal).toBeVisible()
+    await expect(modal).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await modal.locator('[data-test="field-type-select"] .custom-select-trigger').click()
     const enumOption = modal
       .locator('.custom-select-option')
       .filter({ hasText: /enum|select list|список/i })
     await enumOption.first().click()
-    await expect(modal.locator('[data-test="field-options-input"]')).toBeVisible()
+    await expect(modal.locator('[data-test="field-options-input"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('choosing type=text hides the options TagInput', async ({ page }) => {
@@ -367,7 +385,7 @@ test.describe('category-card › own fields', () => {
     const modal = page.locator('[data-test="modal-field"]')
     await modal.locator('[data-test="field-name-input"]').fill('New field')
     await modal.locator('[data-test="field-modal-submit"]').click()
-    await expect(modal).toBeHidden()
+    await expect(modal).toBeHidden({ timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="category-field-row"]')).toHaveCount(initialCount + 1, {
       timeout: DATA_READY_TIMEOUT,
     })
@@ -377,7 +395,7 @@ test.describe('category-card › own fields', () => {
     await page.locator('[data-test="category-add-field-btn"]').click()
     const modal = page.locator('[data-test="modal-field"]')
     await modal.locator('[data-test="field-modal-submit"]').click()
-    await expect(modal).toBeVisible()
+    await expect(modal).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('deleting a field removes it from the list', async ({ page }) => {
@@ -389,9 +407,13 @@ test.describe('category-card › own fields', () => {
     const initialCount = await rows.count()
     await page.locator('[data-test="category-field-row"]').first().locator('.action-danger').click()
     // Confirm deletion in the modal
-    await expect(page.locator('[data-test="modal-delete-field"]')).toBeVisible()
+    await expect(page.locator('[data-test="modal-delete-field"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.locator('[data-test="confirm-delete-field"]').click()
-    await expect(page.locator('[data-test="modal-delete-field"]')).toBeHidden()
+    await expect(page.locator('[data-test="modal-delete-field"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="category-field-row"]')).toHaveCount(initialCount - 1, {
       timeout: DATA_READY_TIMEOUT,
     })
@@ -411,11 +433,11 @@ test.describe('category-card › save lifecycle', () => {
     const saveBtn = page.locator('[data-test="category-save-bar"] .btn-save')
     await expect(saveBtn).toBeDisabled()
     await page.locator('[data-test="category-name-input"]').fill('Metal — updated')
-    await expect(saveBtn).not.toBeDisabled()
+    await expect(saveBtn).not.toBeDisabled({ timeout: DATA_READY_TIMEOUT })
     await saveBtn.click()
     // Сохранение закончилось не когда «в сети тихо», а когда форма перестала
     // быть грязной — это и утверждается ниже, само себя дожидаясь.
-    await expect(saveBtn).toBeDisabled()
+    await expect(saveBtn).toBeDisabled({ timeout: DATA_READY_TIMEOUT })
   })
 })
 

@@ -243,7 +243,7 @@ interface LinkedSupplier {
 
 Ошибки: ни одной — `mockCreateCategory` не бросает (`mocks/categories.ts:1423-1449`). Пустое имя
 отсекает клиент (`CategoriesPage.vue:72`), и это поведение закреплено e2e
-(`tests/e2e/admin/products/categories.spec.ts:188-191`). **Существование `parentId` не проверяет
+тестом `submit without name does not close modal` в `frontend_vue/tests/e2e/admin/products/categories.spec.ts`. **Существование `parentId` не проверяет
 никто:** при неизвестном родителе мок молча оставляет `inheritedFields` пустыми и сохраняет
 несуществующий `parentId` (`mocks/categories.ts:1431`) — на схеме то же тело упрётся в FK
 `categories.parent_id` (миграция `25245d4bf874_phase_3_categories_products.py:32`), и код отказа
@@ -552,7 +552,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 |---|---|---|
 | статусы доменных кодов: 409/409/404 | `03-api-contract.md:834-838` | мок статуса не несёт, `ApiRequestError.status` берётся из настоящего ответа (`services/api.ts:117-124`); мапирование совпадает с классами ядра (§2 соглашений) |
 | `404 CATEGORY_NOT_FOUND` у `GET /api/categories/:id` | `03-api-contract.md:926` | подтверждено кодом: мок отвечает этим кодом, карточка показывает его переводом, не текстом — БАГ-04 закрыт |
-| `422 VALIDATION_ERROR` за отсутствующее `name` у `POST /api/categories` | `03-api-contract.md:885` | серверной проверки нет, отсекает клиент (`CategoriesPage.vue:72`), поведение закреплено e2e (`tests/e2e/admin/products/categories.spec.ts:188-191`) |
+| `422 VALIDATION_ERROR` за отсутствующее `name` у `POST /api/categories` | `03-api-contract.md:885` | серверной проверки нет, отсекает клиент (`CategoriesPage.vue:72`), поведение закреплено e2e — тестом `submit without name does not close modal` в `frontend_vue/tests/e2e/admin/products/categories.spec.ts` |
 | «last-write-wins» у `PATCH /api/categories/:id` | `03-api-contract.md:946` | ни `If-Match`, ни `updatedAt` у категории нет (`types/category.ts:25-35`) — то же, что у пятнадцати других доменов (§11 соглашений) |
 
 ## Чего в домене нет

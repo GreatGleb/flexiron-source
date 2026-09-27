@@ -117,7 +117,7 @@ PROBE-E toHaveText(innerText with \n): DID NOT MATCH (expected side NOT normaliz
 
   | место | как снят эталон | `toHaveText(снятое)` совпадает? |
   |---|---|---|
-  | `categories.spec.ts:469,470,471` | `textContent()` + `.trim()` | ДА — утверждение настоящее |
+  | `categories.spec.ts:491,492,493` | `textContent()` + `.trim()` | ДА — утверждение настоящее |
   | `audit-log.spec.ts:139` | `textContent()`, без trim | ДА — утверждение настоящее |
   | `clients.spec.ts:307` | `textContent()`, без trim | ДА — утверждение настоящее |
   | `order-offcuts.spec.ts:57,58` | литерал `'—'` | сравнения со снятым нет |
