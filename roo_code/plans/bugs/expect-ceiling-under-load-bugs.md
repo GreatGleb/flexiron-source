@@ -27,8 +27,8 @@
 |---|---|
 | `clients.spec.ts:650` «the order history is the client's real orders» | `expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/)` |
 | `clients.spec.ts:325` «cancelling the modal closes it» | видимость после действия |
-| `layout.spec.ts:64` «sidebar has all 6 nav entries» | состав элементов |
-| `layout.spec.ts:185` «initial state: shell is not active» | класс оболочки |
+| `layout.spec.ts:72` «sidebar has all 6 nav entries» | состав элементов |
+| `layout.spec.ts:229` «initial state: shell is not active» | класс оболочки |
 
 `toHaveURL` падал при ОБЕИХ конфигурациях, то есть к снимкам отношения не имеет.
 
