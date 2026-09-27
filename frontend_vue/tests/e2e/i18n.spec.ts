@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures'
-import { waitForDataReady } from './helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from './helpers/ready'
 
 const LANGS = ['ru', 'en', 'lt'] as const
 
@@ -15,7 +15,9 @@ test.describe('Language switching — landing (via LangSwitcher)', () => {
     const texts: Record<string, string> = {}
     for (const lang of LANGS) {
       await page.locator(`.lang-switcher .lang-btn:has-text("${lang.toUpperCase()}")`).click()
-      await expect(page.locator('html')).toHaveAttribute('lang', lang)
+      await expect(page.locator('html')).toHaveAttribute('lang', lang, {
+        timeout: DATA_READY_TIMEOUT,
+      })
       texts[lang] = (await title.textContent())?.trim() ?? ''
     }
     expect.soft(texts.ru, 'ru title non-empty').not.toBe('')

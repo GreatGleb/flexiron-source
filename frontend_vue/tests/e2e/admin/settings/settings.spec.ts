@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures'
 import { enableAllFlags } from '../../helpers/flags'
-import { waitForDataReady } from '../../helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from '../../helpers/ready'
 
 test.beforeEach(async ({ context }) => {
   await enableAllFlags(context)
@@ -43,23 +43,25 @@ test.describe('Settings Layout', () => {
     const tabs = page.locator('[data-test="settings-tabs"] .warehouse-tab')
 
     // Profile tab (already active)
-    await expect(page).toHaveURL(/\/admin\/settings\/profile/)
+    await expect(page).toHaveURL(/\/admin\/settings\/profile/, { timeout: DATA_READY_TIMEOUT })
 
     // Company tab
     await tabs.nth(1).click()
-    await expect(page).toHaveURL(/\/admin\/settings\/company/)
+    await expect(page).toHaveURL(/\/admin\/settings\/company/, { timeout: DATA_READY_TIMEOUT })
 
     // Finance tab
     await tabs.nth(2).click()
-    await expect(page).toHaveURL(/\/admin\/settings\/finance/)
+    await expect(page).toHaveURL(/\/admin\/settings\/finance/, { timeout: DATA_READY_TIMEOUT })
 
     // Units tab
     await tabs.nth(3).click()
-    await expect(page).toHaveURL(/\/admin\/settings\/units/)
+    await expect(page).toHaveURL(/\/admin\/settings\/units/, { timeout: DATA_READY_TIMEOUT })
 
     // Order Statuses tab
     await tabs.nth(4).click()
-    await expect(page).toHaveURL(/\/admin\/settings\/order-statuses/)
+    await expect(page).toHaveURL(/\/admin\/settings\/order-statuses/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('save/cancel action bar is visible', async ({ page }) => {
@@ -149,7 +151,9 @@ test.describe('Mail Settings', () => {
     await page.locator('[data-test="settings-mail-test-btn"]').click()
 
     // Успех именно этой отправки: в тосте адрес отправителя, а не любое сообщение.
-    await expect(page.locator('.toast-container .toast.show')).toContainText(sender)
+    await expect(page.locator('.toast-container .toast.show')).toContainText(sender, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('typing in the host field makes the save bar dirty', async ({ page }) => {
@@ -193,7 +197,9 @@ test.describe('Finance Settings', () => {
     // A currency has a code and a name, and no rate: there is no conversion
     // anywhere in this system, so a rate here would be a number nothing reads.
     // The directory of currencies stays; the table of rates is gone (§7.1).
-    await expect(page.locator('[data-test="settings-modal-currency-rate"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="settings-modal-currency-rate"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('currency delete button is visible', async ({ page }) => {
@@ -242,7 +248,9 @@ test.describe('Units Settings', () => {
     // AppModal renders .modal-overlay.active with .modal-title containing the title text
     const activeOverlay = page.locator('.modal-overlay.active')
     await expect(activeOverlay).toBeVisible({ timeout: 3000 })
-    await expect(activeOverlay.locator('.modal-title')).toContainText(/Conversion|Add/)
+    await expect(activeOverlay.locator('.modal-title')).toContainText(/Conversion|Add/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 

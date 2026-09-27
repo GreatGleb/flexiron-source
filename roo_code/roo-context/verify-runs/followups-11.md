@@ -21,7 +21,7 @@ src/composables/useBccRequest.ts:18:    lt: 'Kainų užklausa — InBox LT',
 src/composables/useBccRequest.ts:21:    ru: '...С уважением,\nКоманда InBox LT',
 src/composables/useBccRequest.ts:22:    en: '...Best regards,\nInBox LT Team',
 src/composables/useBccRequest.ts:23:    lt: '...Pagarbiai,\nInBox LT komanda',
-tests/e2e/admin/suppliers/bcc-request.spec.ts:298:      'Price Request — InBox LT',
+tests/e2e/admin/suppliers/bcc-request.spec.ts:303:      'Price Request — InBox LT',
 ```
 
 Девять строк на месте, плюс десятая — e2e-тест **закреплял** чужое имя как ожидаемое.

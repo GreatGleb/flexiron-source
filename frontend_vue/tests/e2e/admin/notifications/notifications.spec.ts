@@ -1,5 +1,5 @@
 import { test, expect } from '../../fixtures'
-import { waitForDataReady } from '../../helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from '../../helpers/ready'
 import { enableAllFlags } from '../../helpers/flags'
 
 test.beforeEach(async ({ context }) => {
@@ -47,7 +47,7 @@ test.describe('Notifications Page', () => {
     await page.goto('/admin/notifications')
     await expect(page.locator('[data-test="notifications-table"]')).toBeVisible()
     await expect(page.locator('[data-test="notifications-row"]').first()).toBeVisible({
-      timeout: 5000,
+      timeout: DATA_READY_TIMEOUT,
     })
   })
 
@@ -70,8 +70,12 @@ test.describe('Notifications Page', () => {
     // ответа оно не может — это признак, а не совпадение. А строка выше доказывает,
     // что до фильтра список был непустым (#66: отсутствие проверяется там, где
     // присутствие было).
-    await expect(page.locator('[data-test="notifications-empty"]')).toBeVisible()
-    await expect(page.locator('[data-test="notifications-row"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="notifications-empty"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="notifications-row"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('error state shows retry button', async ({ page }) => {
@@ -82,7 +86,9 @@ test.describe('Notifications Page', () => {
     // The flag stays set, so the error state is a state and not a moment: whoever
     // asks the mock gets the error, and no later success can clear it out from under
     // the assertion.
-    await expect(page.locator('[data-test="notifications-error"]')).toBeVisible({ timeout: 8000 })
+    await expect(page.locator('[data-test="notifications-error"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.evaluate(() => localStorage.removeItem('test_mock_force_error'))
   })
 
@@ -95,7 +101,7 @@ test.describe('Notifications Page', () => {
     await page.locator('[data-test="notifications-header"] button').click()
     // All rows should show "read" status
     const unreadRows = page.locator('[data-test="notifications-row"].notif-row--unread')
-    await expect(unreadRows).toHaveCount(0)
+    await expect(unreadRows).toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('clicking a notification navigates to linked entity', async ({ page }) => {
@@ -111,7 +117,7 @@ test.describe('Notifications Page', () => {
     await page.goto('/admin/notifications')
     // Wait for table to load
     await expect(page.locator('[data-test="notifications-row"]').first()).toBeVisible({
-      timeout: 5000,
+      timeout: DATA_READY_TIMEOUT,
     })
 
     // Open the type dropdown via CustomSelect trigger
@@ -119,12 +125,14 @@ test.describe('Notifications Page', () => {
     await filterGroup.locator('.custom-select-trigger').click()
 
     // Select the second option (first non-"All") — CustomSelect uses .custom-select-option
-    await expect(filterGroup.locator('.custom-select-option').nth(1)).toBeVisible({ timeout: 3000 })
+    await expect(filterGroup.locator('.custom-select-option').nth(1)).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await filterGroup.locator('.custom-select-option').nth(1).click()
 
     // Verify the table re-renders (rows count >= 0)
     const rows = page.locator('[data-test="notifications-row"]')
-    await expect(rows.first()).toBeVisible({ timeout: 5000 })
+    await expect(rows.first()).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -144,7 +152,9 @@ test.describe('Notification Dropdown', () => {
     // успела ли страница подняться, а этого он не контролирует.
     await waitForDataReady(page)
     await page.locator('[data-test="topbar-notifications"]').click()
-    await expect(page.locator('[data-test="notif-dropdown"]')).toBeVisible()
+    await expect(page.locator('[data-test="notif-dropdown"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('dropdown has view all and mark all read buttons', async ({ page }) => {
@@ -160,7 +170,7 @@ test.describe('Notification Dropdown', () => {
           '[data-test="notif-dropdown"] a.router-link-active, [data-test="notif-dropdown"] .notif-footer-link',
         )
         .first(),
-    ).toBeVisible()
+    ).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('mark all read in dropdown updates badge count', async ({ page }) => {

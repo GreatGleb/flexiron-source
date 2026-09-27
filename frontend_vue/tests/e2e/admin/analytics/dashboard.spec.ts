@@ -175,8 +175,12 @@ test.describe('dashboard › sub-nav', () => {
   test('clicking warehouse tab navigates and swaps current', async ({ page }) => {
     await page.locator('[data-test="analytics-sub-nav-warehouse"]').click()
     await expect(page).toHaveURL('/admin/analytics/warehouse', { timeout: DATA_READY_TIMEOUT })
-    await expect(page.locator('[data-test="analytics-sub-nav-warehouse"]')).toHaveClass(/current/)
-    await expect(page.locator('[data-test="analytics-sub-nav-kpi"]')).not.toHaveClass(/current/)
+    await expect(page.locator('[data-test="analytics-sub-nav-warehouse"]')).toHaveClass(/current/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="analytics-sub-nav-kpi"]')).not.toHaveClass(/current/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 

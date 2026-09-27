@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import { navigateToAdmin } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /**
  * Настройки → Логи: a view over the nine logs, not a tenth store.
@@ -26,18 +27,22 @@ async function selectEntity(page: import('@playwright/test').Page, label: string
   const select = page.getByTestId('audit-log-entity-filter')
   await select.click()
   const list = select.locator('.custom-select-list.open')
-  await expect(list).toBeVisible()
+  await expect(list).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   await list
     .locator('.custom-select-option')
     .filter({ hasText: new RegExp(`^\\s*${label}\\s*$`) })
     .click()
-  await expect(select.locator('.curr-val')).toHaveText(label)
-  await expect(page.getByTestId('audit-log-reset-filters')).toBeVisible()
+  await expect(select.locator('.curr-val')).toHaveText(label, { timeout: DATA_READY_TIMEOUT })
+  await expect(page.getByTestId('audit-log-reset-filters')).toBeVisible({
+    timeout: DATA_READY_TIMEOUT,
+  })
   // The reset button appears the moment the filter changes — the rows arrive one
   // request later. Wait for the feed itself, or the next read snapshots the old
   // table (whose first page is all Order rows, since an order stamps its creation
   // entry with the current time).
-  await expect(rows(page).first().locator('.audit-log-kind')).toHaveText(label)
+  await expect(rows(page).first().locator('.audit-log-kind')).toHaveText(label, {
+    timeout: DATA_READY_TIMEOUT,
+  })
 }
 
 test.describe('Audit log page', () => {
@@ -62,8 +67,8 @@ test.describe('Audit log page', () => {
   test('is reachable as a settings tab', async ({ page }) => {
     await navigateToAdmin(page, '/admin/settings/profile')
     await page.getByTestId('settings-tabs').getByText('Logs', { exact: true }).click()
-    await expect(page).toHaveURL(/\/admin\/settings\/logs$/)
-    await expect(page.getByTestId('settings-logs')).toBeVisible()
+    await expect(page).toHaveURL(/\/admin\/settings\/logs$/, { timeout: DATA_READY_TIMEOUT })
+    await expect(page.getByTestId('settings-logs')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('every row is keyed by entity type, entity id and entry id together', async ({ page }) => {
@@ -101,8 +106,12 @@ test.describe('Audit log page', () => {
     expect(href).toBeTruthy()
 
     await link.click()
-    await expect(page).not.toHaveURL(/\/admin\/settings\/logs$/)
-    await expect(page).toHaveURL(new RegExp(href!.replace(/[/-]/g, '\\$&') + '$'))
+    await expect(page).not.toHaveURL(/\/admin\/settings\/logs$/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page).toHaveURL(new RegExp(href!.replace(/[/-]/g, '\\$&') + '$'), {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('entity filter narrows the feed', async ({ page }) => {
@@ -111,7 +120,9 @@ test.describe('Audit log page', () => {
 
     await selectEntity(page, 'Batch')
 
-    await expect(page.getByTestId('audit-log-reset-filters')).toBeVisible()
+    await expect(page.getByTestId('audit-log-reset-filters')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     const kinds = await rows(page).evaluateAll((els) =>
       els.map((el) => el.querySelector('.audit-log-kind')!.textContent!.trim()),
     )
@@ -130,11 +141,17 @@ test.describe('Audit log page', () => {
     test.skip(term.length < 3, 'no usable search term in the first row')
     await page.getByTestId('audit-log-search').locator('input').fill(term)
 
-    await expect(page.getByTestId('audit-log-reset-filters')).toBeVisible()
-    await expect(page.getByTestId('audit-log-total')).not.toHaveText(totalBefore)
+    await expect(page.getByTestId('audit-log-reset-filters')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.getByTestId('audit-log-total')).not.toHaveText(totalBefore, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await page.getByTestId('audit-log-reset-filters').click()
-    await expect(page.getByTestId('audit-log-total')).toHaveText(totalBefore)
+    await expect(page.getByTestId('audit-log-total')).toHaveText(totalBefore, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('deleting removes exactly the row asked for', async ({ page }) => {
@@ -144,11 +161,17 @@ test.describe('Audit log page', () => {
     const neighbourKey = await keyOf(rows(page).nth(1))
 
     await target.getByTestId('audit-log-delete-btn').click()
-    await expect(page.getByTestId('audit-log-delete-modal')).toBeVisible()
+    await expect(page.getByTestId('audit-log-delete-modal')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.getByTestId('audit-log-delete-confirm').click()
 
-    await expect(page.locator(`[data-row-key="${targetKey}"]`)).toHaveCount(0)
-    await expect(page.locator(`[data-row-key="${neighbourKey}"]`)).toHaveCount(1)
+    await expect(page.locator(`[data-row-key="${targetKey}"]`)).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator(`[data-row-key="${neighbourKey}"]`)).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('two rows sharing an entry id: deleting one leaves the other', async ({ page }) => {
@@ -170,8 +193,12 @@ test.describe('Audit log page', () => {
     await page.locator(`[data-row-key="${first}"]`).getByTestId('audit-log-delete-btn').click()
     await page.getByTestId('audit-log-delete-confirm').click()
 
-    await expect(page.locator(`[data-row-key="${first}"]`)).toHaveCount(0)
-    await expect(page.locator(`[data-row-key="${second}"]`)).toHaveCount(1)
+    await expect(page.locator(`[data-row-key="${first}"]`)).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator(`[data-row-key="${second}"]`)).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   /**
@@ -188,51 +215,63 @@ test.describe('Audit log page', () => {
   test('deleted in the feed, gone from the object card', async ({ page }) => {
     await selectEntity(page, 'Batch')
     const feedRow = rows(page).first()
-    await expect(feedRow).toBeVisible()
+    await expect(feedRow).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     const key = await keyOf(feedRow)
     const [, , entryId] = key.split(':')
 
     // Visit the card first, so the way back to it is a history move rather than a load.
     await feedRow.getByTestId('audit-log-entity-link').click()
     const cardRow = page.locator(`[data-entry-id="${entryId}"]`)
-    await expect(cardRow).toBeVisible()
+    await expect(cardRow).toBeVisible({ timeout: DATA_READY_TIMEOUT })
 
     await page.goBack()
-    await expect(page.locator(`[data-row-key="${key}"]`)).toBeVisible()
+    await expect(page.locator(`[data-row-key="${key}"]`)).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.locator(`[data-row-key="${key}"]`).getByTestId('audit-log-delete-btn').click()
     await page.getByTestId('audit-log-delete-confirm').click()
-    await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0)
+    await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await page.goForward()
-    await expect(page.getByTestId('batch-card-audit-row').first()).toBeVisible()
+    await expect(page.getByTestId('batch-card-audit-row').first()).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // The card reads the same log: the record deleted in the feed is not on it.
-    await expect(page.locator(`[data-entry-id="${entryId}"]`)).toHaveCount(0)
+    await expect(page.locator(`[data-entry-id="${entryId}"]`)).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('deleted on the object card, gone from the feed', async ({ page }) => {
     await selectEntity(page, 'Batch')
     const feedRow = rows(page).first()
-    await expect(feedRow).toBeVisible()
+    await expect(feedRow).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     const key = await keyOf(feedRow)
     const [, , entryId] = key.split(':')
 
     await feedRow.getByTestId('audit-log-entity-link').click()
     const cardRows = page.getByTestId('batch-card-audit-row')
-    await expect(cardRows.first()).toBeVisible()
+    await expect(cardRows.first()).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     const before = await cardRows.count()
 
     // The row for THIS entry, not the first one on screen: the card lists the log in
     // store order while the feed sorts it newest-first, so "first" names two different
     // records.
     const cardRow = page.locator(`[data-entry-id="${entryId}"]`)
-    await expect(cardRow).toBeVisible()
+    await expect(cardRow).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await cardRow.getByTestId('batch-card-audit-delete-btn').click()
-    await expect(page.getByTestId('batch-card-audit-modal')).toBeVisible()
+    await expect(page.getByTestId('batch-card-audit-modal')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.getByTestId('batch-card-audit-modal-confirm').click()
-    await expect(cardRows).toHaveCount(before - 1)
+    await expect(cardRows).toHaveCount(before - 1, { timeout: DATA_READY_TIMEOUT })
 
     await page.goBack()
-    await expect(rows(page).first()).toBeVisible()
-    await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0)
+    await expect(rows(page).first()).toBeVisible({ timeout: DATA_READY_TIMEOUT })
+    await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })

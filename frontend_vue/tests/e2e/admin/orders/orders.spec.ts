@@ -33,9 +33,11 @@ async function addProductOnCreatePage(page: Page, productName: string) {
   await expect(modal).toBeVisible()
   await modal.locator('[data-test="add-items-filters"] input').fill(productName)
   const row = modal.locator('[data-test="add-items-product-row"]').first()
-  await expect(row).toContainText(productName)
+  await expect(row).toContainText(productName, { timeout: DATA_READY_TIMEOUT })
   await row.click()
-  await expect(modal.locator('[data-test="add-items-selected-row"]')).toHaveCount(1)
+  await expect(modal.locator('[data-test="add-items-selected-row"]')).toHaveCount(1, {
+    timeout: DATA_READY_TIMEOUT,
+  })
   await modal.locator('[data-test="add-items-save-btn"]').click()
   await expect(modal).toBeHidden()
 }
@@ -82,7 +84,7 @@ test.describe('Orders List', () => {
   test('create button navigates to create page', async ({ page }) => {
     await navigateToAdmin(page, '/admin/orders')
     await page.locator('[data-test="orders-header"] a.btn-primary').click()
-    await expect(page).toHaveURL('/admin/orders/new')
+    await expect(page).toHaveURL('/admin/orders/new', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('order row links to card page', async ({ page }) => {
@@ -92,7 +94,7 @@ test.describe('Orders List', () => {
 
     const orderLink = firstRow.locator('a.name-link')
     await orderLink.click()
-    await expect(page).toHaveURL(/\/admin\/orders\/(.+)/)
+    await expect(page).toHaveURL(/\/admin\/orders\/(.+)/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('view button navigates to card page', async ({ page }) => {
@@ -100,7 +102,7 @@ test.describe('Orders List', () => {
     const viewBtn = page.locator('[data-test="orders-view-btn"]').first()
     await expect(viewBtn).toBeVisible()
     await viewBtn.click()
-    await expect(page).toHaveURL(/\/admin\/orders\/(.+)/)
+    await expect(page).toHaveURL(/\/admin\/orders\/(.+)/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('the row says what the client pays, and how much of it arrived', async ({ page }) => {
@@ -116,10 +118,14 @@ test.describe('Orders List', () => {
     // The filter is applied by a request, and the old table is still on screen
     // until it answers. Read the number before the money, or the sums compared
     // below belong to two different orders.
-    await expect(row).toContainText('ORD-2026-005')
+    await expect(row).toContainText('ORD-2026-005', { timeout: DATA_READY_TIMEOUT })
     const listTotal = (await row.locator('[data-test="orders-row-total"]').textContent())!
-    await expect(row.locator('[data-test="orders-row-paid"]')).toHaveText('25.00%')
-    await expect(row.locator('[data-test="orders-row-shipped"]')).toHaveText('0.00%')
+    await expect(row.locator('[data-test="orders-row-paid"]')).toHaveText('25.00%', {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(row.locator('[data-test="orders-row-shipped"]')).toHaveText('0.00%', {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await openAdminPage(page, '/admin/orders/ORD-005', '[data-test="order-item-row"]')
     const cardGross = await page.locator('[data-test="field-gross-total"]').inputValue()
@@ -142,13 +148,15 @@ test.describe('Orders List', () => {
     // удалял ORD-2026-100 и ждал сообщение про оплаты, которого у того заказа нет
     // («Cannot delete: the order has an invoice»).
     const row = page.locator('[data-test="orders-row"]').filter({ hasText: 'ORD-2026-005' })
-    await expect(row).toHaveCount(1)
+    await expect(row).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
     await row.locator('[data-test="orders-delete-btn"]').click()
     await page.locator('[data-test="orders-delete-confirm"]').click()
 
     // Тост приходит после ответа мока, а под полным прогоном ответ идёт дольше пяти
     // секунд, которые даёт expect по умолчанию.
-    await expect(page.locator('.toast').first()).toContainText(/payment/i, { timeout: 20_000 })
+    await expect(page.locator('.toast').first()).toContainText(/payment/i, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Still there.
     await expect(page.locator('[data-test="orders-row"]').first()).toBeVisible()
   })
@@ -232,14 +240,16 @@ test.describe('Order Create', () => {
     // Refusing keeps the page and everything typed into it.
     await page.click('[data-test="order-create-leave-stay"]')
     await expect(modal).toBeHidden()
-    await expect(page).toHaveURL(/\/admin\/orders\/new/)
-    await expect(page.locator('[data-test="order-create-notes"]')).toHaveValue('half an order')
+    await expect(page).toHaveURL(/\/admin\/orders\/new/, { timeout: DATA_READY_TIMEOUT })
+    await expect(page.locator('[data-test="order-create-notes"]')).toHaveValue('half an order', {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     // Asked once per attempt — the old code asked, navigated, and asked again.
     await page.click('[data-test="order-create-cancel-btn"]')
     await expect(modal).toBeVisible()
     await page.click('[data-test="order-create-leave-discard"]')
-    await expect(page).toHaveURL(/\/admin\/orders$/)
+    await expect(page).toHaveURL(/\/admin\/orders$/, { timeout: DATA_READY_TIMEOUT })
     await expect(modal).toBeHidden()
 
     expect(systemDialogs).toBe(0)
@@ -248,8 +258,10 @@ test.describe('Order Create', () => {
   test('leaving an untouched order asks nothing', async ({ page }) => {
     await navigateToAdmin(page, '/admin/orders/new')
     await page.click('[data-test="order-create-cancel-btn"]')
-    await expect(page).toHaveURL(/\/admin\/orders$/)
-    await expect(page.locator('[data-test="order-create-leave-modal"]')).toHaveCount(0)
+    await expect(page).toHaveURL(/\/admin\/orders$/, { timeout: DATA_READY_TIMEOUT })
+    await expect(page.locator('[data-test="order-create-leave-modal"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('document type panel renders with dropdown', async ({ page }) => {
@@ -283,21 +295,29 @@ test.describe('Order Create', () => {
     await addProductOnCreatePage(page, 'Copper Pipe 15x1')
 
     const rows = page.locator('[data-test="order-create-item-row"]')
-    await expect(rows).toHaveCount(3)
+    await expect(rows).toHaveCount(3, { timeout: DATA_READY_TIMEOUT })
 
     await rows.nth(1).locator('button').click()
-    await expect(rows).toHaveCount(2)
-    await expect(rows.nth(0)).toContainText('Aluminium Pipe 25x2')
-    await expect(rows.nth(1)).toContainText('Copper Pipe 15x1')
+    await expect(rows).toHaveCount(2, { timeout: DATA_READY_TIMEOUT })
+    await expect(rows.nth(0)).toContainText('Aluminium Pipe 25x2', {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(rows.nth(1)).toContainText('Copper Pipe 15x1', {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await page.locator('[data-test="order-create-save-btn"]').click()
     await page.waitForURL(/\/admin\/orders\/ORD-/)
 
     // The created order is the table that was on screen — no line left behind.
     const savedRows = page.locator('[data-test="order-item-row"]')
-    await expect(savedRows).toHaveCount(2)
-    await expect(savedRows.nth(0)).toContainText('Aluminium Pipe 25x2')
-    await expect(savedRows.nth(1)).toContainText('Copper Pipe 15x1')
+    await expect(savedRows).toHaveCount(2, { timeout: DATA_READY_TIMEOUT })
+    await expect(savedRows.nth(0)).toContainText('Aluminium Pipe 25x2', {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(savedRows.nth(1)).toContainText('Copper Pipe 15x1', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   /**
@@ -321,7 +341,7 @@ test.describe('Order Create', () => {
     async function quotedPriceIn(modal: ReturnType<Page['locator']>): Promise<string> {
       await modal.locator('[data-test="add-items-filters"] input').fill(product)
       const row = modal.locator('[data-test="add-items-product-row"]').first()
-      await expect(row).toContainText(product)
+      await expect(row).toContainText(product, { timeout: DATA_READY_TIMEOUT })
       await row.click()
       const selected = modal.locator('[data-test="add-items-selected-row"]').first()
       await expect(selected).toBeVisible()
@@ -498,12 +518,18 @@ test.describe('Order Card › fields & structure', () => {
     await page.locator('[data-test="field-gross-total"]').press('Enter')
     await expect(page.locator('[data-test="allocate-modal"]')).toBeVisible()
     // Reachable amount — no "this total does not exist" warning.
-    await expect(page.locator('[data-test="allocate-unreachable"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="allocate-unreachable"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await page.click('[data-test="allocate-confirm"]')
     await expect(page.locator('[data-test="allocate-modal"]')).toBeHidden()
-    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue('20328.99')
-    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue('16800.82')
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue('20328.99', {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue('16800.82', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a total that cannot exist is announced, never quietly substituted', async ({ page }) => {
@@ -511,7 +537,9 @@ test.describe('Order Card › fields & structure', () => {
     // With 21% VAT rounded to cents there is no net that grosses up to 20000.00.
     await page.fill('[data-test="field-gross-total"]', '20000')
     await page.locator('[data-test="field-gross-total"]').press('Enter')
-    await expect(page.locator('[data-test="allocate-unreachable"]')).toContainText('20000.01')
+    await expect(page.locator('[data-test="allocate-unreachable"]')).toContainText('20000.01', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('unsaved lines block the total edit rather than failing on the server', async ({ page }) => {
@@ -526,7 +554,9 @@ test.describe('Order Card › fields & structure', () => {
     // перезагрузку карточки. Ждём саму строку, а не исчезновение окна — раньше
     // тест успевал только потому, что `toBeHidden` заодно пережидал затухание
     // оверлея, то есть держался за анимацию, которой не управляет.
-    await expect(page.locator('[data-test="order-item-row"]')).toHaveCount(rowsBefore + 1)
+    await expect(page.locator('[data-test="order-item-row"]')).toHaveCount(rowsBefore + 1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await page.fill('[data-test="field-gross-total"]', '21000')
     await page.locator('[data-test="field-gross-total"]').press('Enter')
@@ -546,9 +576,15 @@ test.describe('Order Card › fields & structure', () => {
     await page.click('[data-test="vat-mode-keep-net"]')
 
     // Keeping the net means the line prices do not move; the tax comes off the top.
-    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue(netBefore)
-    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('0.00')
-    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(netBefore)
+    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue(netBefore, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('0.00', {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(netBefore, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // The rate has nothing to act on at a zero rate.
     await expect(page.locator('[data-test="field-vat-percent"]')).toBeDisabled()
   })
@@ -568,9 +604,15 @@ test.describe('Order Card › fields & structure', () => {
     await page.click('[data-test="allocate-confirm"]')
     await expect(page.locator('[data-test="allocate-modal"]')).toBeHidden()
 
-    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(grossBefore)
-    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue(grossBefore)
-    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('0.00')
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(grossBefore, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue(grossBefore, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('0.00', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('the services table shows per-line money, not per-unit times quantity', async ({ page }) => {
@@ -606,7 +648,9 @@ test.describe('Order Card › fields & structure', () => {
     await page.click('[data-test="allocate-confirm"]')
     await expect(page.locator('[data-test="allocate-modal"]')).toBeHidden()
 
-    await expect(page.locator('[data-test="field-notes"]')).toHaveValue('typed but not saved')
+    await expect(page.locator('[data-test="field-notes"]')).toHaveValue('typed but not saved', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('applying the percentages to every line says what it will do first', async ({ page }) => {
@@ -624,12 +668,16 @@ test.describe('Order Card › fields & structure', () => {
       .trim()
 
     await page.click('[data-test="apply-defaults-cancel"]')
-    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(grossBefore)
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(grossBefore, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await page.click('[data-test="apply-defaults-btn"]')
     await page.click('[data-test="apply-defaults-confirm"]')
     await expect(page.locator('[data-test="apply-defaults-modal"]')).toBeHidden()
-    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(promised)
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(promised, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('the percentages reach a line that has not been saved yet', async ({ page }) => {
@@ -647,7 +695,7 @@ test.describe('Order Card › fields & structure', () => {
     await page.click('[data-test="order-add-item-btn"]')
     await page.locator('[data-test="add-items-product-checkbox"]').first().click()
     await page.click('[data-test="add-items-save-btn"]')
-    await expect(rows).toHaveCount(before + 1)
+    await expect(rows).toHaveCount(before + 1, { timeout: DATA_READY_TIMEOUT })
 
     await page.fill('[data-test="field-default-margin"]', '20')
     await page.fill('[data-test="field-default-discount"]', '5')
@@ -665,7 +713,7 @@ test.describe('Order Card › fields & structure', () => {
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
 
     // One new line, not two, and both percentages came back off the server.
-    await expect(rows).toHaveCount(before + 1)
+    await expect(rows).toHaveCount(before + 1, { timeout: DATA_READY_TIMEOUT })
     expect(Number(await lineCell(rows.last(), 'marginPercent'))).toBeCloseTo(20, 2)
     expect(Number(await lineCell(rows.last(), 'discountPercent'))).toBeCloseTo(5, 2)
   })
@@ -682,9 +730,15 @@ test.describe('Order Card › fields & structure', () => {
     // save() finishes by re-reading the order, so these values come from the
     // server. Note: a page reload would prove nothing — the mock store lives in
     // module memory and a reload regenerates it.
-    await expect(page.locator('[data-test="field-default-margin"]')).toHaveValue('33')
-    await expect(page.locator('[data-test="field-total-weight"]')).toHaveValue('1250')
-    await expect(page.locator('[data-test="field-notes"]')).toHaveValue('saved fields check')
+    await expect(page.locator('[data-test="field-default-margin"]')).toHaveValue('33', {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="field-total-weight"]')).toHaveValue('1250', {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="field-notes"]')).toHaveValue('saved fields check', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Nothing left to save means the form matches what came back.
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
   })
@@ -699,7 +753,9 @@ test.describe('Order Card › fields & structure', () => {
     await page.click('[data-test="vat-mode-cancel"]')
 
     expect(Number(vatBefore)).toBeGreaterThan(0)
-    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue(vatBefore)
+    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue(vatBefore, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
   })
 
@@ -825,7 +881,9 @@ test.describe('Order Card › line table', () => {
       .toBeGreaterThan(discountBefore)
 
     await row.locator('[data-test="line-reset-price"]').click()
-    await expect(row.locator('[data-test="line-lock"]')).toHaveCount(0)
+    await expect(row.locator('[data-test="line-lock"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect
       .poll(async () => Number(await lineCell(row, 'unitPrice')), { timeout: DATA_READY_TIMEOUT })
       .toBeCloseTo(priceBefore, 1)
@@ -841,9 +899,10 @@ test.describe('Order Card › line table', () => {
     await quantity.fill('1')
     await quantity.press('Enter')
 
-    await expect(quantity).toHaveValue(before)
+    await expect(quantity).toHaveValue(before, { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('.toast, [data-test="toast"]').first()).toContainText(
       /below what has shipped/i,
+      { timeout: DATA_READY_TIMEOUT },
     )
     // Nothing was recorded, so there is nothing to save.
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
@@ -862,12 +921,14 @@ test.describe('Order Card › line table', () => {
     // not happened yet.
     await expect(page.locator('[data-test="cost-reason-modal"]')).toBeVisible()
     await expect(page.locator('[data-test="cost-reason-confirm"]')).toBeDisabled()
-    await expect(cost).toHaveValue(before)
+    await expect(cost).toHaveValue(before, { timeout: DATA_READY_TIMEOUT })
 
     await page.fill('[data-test="cost-reason-input"]', 'Supplier invoice, batch not booked in')
     await page.click('[data-test="cost-reason-confirm"]')
 
-    await expect(cost).toHaveValue((Number(before) + 20).toFixed(2))
+    await expect(cost).toHaveValue((Number(before) + 20).toFixed(2), {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(row.locator('[data-test="line-manual-cost"]')).toBeVisible()
 
     await page.click('[data-test="order-card-save-btn"]')
@@ -886,7 +947,7 @@ test.describe('Order Card › line table', () => {
     await cost.press('Enter')
     await page.click('[data-test="cost-reason-cancel"]')
 
-    await expect(cost).toHaveValue(before)
+    await expect(cost).toHaveValue(before, { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
   })
 
@@ -900,9 +961,13 @@ test.describe('Order Card › line table', () => {
     await page.click('[data-test="split-confirm"]')
     await expect(page.locator('[data-test="split-modal"]')).toBeHidden()
 
-    await expect(page.locator('[data-test="order-item-row"]')).toHaveCount(rowsBefore + 1)
+    await expect(page.locator('[data-test="order-item-row"]')).toHaveCount(rowsBefore + 1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Same goods, same money — only the line boundary moved.
-    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(grossBefore)
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(grossBefore, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     const states = await page
       .locator('[data-test="order-item-row"] [data-test="line-state"]')
@@ -912,7 +977,7 @@ test.describe('Order Card › line table', () => {
     // The freed remainder can be repriced — that is the point of splitting.
     await expect(
       page.locator('[data-test="order-item-row"]').nth(1).locator('[data-test="cell-input"]'),
-    ).toHaveCount(6)
+    ).toHaveCount(6, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('edits to several lines go out with one Save', async ({ page }) => {
@@ -947,7 +1012,7 @@ test.describe('Order Card › line table', () => {
     await page.click('[data-test="order-add-item-btn"]')
     await page.locator('[data-test="add-items-product-checkbox"]').first().click()
     await page.click('[data-test="add-items-save-btn"]')
-    await expect(rows).toHaveCount(before + 1)
+    await expect(rows).toHaveCount(before + 1, { timeout: DATA_READY_TIMEOUT })
 
     const added = rows.last()
     const quantity = added.locator('[data-test="cell-quantity"] input')
@@ -961,7 +1026,7 @@ test.describe('Order Card › line table', () => {
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
 
     // One new line, not two, and it carries both edits — straight from the server.
-    await expect(rows).toHaveCount(before + 1)
+    await expect(rows).toHaveCount(before + 1, { timeout: DATA_READY_TIMEOUT })
     expect(Number(await lineCell(rows.last(), 'quantity'))).toBe(9)
     expect(Number(await lineCell(rows.last(), 'discountPercent'))).toBeCloseTo(4, 2)
   })
@@ -980,13 +1045,13 @@ test.describe('Order Card › line table', () => {
     await page.click('[data-test="order-add-item-btn"]')
     await page.locator('[data-test="add-items-product-checkbox"]').first().click()
     await page.click('[data-test="add-items-save-btn"]')
-    await expect(rows).toHaveCount(before + 1)
+    await expect(rows).toHaveCount(before + 1, { timeout: DATA_READY_TIMEOUT })
 
     await rows.last().locator('.action-danger').click()
-    await expect(rows).toHaveCount(before)
+    await expect(rows).toHaveCount(before, { timeout: DATA_READY_TIMEOUT })
     // Nothing pending and nothing dirty — the two cancel out exactly.
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
-    await expect(rows).toHaveCount(before)
+    await expect(rows).toHaveCount(before, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('editing the line total is the same edit seen from the other side', async ({ page }) => {
@@ -1061,7 +1126,9 @@ test.describe('Order Card › adding lines', () => {
   test('asks nothing when nobody has repriced the order by hand', async ({ page }) => {
     await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     await pickFirstProduct(page)
-    await expect(page.locator('[data-test="add-mode-chooser"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="add-mode-chooser"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('sells at the catalogue price, never at cost', async ({ page }) => {
@@ -1076,7 +1143,7 @@ test.describe('Order Card › adding lines', () => {
 
     await pickFirstProduct(page)
     await page.click('[data-test="add-items-save-btn"]')
-    await expect(rows).toHaveCount(before + 1)
+    await expect(rows).toHaveCount(before + 1, { timeout: DATA_READY_TIMEOUT })
 
     const added = rows.last()
     expect(Number(await lineCell(added, 'marginPercent'))).toBeGreaterThan(0)
@@ -1107,7 +1174,7 @@ test.describe('Order Card › adding lines', () => {
 
     await page.locator('[data-test="add-mode-order_terms"]').click()
     await page.click('[data-test="add-items-save-btn"]')
-    await expect(rows).toHaveCount(before + 1)
+    await expect(rows).toHaveCount(before + 1, { timeout: DATA_READY_TIMEOUT })
     expect(Number(await lineCell(rows.last(), 'discountPercent'))).toBeCloseTo(Number(effective), 2)
 
     // And it survives the round trip — the server must not fall back to the
@@ -1132,10 +1199,14 @@ test.describe('Order Card › adding lines', () => {
 
     // Nothing has happened yet — this reprices lines that were agreed one by one.
     await expect(page.locator('[data-test="keep-total-modal"]')).toBeVisible()
-    await expect(page.locator('[data-test="keep-total-row"]')).toHaveCount(repriceable + 1)
+    await expect(page.locator('[data-test="keep-total-row"]')).toHaveCount(repriceable + 1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.click('[data-test="keep-total-cancel"]')
-    await expect(rows).toHaveCount(before)
-    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(total)
+    await expect(rows).toHaveCount(before, { timeout: DATA_READY_TIMEOUT })
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(total, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
 
     await pickFirstProduct(page)
@@ -1144,12 +1215,16 @@ test.describe('Order Card › adding lines', () => {
     await page.click('[data-test="keep-total-confirm"]')
 
     // A line more, and the client still pays exactly what they did before.
-    await expect(rows).toHaveCount(before + 1)
-    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(total)
+    await expect(rows).toHaveCount(before + 1, { timeout: DATA_READY_TIMEOUT })
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(total, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await page.click('[data-test="order-card-save-btn"]')
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
-    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(total)
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(total, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('the price and the sum in a row agree to the cent', async ({ page }) => {
@@ -1210,7 +1285,7 @@ test.describe('Order Card › adding lines', () => {
 
     await pickFirstProduct(page)
     await page.click('[data-test="add-items-save-btn"]')
-    await expect(rows).toHaveCount(before + 1)
+    await expect(rows).toHaveCount(before + 1, { timeout: DATA_READY_TIMEOUT })
     await page.click('[data-test="order-card-save-btn"]')
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
 
@@ -1219,9 +1294,13 @@ test.describe('Order Card › adding lines', () => {
       await lineCell(frozenRow, 'lineTotal'),
       await lineCell(frozenRow, 'discountPercent'),
     ]).toEqual(frozenBefore)
-    await expect(rows.first().locator('[data-test="line-state"]')).toContainText(/Shipped/)
+    await expect(rows.first().locator('[data-test="line-state"]')).toContainText(/Shipped/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // The new line is free to be priced — that is the point of not touching it.
-    await expect(rows.last().locator('[data-test="cell-input"]')).toHaveCount(6)
+    await expect(rows.last().locator('[data-test="cell-input"]')).toHaveCount(6, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -1290,7 +1369,9 @@ test.describe('Order Card › shipments', () => {
 
     const rows = page.locator('[data-test="order-item-row"]')
     const added = rows.last()
-    await expect(added.locator('[data-test="line-state"]')).toHaveText('Draft')
+    await expect(added.locator('[data-test="line-state"]')).toHaveText('Draft', {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await page.click('[data-test="order-ship-btn"]')
     await expect(page.locator('[data-test="ship-modal"]')).toBeVisible()
@@ -1304,11 +1385,15 @@ test.describe('Order Card › shipments', () => {
 
     // Part of the order has left with a document, so the line says so — and its
     // money is frozen from here on.
-    await expect(added.locator('[data-test="line-state"]')).toContainText(/Shipped/)
+    await expect(added.locator('[data-test="line-state"]')).toContainText(/Shipped/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     const shipment = page.locator('[data-test="order-shipment-row"]').first()
-    await expect(shipment).toContainText('ABC-123')
-    await expect(shipment).toContainText(/WB-/)
-    await expect(added.locator('[data-test="cell-unitPrice"] input')).toHaveCount(0)
+    await expect(shipment).toContainText('ABC-123', { timeout: DATA_READY_TIMEOUT })
+    await expect(shipment).toContainText(/WB-/, { timeout: DATA_READY_TIMEOUT })
+    await expect(added.locator('[data-test="cell-unitPrice"] input')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     // Cancelling gives the goods back and keeps the shipment on record: the
     // warehouse ledger is only ever added to.
@@ -1317,11 +1402,16 @@ test.describe('Order Card › shipments', () => {
     await page.click('[data-test="cancel-shipment-yes"]')
     await expect(page.locator('[data-test="cancel-shipment-modal"]')).toBeHidden()
 
-    await expect(page.locator('[data-test="order-shipment-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="order-shipment-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="order-shipment-row"]').first()).toContainText(
       /Cancelled/,
+      { timeout: DATA_READY_TIMEOUT },
     )
-    await expect(added.locator('[data-test="line-state"]')).toHaveText('Draft')
+    await expect(added.locator('[data-test="line-state"]')).toHaveText('Draft', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a partially shipped order still takes new lines', async ({ page }) => {
@@ -1336,12 +1426,18 @@ test.describe('Order Card › shipments', () => {
     const before = await rows.count()
 
     await addShippableLine(page)
-    await expect(rows).toHaveCount(before + 1)
+    await expect(rows).toHaveCount(before + 1, { timeout: DATA_READY_TIMEOUT })
 
     // The frozen line is untouched; the new one is a plain draft.
-    await expect(rows.first().locator('[data-test="line-state"]')).toContainText(/Shipped/)
-    await expect(rows.last().locator('[data-test="line-state"]')).toHaveText('Draft')
-    await expect(rows.last().locator('[data-test="cell-input"]')).toHaveCount(6)
+    await expect(rows.first().locator('[data-test="line-state"]')).toContainText(/Shipped/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(rows.last().locator('[data-test="line-state"]')).toHaveText('Draft', {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(rows.last().locator('[data-test="cell-input"]')).toHaveCount(6, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a seeded shipment really moved goods, and says which document', async ({ page }) => {
@@ -1553,7 +1649,7 @@ test.describe('Order Card › returns', () => {
     await page.click('[data-test="order-add-item-btn"]')
     await page.locator('[data-test="add-items-product-checkbox"]').first().click()
     await page.click('[data-test="add-items-save-btn"]')
-    await expect(rows).toHaveCount(before + 1)
+    await expect(rows).toHaveCount(before + 1, { timeout: DATA_READY_TIMEOUT })
 
     await page.click('[data-test="order-return-btn"]')
     await expect(page.locator('[data-test="return-modal"]')).toBeHidden()
@@ -1583,7 +1679,9 @@ test.describe('Order Card › returns', () => {
 
     // Nothing is pre-filled: what came back is a fact somebody has in front of
     // them, and a dialog that guesses "all of it" invites a phantom return.
-    await expect(rows.first().locator('[data-test="return-line-qty"]')).toHaveValue('0')
+    await expect(rows.first().locator('[data-test="return-line-qty"]')).toHaveValue('0', {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await page.keyboard.press('Escape')
     await expect(modal).toBeHidden()
@@ -1616,9 +1714,12 @@ test.describe('Order Card › returns', () => {
     expect(returned).toBeGreaterThan(0)
 
     // The document exists…
-    await expect(page.locator('[data-test="order-return-row"]')).toHaveCount(before + 1)
+    await expect(page.locator('[data-test="order-return-row"]')).toHaveCount(before + 1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="order-return-row"]').first()).toContainText(
       'Wrong profile delivered',
+      { timeout: DATA_READY_TIMEOUT },
     )
 
     // …the header says so beside the status, without replacing it…
@@ -1690,12 +1791,16 @@ test.describe('Order Card › returns', () => {
     await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-shipment-row"]')
 
     await returnFirstLine(page, 'First piece back')
-    await expect(page.locator('[data-test="order-return-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="order-return-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     // The old invoice rule — one document corrected once — refused here, so a
     // delivery could be returned in pieces exactly once.
     await returnFirstLine(page, 'Second piece back')
-    await expect(page.locator('[data-test="order-return-row"]')).toHaveCount(2)
+    await expect(page.locator('[data-test="order-return-row"]')).toHaveCount(2, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('with the flag off the panel is gone and nothing can be returned', async ({ page }) => {
@@ -1728,7 +1833,7 @@ test.describe('Order Card › unsaved lines close the door', () => {
     await page.click('[data-test="order-add-item-btn"]')
     await page.locator('[data-test="add-items-product-checkbox"]').first().click()
     await page.click('[data-test="add-items-save-btn"]')
-    await expect(rows).toHaveCount(before + 1)
+    await expect(rows).toHaveCount(before + 1, { timeout: DATA_READY_TIMEOUT })
   }
 
   /**
@@ -1785,7 +1890,9 @@ test.describe('Order Card › unsaved lines close the door', () => {
       .first()
       .locator('[data-test="shipment-invoice-btn"]')
       .click()
-    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     const frozen = page
       .locator('[data-test="order-item-row"]')
@@ -1814,7 +1921,7 @@ test.describe('Order Card › unsaved lines close the door', () => {
     await expect(refusal(page)).toBeVisible()
     // Селектор читает статус заказа, а не собственный выбор, — поэтому откатывается
     // сам, без отдельной уборки.
-    await expect(shown).toHaveText(before)
+    await expect(shown).toHaveText(before, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -1921,7 +2028,9 @@ test.describe('Order Card › payments and invoices', () => {
 
     await addAnyLine(page)
     await expect(page.locator('[data-test="payment-drift-warning"]')).toBeVisible()
-    await expect(page.locator('[data-test="payment-drift-warning"]')).toContainText('short')
+    await expect(page.locator('[data-test="payment-drift-warning"]')).toContainText('short', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Nothing is forbidden: the change can be saved.
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeEnabled()
   })
@@ -1937,13 +2046,21 @@ test.describe('Order Card › payments and invoices', () => {
     await page.click('[data-test="payment-confirm"]')
     await expect(page.locator('[data-test="payment-modal"]')).toBeHidden()
 
-    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(1)
-    await expect(page.locator('[data-test="order-payment-state"]')).toHaveText('Paid')
+    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="order-payment-state"]')).toHaveText('Paid', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     expect(await paidPercent(page)).toBe(100)
 
     await page.click('[data-test="payment-delete-btn"]')
-    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(0)
-    await expect(page.locator('[data-test="order-payment-state"]')).toHaveText('Unpaid')
+    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="order-payment-state"]')).toHaveText('Unpaid', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     expect(await paidPercent(page)).toBe(0)
   })
 
@@ -1957,7 +2074,9 @@ test.describe('Order Card › payments and invoices', () => {
 
     // The browser's own date widget is gone: it drew a black glyph on a dark
     // panel and ignored the theme entirely.
-    await expect(page.locator('[data-test="payment-date"] input[type="date"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="payment-date"] input[type="date"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     const trigger = page.locator('[data-test="payment-date"] .datepicker-trigger')
     await expect(trigger).toBeVisible()
 
@@ -1975,7 +2094,9 @@ test.describe('Order Card › payments and invoices', () => {
 
     await page.click('[data-test="payment-confirm"]')
     await expect(page.locator('[data-test="payment-modal"]')).toBeHidden()
-    await expect(page.locator('[data-test="order-payment-row"] td').first()).toHaveText(picked)
+    await expect(page.locator('[data-test="order-payment-row"] td').first()).toHaveText(picked, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a refund names its document, and is entered positive and stored negative', async ({
@@ -1996,6 +2117,7 @@ test.describe('Order Card › payments and invoices', () => {
     await page.click('[data-test="payment-purpose"] >> text=Refund')
     await expect(page.locator('[data-test="payment-refund-hint"]')).toContainText(
       'Issue an invoice first',
+      { timeout: DATA_READY_TIMEOUT },
     )
     await expect(page.locator('[data-test="payment-confirm"]')).toBeDisabled()
 
@@ -2010,13 +2132,16 @@ test.describe('Order Card › payments and invoices', () => {
     await page.fill('[data-test="payment-amount-input"]', '-50')
     await expect(page.locator('[data-test="payment-refund-hint"]')).toContainText(
       'Issue an invoice first',
+      { timeout: DATA_READY_TIMEOUT },
     )
     await expect(page.locator('[data-test="payment-confirm"]')).toBeDisabled()
 
     await page.click('[data-test="payment-cancel"]')
     await expect(page.locator('[data-test="payment-modal"]')).toBeHidden()
     // Отказ — это отказ: записи не прибавилось.
-    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     // Появился документ — возврату есть что назвать.
     await page.click('[data-test="order-advance-invoice-btn"]')
@@ -2040,10 +2165,12 @@ test.describe('Order Card › payments and invoices', () => {
 
     // Money going the other way: the outstanding balance grows by exactly that.
     const rows = page.locator('[data-test="order-payment-row"]')
-    await expect(rows).toHaveCount(2)
-    await expect(rows.last().locator('[data-test="payment-amount"]')).toHaveText('-100.00')
+    await expect(rows).toHaveCount(2, { timeout: DATA_READY_TIMEOUT })
+    await expect(rows.last().locator('[data-test="payment-amount"]')).toHaveText('-100.00', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // И строка называет документ, а не прочерк.
-    await expect(rows.last()).toContainText(invoiceNumber)
+    await expect(rows.last()).toContainText(invoiceNumber, { timeout: DATA_READY_TIMEOUT })
     expect(await outstanding(page)).toBeCloseTo(owedBefore + 100, 1)
   })
 
@@ -2057,8 +2184,12 @@ test.describe('Order Card › payments and invoices', () => {
     await amount.fill('100')
     await amount.press('Enter')
     await amount.press('Enter')
-    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(1)
-    await expect(page.locator('[data-test="field-paid-amount"]')).toHaveValue('100.00')
+    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="field-paid-amount"]')).toHaveValue('100.00', {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     // Same for a document: two clicks in one tick must not issue two invoices.
     await page.click('[data-test="order-advance-invoice-btn"]')
@@ -2068,7 +2199,9 @@ test.describe('Order Card › payments and invoices', () => {
       btn.click()
       btn.click()
     })
-    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('an advance invoice covers no delivery and states its own amount', async ({ page }) => {
@@ -2080,8 +2213,10 @@ test.describe('Order Card › payments and invoices', () => {
     await expect(page.locator('[data-test="advance-invoice-modal"]')).toBeHidden()
 
     const row = page.locator('[data-test="order-invoice-row"]').first()
-    await expect(row).toContainText('Advance')
-    await expect(row.locator('[data-test="invoice-amount"]')).toHaveText('1210.00')
+    await expect(row).toContainText('Advance', { timeout: DATA_READY_TIMEOUT })
+    await expect(row.locator('[data-test="invoice-amount"]')).toHaveText('1210.00', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a payment can name the invoice it settles', async ({ page }) => {
@@ -2107,6 +2242,7 @@ test.describe('Order Card › payments and invoices', () => {
     // The link survived the round trip — the row names the document, not a dash.
     await expect(page.locator('[data-test="order-payment-row"]').first()).toContainText(
       invoiceNumber,
+      { timeout: DATA_READY_TIMEOUT },
     )
   })
 
@@ -2135,12 +2271,14 @@ test.describe('Order Card › payments and invoices', () => {
     // и утверждение по контейнеру устраивало бы пустое поле (питфолл #68).
     await expect(page.locator('[data-test="payment-invoice"] .curr-val')).toHaveText(
       new RegExp(`^${invoiceNumber}`),
+      { timeout: DATA_READY_TIMEOUT },
     )
     expect(Number(await page.locator('[data-test="payment-amount-input"]').inputValue())).toBe(500)
     await page.click('[data-test="payment-confirm"]')
     await expect(page.locator('[data-test="payment-modal"]')).toBeHidden()
     await expect(page.locator('[data-test="order-payment-row"]').first()).toContainText(
       invoiceNumber,
+      { timeout: DATA_READY_TIMEOUT },
     )
 
     // Переход по ссылке внутри приложения, а не `goto`: полная загрузка пересобрала
@@ -2159,9 +2297,13 @@ test.describe('Order Card › payments and invoices', () => {
      */
     await page.fill('[data-test="finance-search-input"]', invoiceNumber)
     const row = page.locator('[data-test="finance-receivable-row"]', { hasText: invoiceNumber })
-    await expect(row).toHaveCount(1)
-    await expect(row.locator('[data-test="receivable-paid"]')).toContainText('500.00')
-    await expect(row.locator('[data-test="receivable-status"]')).toHaveText('Completed')
+    await expect(row).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
+    await expect(row.locator('[data-test="receivable-paid"]')).toContainText('500.00', {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(row.locator('[data-test="receivable-status"]')).toHaveText('Completed', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a delivery is invoiced once, and the document freezes what it covers', async ({ page }) => {
@@ -2170,11 +2312,15 @@ test.describe('Order Card › payments and invoices', () => {
 
     const shipment = page.locator('[data-test="order-shipment-row"]').first()
     await shipment.locator('[data-test="shipment-invoice-btn"]').click()
-    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     const invoice = page.locator('[data-test="order-invoice-row"]').first()
-    await expect(invoice).toContainText('Shipment')
+    await expect(invoice).toContainText('Shipment', { timeout: DATA_READY_TIMEOUT })
     // One delivery, one invoice: a second would bill the client twice.
-    await expect(shipment.locator('[data-test="shipment-invoice-btn"]')).toHaveCount(0)
+    await expect(shipment.locator('[data-test="shipment-invoice-btn"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a price printed wrong is corrected in the open, not rewritten', async ({ page }) => {
@@ -2189,15 +2335,21 @@ test.describe('Order Card › payments and invoices', () => {
       .first()
       .locator('[data-test="shipment-invoice-btn"]')
       .click()
-    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     const row = page
       .locator('[data-test="order-item-row"]')
       .filter({ has: page.locator('[data-test="line-correct-btn"]') })
       .first()
     // Shut to an ordinary edit, and the bin is gone: the client holds a document.
-    await expect(row.locator('[data-test="cell-input"]')).toHaveCount(0)
-    await expect(row.locator('[data-test="line-remove-btn"]')).toHaveCount(0)
+    await expect(row.locator('[data-test="cell-input"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(row.locator('[data-test="line-remove-btn"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     const totalBefore = Number(await page.locator('[data-test="field-gross-total"]').inputValue())
     const priced = Number(await lineCell(row, 'unitPrice'))
@@ -2232,17 +2384,25 @@ test.describe('Order Card › payments and invoices', () => {
         timeout: DATA_READY_TIMEOUT,
       })
       .toBeCloseTo(priced - 5, 2)
-    await expect(corrected.locator('[data-test="cell-input"]')).toHaveCount(0)
+    await expect(corrected.locator('[data-test="cell-input"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     expect(Number(await page.locator('[data-test="field-gross-total"]').inputValue())).toBeLessThan(
       totalBefore,
     )
 
     // The issued document was not rewritten — a second one adjusts it.
-    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(2)
-    await expect(page.locator('[data-test="order-invoice-row"]').last()).toContainText('Correction')
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(2, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="order-invoice-row"]').last()).toContainText(
+      'Correction',
+      { timeout: DATA_READY_TIMEOUT },
+    )
     // And it is in the order's history, with the reason attached.
     await expect(page.locator('[data-test="order-audit-table"]')).toContainText(
       'Agreed 5,00 lower before the truck left',
+      { timeout: DATA_READY_TIMEOUT },
     )
   })
 
@@ -2252,7 +2412,9 @@ test.describe('Order Card › payments and invoices', () => {
 
     const shipment = page.locator('[data-test="order-shipment-row"]').first()
     await shipment.locator('[data-test="shipment-invoice-btn"]').click()
-    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     // The plain cancellation dialog would be the wrong offer here — the client is
     // holding a document, and a document is withdrawn, not deleted.
@@ -2269,14 +2431,17 @@ test.describe('Order Card › payments and invoices', () => {
     // The correcting invoice is on record, the original is marked as withdrawn,
     // and the goods have come back.
     const invoices = page.locator('[data-test="order-invoice-row"]')
-    await expect(invoices).toHaveCount(2)
+    await expect(invoices).toHaveCount(2, { timeout: DATA_READY_TIMEOUT })
     await expect(invoices.first().locator('[data-test="invoice-corrected"]')).toBeVisible()
-    await expect(invoices.last()).toContainText('Corrects')
+    await expect(invoices.last()).toContainText('Corrects', { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="order-shipment-row"]').first()).toContainText(
       /Cancelled/,
+      { timeout: DATA_READY_TIMEOUT },
     )
     // The line the document froze is a draft again — that is what correcting is for.
-    await expect(page.locator('[data-test="order-item-row"]').last()).toContainText('Draft')
+    await expect(page.locator('[data-test="order-item-row"]').last()).toContainText('Draft', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('with the flag off both panels are gone', async ({ page }) => {
@@ -2309,7 +2474,9 @@ test.describe('Order Card › save flow', () => {
     await page.locator('[data-test="field-notes"]').fill('Modified notes')
     await page.locator('[data-test="order-card-discard-btn"]').click()
     // Value should be restored to original (null/empty)
-    await expect(page.locator('[data-test="field-notes"]')).toHaveValue('')
+    await expect(page.locator('[data-test="field-notes"]')).toHaveValue('', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -2392,7 +2559,9 @@ test.describe('Order Create › client selector', () => {
     // (питфолл #15): проверяем, что НИ ОДИН оставшийся элемент не лишён искомого,
     // и что список не опустел. Прежнее `itemsAfter <= itemsBefore` устраивало
     // бездействие — оно выполнялось и когда фильтр не сработал вовсе (питфолл #68).
-    await expect(items.filter({ hasNotText: /Metalica/i })).toHaveCount(0)
+    await expect(items.filter({ hasNotText: /Metalica/i })).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(items).not.toHaveCount(0)
   })
 
@@ -2429,7 +2598,7 @@ test.describe('Order Create › client selector', () => {
       const item = items.nth(i)
       const clientId = (await item.getAttribute('data-client-id'))!
       await item.click()
-      await expect(terms).toHaveText(/\d+\s*days/)
+      await expect(terms).toHaveText(/\d+\s*days/, { timeout: DATA_READY_TIMEOUT })
       shown.set(clientId, daysShown(await terms.innerText()))
     }
 
@@ -2462,7 +2631,7 @@ test.describe('Order Create › client selector', () => {
     const total = await items.count()
     for (let i = 0; i < total && days === 0; i++) {
       await items.nth(i).click()
-      await expect(terms).toHaveText(/\d+\s*days/)
+      await expect(terms).toHaveText(/\d+\s*days/, { timeout: DATA_READY_TIMEOUT })
       days = daysShown(await terms.innerText())
     }
     expect(days).toBeGreaterThan(0)
@@ -2470,7 +2639,9 @@ test.describe('Order Create › client selector', () => {
     await page.locator('[data-test="order-create-save-btn"]').click()
     await page.waitForURL(/\/admin\/orders\/ORD-/)
 
-    await expect(page.locator('[data-test="field-payment-terms"]')).toHaveText(`${days} days`)
+    await expect(page.locator('[data-test="field-payment-terms"]')).toHaveText(`${days} days`, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('new client search shows empty state for no results', async ({ page }) => {
@@ -2514,7 +2685,7 @@ test.describe('Add item modal', () => {
     // warehouse's cost per unit.
     await modal.locator('[data-test="add-items-filters"] input').fill('Aluminium Pipe 25x2')
     const row = modal.locator('[data-test="add-items-product-row"]').first()
-    await expect(row).toContainText('Aluminium Pipe 25x2')
+    await expect(row).toContainText('Aluminium Pipe 25x2', { timeout: DATA_READY_TIMEOUT })
     const catalogue = amount(await row.locator('[data-test="add-items-product-price"]').innerText())
 
     await row.click()

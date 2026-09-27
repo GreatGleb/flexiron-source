@@ -1,0 +1,252 @@
+{
+  "description": "Доделка забракованного прошлых ночей (stash от 23–24 сентября): отказы сервера доходят до человека переводом, а не сырым `e.message`, в четырёх разделах — bcc, клиенты и заказы, услуги и поставщики, каталог; плюс документы, отставшие от кода.",
+  "baseline_checks": [],
+  "tasks": [
+    {
+      "id": "bcc-refusals-are-translated",
+      "depends_on": [],
+      "sources": [
+        "frontend_vue/src/composables/useBccRequest.ts",
+        "frontend_vue/src/i18n/admin/bcc.ts",
+        "roo_code/roo-context/api/bcc.md",
+        "frontend_vue/src/services/mocks/bcc.ts",
+        "roo_code/plans/api/audit/bcc.md",
+        "frontend_vue/src/composables/useCategoryCard.ts",
+        "frontend_vue/src/composables/category-card-refusals.spec.ts",
+        "frontend_vue/src/services/apiErrorCode.ts",
+        "frontend_vue/src/types/api.ts",
+        "frontend_vue/src/i18n/localeParity.spec.ts",
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/skills/vue-rules.md",
+        "roo_code/skills/verify.md"
+      ],
+      "outputs": [
+        "frontend_vue/src/composables/useBccRequest.ts",
+        "frontend_vue/src/i18n/admin/bcc.ts",
+        "frontend_vue/src/composables/bcc-refusals-are-translated.spec.ts",
+        "roo_code/roo-context/api/bcc.md"
+      ],
+      "checks": [
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "./node_modules/.bin/vitest",
+            "run",
+            "src/composables/bcc-refusals-are-translated.spec.ts",
+            "src/i18n/localeParity.spec.ts"
+          ]
+        }
+      ],
+      "task": "В `useBccRequest.ts` три `catch` кладут в `error` чужую фразу: `e instanceof Error ? e.message : '…'` — при загрузке категорий, при загрузке получателей и при отправке запроса. Человек видит текст сервера вместо перевода, а код отказа (например `MAIL_NOT_CONFIGURED`) не разбирается вовсе — находка БАГ-08 аудита bcc. Все три места перевести на `errorMessageKey`.\n\nКАК ЧИНИТЬ — по готовому образцу, не изобретая. Образец — `frontend_vue/src/composables/useCategoryCard.ts`: константа `<ДОМЕН>_ERROR_KEYS: ReadonlyArray<readonly [string, string]>` (пары «код отказа → ключ перевода») рядом с импортами и `t(errorMessageKey(e, <ДОМЕН>_ERROR_KEYS, '<домен>.<общий ключ>'))` в каждом `catch`. `errorMessageKey` — из `frontend_vue/src/services/apiErrorCode.ts`, код читается из `ApiRequestError.code` (`frontend_vue/src/types/api.ts`), а НЕ из текста сообщения. Образец теста — `frontend_vue/src/composables/category-card-refusals.spec.ts`.\n\nКоды в `<ДОМЕН>_ERROR_KEYS` — только те, что мок этого домена действительно бросает (`frontend_vue/src/services/mocks/<домен>.ts`, ищи `ApiRequestError`/хелпер отказа) и что названы в разделе контракта домена. Код, которого мок не бросает, в каталог не вписывать. Общий ключ-фолбэк — существующий, если он в i18n-файле домена уже есть (например `toast_error`/`error_load`); новый ключ заводить только когда подходящего нет. Каждый новый ключ — во ВСЕХ трёх локалях файла `frontend_vue/src/i18n/admin/<домен>.ts` (сторож паритета — `frontend_vue/src/i18n/localeParity.spec.ts`).\n\nТЕСТ. Новый спек обязан краснеть на старом коде: фраза `message` у брошенного `ApiRequestError` НЕ содержит кода, так что чтение текста промахивается (питфолл #68, verify.md Л9). На каждое тронутое место — по случаю «известный код → свой перевод» и один «неизвестный код → общий ключ». Проверять видимый человеку текст (значение `error` или вызов тоста) на переведённую строку, а не на ключ.\n\nДОКУМЕНТЫ. Раздел контракта домена, где сказано, что клиент показывает человеку сырое `e.message`/`String(e)` или что отказ до человека не доходит, — привести к новому поведению. Новых ссылок с номерами строк не вводить, место называть именем функции или токеном в бэктиках. Старые stash этой работы не накладывать: номера строк в них устарели.\n\nНЕ ТРОГАТЬ: `apiErrorCode.ts`, моки, сервисы, `.vue`-страницы (если страница сама делает `e.message` — записать это в summary как остаток, но не чинить), другие composable кроме названных.",
+      "acceptance": [
+        "В каждом названном composable ни одного `e.message` и `String(e)` в ветке, которая пишет в `error`/тост: грепом по этим файлам — ноль совпадений в `catch`.",
+        "Каждый `catch` зовёт `errorMessageKey` с константой каталога домена; коды в каталоге — только те, что бросает мок домена.",
+        "Новые ключи есть во всех трёх локалях, `localeParity.spec.ts` зелёный.",
+        "Новый спек `bcc-refusals-are-translated.spec.ts` покрывает каждое тронутое место и краснеет на старом коде: в результате приведён вывод красного прогона при временно возвращённом `e.message` (мутация откачена).",
+        "Контракт домена больше не утверждает, что клиент показывает человеку сырой текст ошибки, и не противоречит диффу; новых ссылок `файл:строка` нет.",
+        "`npm run verify` в `frontend_vue` зелёный."
+      ]
+    },
+    {
+      "id": "clients-orders-refusals-are-translated",
+      "depends_on": [],
+      "sources": [
+        "frontend_vue/src/composables/useClients.ts",
+        "frontend_vue/src/composables/useClientCard.ts",
+        "frontend_vue/src/composables/useOrderCreate.ts",
+        "frontend_vue/src/i18n/admin/clients.ts",
+        "frontend_vue/src/i18n/admin/orders.ts",
+        "roo_code/roo-context/api/clients.md",
+        "roo_code/roo-context/api/orders.md",
+        "roo_code/roo-context/api/00-conventions.md",
+        "frontend_vue/src/services/mocks/clients.ts",
+        "frontend_vue/src/services/mocks/orders.ts",
+        "frontend_vue/src/composables/useOrderCard.ts",
+        "frontend_vue/src/composables/useCategoryCard.ts",
+        "frontend_vue/src/composables/category-card-refusals.spec.ts",
+        "frontend_vue/src/services/apiErrorCode.ts",
+        "frontend_vue/src/types/api.ts",
+        "frontend_vue/src/i18n/localeParity.spec.ts",
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/skills/vue-rules.md",
+        "roo_code/skills/verify.md"
+      ],
+      "outputs": [
+        "frontend_vue/src/composables/useClients.ts",
+        "frontend_vue/src/composables/useClientCard.ts",
+        "frontend_vue/src/composables/useOrderCreate.ts",
+        "frontend_vue/src/i18n/admin/clients.ts",
+        "frontend_vue/src/i18n/admin/orders.ts",
+        "frontend_vue/src/composables/clients-orders-refusals-are-translated.spec.ts",
+        "roo_code/roo-context/api/clients.md",
+        "roo_code/roo-context/api/orders.md",
+        "roo_code/roo-context/api/00-conventions.md"
+      ],
+      "checks": [
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "./node_modules/.bin/vitest",
+            "run",
+            "src/composables/clients-orders-refusals-are-translated.spec.ts",
+            "src/i18n/localeParity.spec.ts"
+          ]
+        }
+      ],
+      "task": "Четыре места печатают человеку `String(e)` — то есть буквально `Error: …` или `ApiRequestError: …`: список клиентов (`useClients.ts`, `load`), карточка клиента (`useClientCard.ts`), в создании заказа загрузка клиентов (`clientsError.value = String(e)`) и сохранение (`error.value = String(e)` в `useOrderCreate.ts`). Все четыре перевести на `errorMessageKey`. Для заказов свериться с тем, как это уже сделано в `useOrderCard.ts` (комментарий «A key, not the exception's own words»), и брать ключи оттуда же, если подходят. В `00-conventions.md` §2 фраза «Текст всё ещё доходит до человека вместо перевода в заказах (`useOrderCreate.ts:479` …)» станет ложью — поправить её на «починено». Вторую половину контракта заказов (`roo_code/plans/orders/orders-backend-contract.md`) НЕ трогать.\n\nКАК ЧИНИТЬ — по готовому образцу, не изобретая. Образец — `frontend_vue/src/composables/useCategoryCard.ts`: константа `<ДОМЕН>_ERROR_KEYS: ReadonlyArray<readonly [string, string]>` (пары «код отказа → ключ перевода») рядом с импортами и `t(errorMessageKey(e, <ДОМЕН>_ERROR_KEYS, '<домен>.<общий ключ>'))` в каждом `catch`. `errorMessageKey` — из `frontend_vue/src/services/apiErrorCode.ts`, код читается из `ApiRequestError.code` (`frontend_vue/src/types/api.ts`), а НЕ из текста сообщения. Образец теста — `frontend_vue/src/composables/category-card-refusals.spec.ts`.\n\nКоды в `<ДОМЕН>_ERROR_KEYS` — только те, что мок этого домена действительно бросает (`frontend_vue/src/services/mocks/<домен>.ts`, ищи `ApiRequestError`/хелпер отказа) и что названы в разделе контракта домена. Код, которого мок не бросает, в каталог не вписывать. Общий ключ-фолбэк — существующий, если он в i18n-файле домена уже есть (например `toast_error`/`error_load`); новый ключ заводить только когда подходящего нет. Каждый новый ключ — во ВСЕХ трёх локалях файла `frontend_vue/src/i18n/admin/<домен>.ts` (сторож паритета — `frontend_vue/src/i18n/localeParity.spec.ts`).\n\nТЕСТ. Новый спек обязан краснеть на старом коде: фраза `message` у брошенного `ApiRequestError` НЕ содержит кода, так что чтение текста промахивается (питфолл #68, verify.md Л9). На каждое тронутое место — по случаю «известный код → свой перевод» и один «неизвестный код → общий ключ». Проверять видимый человеку текст (значение `error` или вызов тоста) на переведённую строку, а не на ключ.\n\nДОКУМЕНТЫ. Раздел контракта домена, где сказано, что клиент показывает человеку сырое `e.message`/`String(e)` или что отказ до человека не доходит, — привести к новому поведению. Новых ссылок с номерами строк не вводить, место называть именем функции или токеном в бэктиках. Старые stash этой работы не накладывать: номера строк в них устарели.\n\nНЕ ТРОГАТЬ: `apiErrorCode.ts`, моки, сервисы, `.vue`-страницы (если страница сама делает `e.message` — записать это в summary как остаток, но не чинить), другие composable кроме названных.",
+      "acceptance": [
+        "В каждом названном composable ни одного `e.message` и `String(e)` в ветке, которая пишет в `error`/тост: грепом по этим файлам — ноль совпадений в `catch`.",
+        "Каждый `catch` зовёт `errorMessageKey` с константой каталога домена; коды в каталоге — только те, что бросает мок домена.",
+        "Новые ключи есть во всех трёх локалях, `localeParity.spec.ts` зелёный.",
+        "Новый спек `clients-orders-refusals-are-translated.spec.ts` покрывает каждое тронутое место и краснеет на старом коде: в результате приведён вывод красного прогона при временно возвращённом `e.message` (мутация откачена).",
+        "Контракт домена больше не утверждает, что клиент показывает человеку сырой текст ошибки, и не противоречит диффу; новых ссылок `файл:строка` нет.",
+        "`npm run verify` в `frontend_vue` зелёный."
+      ]
+    },
+    {
+      "id": "services-suppliers-refusals-are-translated",
+      "depends_on": [],
+      "sources": [
+        "frontend_vue/src/composables/useServices.ts",
+        "frontend_vue/src/composables/useServiceCard.ts",
+        "frontend_vue/src/composables/useSuppliers.ts",
+        "frontend_vue/src/composables/useSupplierCard.ts",
+        "frontend_vue/src/composables/useSupplierCreate.ts",
+        "frontend_vue/src/i18n/admin/services.ts",
+        "frontend_vue/src/i18n/admin/suppliers.ts",
+        "roo_code/roo-context/api/services.md",
+        "roo_code/roo-context/api/suppliers.md",
+        "frontend_vue/src/services/mocks/services.ts",
+        "frontend_vue/src/services/mocks/suppliers.ts",
+        "frontend_vue/src/composables/useCategoryCard.ts",
+        "frontend_vue/src/composables/category-card-refusals.spec.ts",
+        "frontend_vue/src/services/apiErrorCode.ts",
+        "frontend_vue/src/types/api.ts",
+        "frontend_vue/src/i18n/localeParity.spec.ts",
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/skills/vue-rules.md",
+        "roo_code/skills/verify.md"
+      ],
+      "outputs": [
+        "frontend_vue/src/composables/useServices.ts",
+        "frontend_vue/src/composables/useServiceCard.ts",
+        "frontend_vue/src/composables/useSuppliers.ts",
+        "frontend_vue/src/composables/useSupplierCard.ts",
+        "frontend_vue/src/composables/useSupplierCreate.ts",
+        "frontend_vue/src/i18n/admin/services.ts",
+        "frontend_vue/src/i18n/admin/suppliers.ts",
+        "frontend_vue/src/composables/services-suppliers-refusals-are-translated.spec.ts",
+        "roo_code/roo-context/api/services.md",
+        "roo_code/roo-context/api/suppliers.md"
+      ],
+      "checks": [
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "./node_modules/.bin/vitest",
+            "run",
+            "src/composables/services-suppliers-refusals-are-translated.spec.ts",
+            "src/i18n/localeParity.spec.ts"
+          ]
+        }
+      ],
+      "task": "Шесть `catch` кладут в `error` чужую фразу `e instanceof Error ? e.message : '…'`: `useServices.ts` (список), `useServiceCard.ts` (карточка), `useSuppliers.ts` (список), `useSupplierCard.ts` (загрузка и сохранение), `useSupplierCreate.ts` (создание). Все шесть перевести на `errorMessageKey`. Попутно в `suppliers.md` устарели два утверждения, их тоже поправить: (1) строка шапки «Бэкенд: **не реализован** — роутов у модуля нет» — у модуля suppliers на бэкенде уже есть роуты (проверь `backend/app/modules/suppliers/features/*/action.py`, перечисли, какие), (2) места, где контракт в настоящем времени говорит, что мок поставщиков бросает голый `Error` — моки уже бросают `ApiRequestError` (`frontend_vue/src/services/mocks/suppliers.ts`); проверить грепом и поправить. В `services.md` — фраза про то, что клиент показывает сырой текст сетевой ошибки.\n\nКАК ЧИНИТЬ — по готовому образцу, не изобретая. Образец — `frontend_vue/src/composables/useCategoryCard.ts`: константа `<ДОМЕН>_ERROR_KEYS: ReadonlyArray<readonly [string, string]>` (пары «код отказа → ключ перевода») рядом с импортами и `t(errorMessageKey(e, <ДОМЕН>_ERROR_KEYS, '<домен>.<общий ключ>'))` в каждом `catch`. `errorMessageKey` — из `frontend_vue/src/services/apiErrorCode.ts`, код читается из `ApiRequestError.code` (`frontend_vue/src/types/api.ts`), а НЕ из текста сообщения. Образец теста — `frontend_vue/src/composables/category-card-refusals.spec.ts`.\n\nКоды в `<ДОМЕН>_ERROR_KEYS` — только те, что мок этого домена действительно бросает (`frontend_vue/src/services/mocks/<домен>.ts`, ищи `ApiRequestError`/хелпер отказа) и что названы в разделе контракта домена. Код, которого мок не бросает, в каталог не вписывать. Общий ключ-фолбэк — существующий, если он в i18n-файле домена уже есть (например `toast_error`/`error_load`); новый ключ заводить только когда подходящего нет. Каждый новый ключ — во ВСЕХ трёх локалях файла `frontend_vue/src/i18n/admin/<домен>.ts` (сторож паритета — `frontend_vue/src/i18n/localeParity.spec.ts`).\n\nТЕСТ. Новый спек обязан краснеть на старом коде: фраза `message` у брошенного `ApiRequestError` НЕ содержит кода, так что чтение текста промахивается (питфолл #68, verify.md Л9). На каждое тронутое место — по случаю «известный код → свой перевод» и один «неизвестный код → общий ключ». Проверять видимый человеку текст (значение `error` или вызов тоста) на переведённую строку, а не на ключ.\n\nДОКУМЕНТЫ. Раздел контракта домена, где сказано, что клиент показывает человеку сырое `e.message`/`String(e)` или что отказ до человека не доходит, — привести к новому поведению. Новых ссылок с номерами строк не вводить, место называть именем функции или токеном в бэктиках. Старые stash этой работы не накладывать: номера строк в них устарели.\n\nНЕ ТРОГАТЬ: `apiErrorCode.ts`, моки, сервисы, `.vue`-страницы (если страница сама делает `e.message` — записать это в summary как остаток, но не чинить), другие composable кроме названных.",
+      "acceptance": [
+        "В каждом названном composable ни одного `e.message` и `String(e)` в ветке, которая пишет в `error`/тост: грепом по этим файлам — ноль совпадений в `catch`.",
+        "Каждый `catch` зовёт `errorMessageKey` с константой каталога домена; коды в каталоге — только те, что бросает мок домена.",
+        "Новые ключи есть во всех трёх локалях, `localeParity.spec.ts` зелёный.",
+        "Новый спек `services-suppliers-refusals-are-translated.spec.ts` покрывает каждое тронутое место и краснеет на старом коде: в результате приведён вывод красного прогона при временно возвращённом `e.message` (мутация откачена).",
+        "Контракт домена больше не утверждает, что клиент показывает человеку сырой текст ошибки, и не противоречит диффу; новых ссылок `файл:строка` нет.",
+        "`npm run verify` в `frontend_vue` зелёный."
+      ]
+    },
+    {
+      "id": "catalog-refusals-are-translated",
+      "depends_on": [],
+      "sources": [
+        "frontend_vue/src/composables/useProducts.ts",
+        "frontend_vue/src/composables/useProductCard.ts",
+        "frontend_vue/src/composables/useCategories.ts",
+        "frontend_vue/src/i18n/admin/products.ts",
+        "frontend_vue/src/i18n/admin/categories.ts",
+        "roo_code/roo-context/api/products.md",
+        "roo_code/roo-context/api/categories.md",
+        "frontend_vue/src/services/mocks/products.ts",
+        "frontend_vue/src/services/mocks/categories.ts",
+        "frontend_vue/src/composables/useCategoryCard.ts",
+        "frontend_vue/src/composables/category-card-refusals.spec.ts",
+        "frontend_vue/src/services/apiErrorCode.ts",
+        "frontend_vue/src/types/api.ts",
+        "frontend_vue/src/i18n/localeParity.spec.ts",
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/skills/vue-rules.md",
+        "roo_code/skills/verify.md"
+      ],
+      "outputs": [
+        "frontend_vue/src/composables/useProducts.ts",
+        "frontend_vue/src/composables/useProductCard.ts",
+        "frontend_vue/src/composables/useCategories.ts",
+        "frontend_vue/src/i18n/admin/products.ts",
+        "frontend_vue/src/i18n/admin/categories.ts",
+        "frontend_vue/src/composables/catalog-refusals-are-translated.spec.ts",
+        "roo_code/roo-context/api/products.md",
+        "roo_code/roo-context/api/categories.md"
+      ],
+      "checks": [
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "./node_modules/.bin/vitest",
+            "run",
+            "src/composables/catalog-refusals-are-translated.spec.ts",
+            "src/i18n/localeParity.spec.ts"
+          ]
+        }
+      ],
+      "task": "Три `catch` кладут в `error` чужую фразу `e instanceof Error ? e.message : '…'`: список товаров (`useProducts.ts`), карточка товара (`useProductCard.ts`), список категорий (`useCategories.ts`). Карточка категории уже починена (`useCategoryCard.ts`, `CATEGORY_ERROR_KEYS`) — это и образец, и граница: её не трогать, а `CATEGORY_ERROR_KEYS` для списка категорий можно переиспользовать, вынеся экспорт, только если без этого нельзя; проще завести свою константу в `useCategories.ts`. Попутно в `categories.md` и `products.md` поправить места, где контракт в настоящем времени утверждает, что мок бросает голый `Error` без кода — моки уже бросают `ApiRequestError`; найти грепом по `голый` и `Error(` и сверить каждое с моком.\n\nКАК ЧИНИТЬ — по готовому образцу, не изобретая. Образец — `frontend_vue/src/composables/useCategoryCard.ts`: константа `<ДОМЕН>_ERROR_KEYS: ReadonlyArray<readonly [string, string]>` (пары «код отказа → ключ перевода») рядом с импортами и `t(errorMessageKey(e, <ДОМЕН>_ERROR_KEYS, '<домен>.<общий ключ>'))` в каждом `catch`. `errorMessageKey` — из `frontend_vue/src/services/apiErrorCode.ts`, код читается из `ApiRequestError.code` (`frontend_vue/src/types/api.ts`), а НЕ из текста сообщения. Образец теста — `frontend_vue/src/composables/category-card-refusals.spec.ts`.\n\nКоды в `<ДОМЕН>_ERROR_KEYS` — только те, что мок этого домена действительно бросает (`frontend_vue/src/services/mocks/<домен>.ts`, ищи `ApiRequestError`/хелпер отказа) и что названы в разделе контракта домена. Код, которого мок не бросает, в каталог не вписывать. Общий ключ-фолбэк — существующий, если он в i18n-файле домена уже есть (например `toast_error`/`error_load`); новый ключ заводить только когда подходящего нет. Каждый новый ключ — во ВСЕХ трёх локалях файла `frontend_vue/src/i18n/admin/<домен>.ts` (сторож паритета — `frontend_vue/src/i18n/localeParity.spec.ts`).\n\nТЕСТ. Новый спек обязан краснеть на старом коде: фраза `message` у брошенного `ApiRequestError` НЕ содержит кода, так что чтение текста промахивается (питфолл #68, verify.md Л9). На каждое тронутое место — по случаю «известный код → свой перевод» и один «неизвестный код → общий ключ». Проверять видимый человеку текст (значение `error` или вызов тоста) на переведённую строку, а не на ключ.\n\nДОКУМЕНТЫ. Раздел контракта домена, где сказано, что клиент показывает человеку сырое `e.message`/`String(e)` или что отказ до человека не доходит, — привести к новому поведению. Новых ссылок с номерами строк не вводить, место называть именем функции или токеном в бэктиках. Старые stash этой работы не накладывать: номера строк в них устарели.\n\nНЕ ТРОГАТЬ: `apiErrorCode.ts`, моки, сервисы, `.vue`-страницы (если страница сама делает `e.message` — записать это в summary как остаток, но не чинить), другие composable кроме названных.",
+      "acceptance": [
+        "В каждом названном composable ни одного `e.message` и `String(e)` в ветке, которая пишет в `error`/тост: грепом по этим файлам — ноль совпадений в `catch`.",
+        "Каждый `catch` зовёт `errorMessageKey` с константой каталога домена; коды в каталоге — только те, что бросает мок домена.",
+        "Новые ключи есть во всех трёх локалях, `localeParity.spec.ts` зелёный.",
+        "Новый спек `catalog-refusals-are-translated.spec.ts` покрывает каждое тронутое место и краснеет на старом коде: в результате приведён вывод красного прогона при временно возвращённом `e.message` (мутация откачена).",
+        "Контракт домена больше не утверждает, что клиент показывает человеку сырой текст ошибки, и не противоречит диффу; новых ссылок `файл:строка` нет.",
+        "`npm run verify` в `frontend_vue` зелёный."
+      ]
+    },
+    {
+      "id": "docs-catch-up-with-code",
+      "depends_on": [],
+      "sources": [
+        "roo_code/plans/general/headless-24-7-plan.md",
+        "roo_code/workflows/codex-night.md",
+        "roo_code/workflows/night-supervisor.py",
+        "roo_code/workflows/codex-night.py",
+        "roo_code/workflows/night-run.sh",
+        "roo_code/plans/general/очередь-работ.md",
+        "roo_code/plans/warehouse/warehouse-backend-plan.md",
+        "roo_code/plans/bugs/contract-sync-warehouse-bugs.md",
+        "roo_code/roo-context/api/auth.md",
+        "roo_code/roo-context/api/00-conventions.md",
+        "frontend_vue/src/services/mocks/index.ts",
+        "frontend_vue/src/composables/useWarehouseOffcutCard.ts",
+        "frontend_vue/src/composables/useAuth.ts"
+      ],
+      "outputs": [
+        "roo_code/plans/general/headless-24-7-plan.md",
+        "roo_code/workflows/codex-night.md",
+        "roo_code/plans/general/очередь-работ.md",
+        "roo_code/plans/warehouse/warehouse-backend-plan.md",
+        "roo_code/plans/bugs/contract-sync-warehouse-bugs.md",
+        "roo_code/roo-context/api/auth.md"
+      ],
+      "checks": [],
+      "task": "Документы отстали от кода в четырёх местах; каждое проверить по коду и привести в соответствие. Код не менять.\n\n1. `roo_code/plans/general/headless-24-7-plan.md` называет оператора и супервизора «не начато», хотя `roo_code/workflows/night-supervisor.py` существует и работает (функции `call_operator`, счётчик `idle_batches`, флаги `--max-batches`, `--idle-limit`), а `night-run.sh` его запускает. Статусы привести к факту.\n2. `roo_code/workflows/codex-night.md` не упоминает флаги `--parallel`, `--routing`, `--token-budget`, `--retry-review` у `codex-night.py` и не говорит о `night-supervisor.py` и `night-run.sh`. Дописать короткий раздел: что делает каждый флаг (по `--help` и коду), и кто кого вызывает (night-run.sh → night-supervisor.py → codex-night.py). Только то, что видно в коде.\n3. Миграция моков на `ApiRequestError` закончена (`00-conventions.md` §2: «Голого `throw new Error(` в моках больше нет»), а три документа этого не знают: в `очередь-работ.md` пункт про раздачу этой миграции по доменам всё ещё открыт; в `warehouse-backend-plan.md` этап С0 не отмечен выполненным (проверь, что он действительно сделан, прежде чем отмечать); в `contract-sync-warehouse-bugs.md` БАГ-18 цитирует старый фрагмент `e.message === 'OFFCUT…'` как текущий код — сверить с `useWarehouseOffcutCard.ts` и пометить починку.\n4. `roo_code/roo-context/api/auth.md` в настоящем времени говорит, что мок auth бросает голый `Error` без `status`. Сверить с `frontend_vue/src/services/mocks/index.ts` и `frontend_vue/src/composables/useAuth.ts` (отдельного `mocks/auth.ts` нет) и поправить каждое такое место.\n\nВсякое «сделано» подтверждать грепом по коду и записывать токен в бэктиках. Новых ссылок `файл:строка` не вводить. Если какой-то из пунктов при проверке окажется НЕ сделанным в коде — не отмечать его, а написать в summary.",
+      "acceptance": [
+        "В `headless-24-7-plan.md` оператор и супервизор не названы «не начато»; статус подтверждён токеном из `night-supervisor.py`.",
+        "`codex-night.md` описывает `--parallel`, `--routing`, `--token-budget`, `--retry-review` и цепочку night-run.sh → night-supervisor.py → codex-night.py, и ни одно описание не противоречит `--help`.",
+        "Три документа из пункта 3 и `auth.md` не утверждают в настоящем времени того, что опровергает код; каждое исправление сопровождено токеном в бэктиках.",
+        "Код не тронут: дифф только по файлам из outputs; битых ссылок не больше, чем было."
+      ]
+    }
+  ]
+}

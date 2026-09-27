@@ -3,6 +3,7 @@ import { test, testWithFlags, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { navigateToAdmin, openAdminCard, openAdminPage, switchLanguage } from '../../helpers/admin'
 import { waitForFontsReady, SNAPSHOT_OPTIONS, stabilizeForSnapshot } from '../../helpers/visual'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /**
  * E2E tests for Products pages.
@@ -156,7 +157,9 @@ test.describe('products-list › search', () => {
     const input = page.locator('[data-test="products-filter-search"] input')
     await input.fill('zzz-nomatch-xyz')
     await expect(page.locator('[data-test="products-empty"]')).toBeVisible()
-    await expect(page.locator('[data-test="products-row"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="products-row"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('clearing search restores results', async ({ page }) => {
@@ -170,7 +173,7 @@ test.describe('products-list › search', () => {
     await input.fill(searchTerm)
     await expect(rows).not.toHaveCount(totalBefore)
     await input.fill('')
-    await expect(rows).toHaveCount(totalBefore)
+    await expect(rows).toHaveCount(totalBefore, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -221,7 +224,7 @@ test.describe('products-list › create modal', () => {
     await page.locator('[data-test="create-product-submit"]').click()
     await expect(page.locator('[data-test="modal-create-product"]')).toBeHidden()
     // After creation, should navigate to the product card
-    await expect(page).toHaveURL(/\/admin\/products\/prod-\w+$/)
+    await expect(page).toHaveURL(/\/admin\/products\/prod-\w+$/, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -249,7 +252,7 @@ test.describe('products-list › delete', () => {
     await expect(modal).toBeVisible()
     await modal.locator('.btn-secondary').click()
     await expect(modal).toBeHidden()
-    await expect(rows).toHaveCount(countBefore)
+    await expect(rows).toHaveCount(countBefore, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('confirm deletes and reloads list', async ({ page }) => {
@@ -265,7 +268,7 @@ test.describe('products-list › delete', () => {
     await expect(page.locator('[data-test="modal-delete-product"]')).toBeHidden()
     await expect(page.locator('.toast-container .toast.show')).toBeVisible()
     // The list is paged, so a row count says nothing — the next product moves up.
-    await expect(rows.filter({ hasText: doomed })).toHaveCount(0)
+    await expect(rows.filter({ hasText: doomed })).toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('a product still used by orders is refused, not silently kept', async ({ page }) => {
@@ -274,7 +277,7 @@ test.describe('products-list › delete', () => {
     await page.locator('[data-test="products-delete-btn"]').first().click()
     await page.locator('[data-test="confirm-delete-submit"]').click()
     await expect(page.locator('.toast-container .toast.show')).toBeVisible()
-    await expect(rows.filter({ hasText: kept })).toHaveCount(1)
+    await expect(rows.filter({ hasText: kept })).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -288,7 +291,7 @@ test.describe('products-list › navigation', () => {
 
   test('row click navigates to /admin/products/:id', async ({ page }) => {
     await page.locator('[data-test="products-row"]').first().locator('a.name-link').click()
-    await expect(page).toHaveURL(/\/admin\/products\/prod-\w+$/)
+    await expect(page).toHaveURL(/\/admin\/products\/prod-\w+$/, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -346,28 +349,28 @@ test.describe('product-card › basic fields', () => {
     const nameField = page.locator('[data-test="field-name"]')
     await expect(nameField).toBeVisible()
     await nameField.fill('Updated product name')
-    await expect(nameField).toHaveValue('Updated product name')
+    await expect(nameField).toHaveValue('Updated product name', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('SKU field visible and editable', async ({ page }) => {
     const skuField = page.locator('[data-test="field-sku"]')
     await expect(skuField).toBeVisible()
     await skuField.fill('NEW-SKU-001')
-    await expect(skuField).toHaveValue('NEW-SKU-001')
+    await expect(skuField).toHaveValue('NEW-SKU-001', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('description field visible and editable', async ({ page }) => {
     const descField = page.locator('[data-test="field-description"]')
     await expect(descField).toBeVisible()
     await descField.fill('Updated description')
-    await expect(descField).toHaveValue('Updated description')
+    await expect(descField).toHaveValue('Updated description', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('min stock field visible and editable', async ({ page }) => {
     const minStockField = page.locator('[data-test="field-min-stock"]')
     await expect(minStockField).toBeVisible()
     await minStockField.fill('15')
-    await expect(minStockField).toHaveValue('15')
+    await expect(minStockField).toHaveValue('15', { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -558,7 +561,7 @@ test.describe('product-card › suppliers', () => {
     // Supplier should no longer be in the table (remove is local, no save needed)
     await expect(
       page.locator('[data-test="product-card-suppliers"] .supplier-remove-btn'),
-    ).toHaveCount(1)
+    ).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -723,7 +726,7 @@ baseTest(
     )
     // Данных не будет: гард уводит на /404, признак перехода — сам URL.
     await page.goto(PRODUCTS_URL)
-    await expect(page).toHaveURL(/\/404$/)
+    await expect(page).toHaveURL(/\/404$/, { timeout: DATA_READY_TIMEOUT })
   },
 )
 

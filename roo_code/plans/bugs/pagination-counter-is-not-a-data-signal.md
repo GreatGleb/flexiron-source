@@ -5,7 +5,7 @@
 
 ## БАГ-01 — тест листает страницы по признаку, который меняется до данных
 
-**File:** `frontend_vue/tests/e2e/admin/warehouse/warehouse.spec.ts:268-278`
+**File:** `frontend_vue/tests/e2e/admin/warehouse/warehouse.spec.ts:292-302`
 (само утверждение — строка 278; строки 273-277 в первой записи были названы неточно)
 **Severity:** Medium — тест собирает подписи типов движений и может молча пропускать страницы
 

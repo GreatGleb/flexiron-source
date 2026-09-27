@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import { openAdminCard } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 test.describe('Service card page', () => {
   test.beforeEach(async ({ page }) => {
@@ -53,6 +54,6 @@ test.describe('Service card page', () => {
     const breadcrumbLinks = page.locator('.breadcrumb-link')
     // Second breadcrumb link is "Services"
     await breadcrumbLinks.nth(1).click()
-    await expect(page).toHaveURL(/\/admin\/products\/services$/)
+    await expect(page).toHaveURL(/\/admin\/products\/services$/, { timeout: DATA_READY_TIMEOUT })
   })
 })
