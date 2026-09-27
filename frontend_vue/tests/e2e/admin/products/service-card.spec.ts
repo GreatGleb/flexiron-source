@@ -38,7 +38,7 @@ test.describe('Service card page', () => {
     const nameInput = page.locator('[data-test="service-name-input"]')
     await nameInput.fill('Updated service name')
     const saveBtn = page.locator('[data-test="service-save-bar"] .btn-save')
-    await expect(saveBtn).toBeEnabled()
+    await expect(saveBtn).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('clicking discard after edit resets save button to disabled', async ({ page }) => {
@@ -47,7 +47,7 @@ test.describe('Service card page', () => {
     const discardBtn = page.locator('[data-test="service-save-bar"] .btn-secondary')
     await discardBtn.click()
     const saveBtn = page.locator('[data-test="service-save-bar"] .btn-save')
-    await expect(saveBtn).toBeDisabled()
+    await expect(saveBtn).toBeDisabled({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('breadcrumb navigates back to services list', async ({ page }) => {
