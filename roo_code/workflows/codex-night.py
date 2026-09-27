@@ -335,6 +335,19 @@ def preflight(root, queue, backends, retry=None):
         available.update(task["outputs"])
 
 
+def renumbered_before(previous, task_id):
+    """Документы, которые контроллер прошлого прогона перенумеровал за эту задачу.
+
+    Это правка контроллера, а не автора, и она уже лежит в checkout: повтор приёмки
+    обязан считать её своей. Без этого повтор отказывал «изменения выходят за область
+    задачи» ровно после той остановки, ради которой он существует (ночь 2026-09-27-0224).
+    """
+    refs = previous / f"{task_id}-refs.json"
+    if not refs.is_file():
+        return set()
+    return {item["документ"] for item in json.loads(refs.read_text())["перенумеровано"]}
+
+
 def retry_checkpoint(root, queue, previous):
     state = json.loads((previous / "state.json").read_text())
     if state["status"] != "stopped" or Path(state["workspace"]).resolve() != root:
@@ -353,7 +366,7 @@ def retry_checkpoint(root, queue, previous):
     if git(root, "rev-parse", "HEAD").strip() != expected_head or git(root, "diff", "--cached").strip():
         raise ValueError("HEAD или индекс изменились после остановки")
     task = remaining[0]
-    if not changed(root) or changed(root) - set(task["outputs"]):
+    if not changed(root) or changed(root) - set(task["outputs"]) - renumbered_before(previous, task["id"]):
         raise ValueError("Изменения для повторной приёмки выходят за область задачи")
     work = json.loads((previous / f'{task["id"]}-work.json').read_text())
     if work.get("status") != "done":
@@ -644,6 +657,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
         # Preserve the author's checkpoint so another failed review can be retried.
         task_id = retry["current"]
         shutil.copyfile(previous / f"{task_id}-work.json", run_dir / f"{task_id}-work.json")
+    carried_refs = renumbered_before(previous, retry["current"]) if retry else set()
 
     def save(event):
         resolved = {item["task"] for key in ("completed", "blocked", "waiting") for item in state[key]}
@@ -824,6 +838,8 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             # запустил refs_shift --fix и перенумеровал два документа сверх outputs —
             # ровно те, которые контроллер и так перенумеровал бы следом сам.
             outside = changed(root) - set(task["outputs"])
+            if retry and task["id"] == retry["current"]:
+                outside -= carried_refs   # перенумеровал контроллер прошлого прогона, не автор
             if outside:
                 note = f'Исполнитель изменил файлы вне задачи: {sorted(outside)}'
                 allowed = f'Разрешено было: {sorted(task["outputs"])}'
@@ -855,6 +871,8 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 (run_dir / f'{task["id"]}-refs.json').write_text(json.dumps(
                     {"перенумеровано": renumbered, "требуют_глаз": eyes}, ensure_ascii=False, indent=2))
             touched = set(task["outputs"]) | {item["документ"] for item in renumbered}
+            if retry and task["id"] == retry["current"]:
+                touched |= carried_refs
             if changed(root) - touched:
                 raise RuntimeError("Перенумерация ссылок вышла за пределы задачи и своих правок")
             before_review = git(root, "diff", "HEAD")
