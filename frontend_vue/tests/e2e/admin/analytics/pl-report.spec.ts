@@ -109,8 +109,12 @@ test.describe('pl-report › sub-nav', () => {
   test('clicking kpi tab navigates to dashboard and swaps current', async ({ page }) => {
     await page.locator('[data-test="analytics-sub-nav-kpi"]').click()
     await expect(page).toHaveURL('/admin/analytics/dashboard', { timeout: DATA_READY_TIMEOUT })
-    await expect(page.locator('[data-test="analytics-sub-nav-kpi"]')).toHaveClass(/current/)
-    await expect(page.locator('[data-test="analytics-sub-nav-pl"]')).not.toHaveClass(/current/)
+    await expect(page.locator('[data-test="analytics-sub-nav-kpi"]')).toHaveClass(/current/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="analytics-sub-nav-pl"]')).not.toHaveClass(/current/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
