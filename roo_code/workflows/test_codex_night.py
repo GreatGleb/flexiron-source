@@ -71,6 +71,8 @@ if work:
         subprocess.check_call(['git', 'add', 'plan.md'])
     if mode == 'branch':
         subprocess.check_call(['git', 'switch', '-c', 'auto/unexpected'])
+if not work:
+    time.sleep(float(os.environ.get('NIGHT_TEST_REVIEW_SLEEP', '0')))
 if not work and mode in ('review-writes', 'review-writes-blocked'):
     pathlib.Path('plan.md').write_text('tampered\n')
 if mode == 'cli-error' or (not work and mode == 'review-cli-error'):
@@ -105,6 +107,8 @@ countfile = pathlib.Path(os.environ['NIGHT_TEST_COUNT'])
 count = int(countfile.read_text()) if countfile.exists() else 0
 countfile.write_text(str(count + 1))
 print('fake verification', count)
+import time
+time.sleep(float(os.environ.get('NIGHT_TEST_VERIFY_SLEEP', '0')))
 sys.exit(1 if mode == 'baseline-red' or (mode == 'verify-red' and count > 0)
          or (mode == 'first-check-red' and count == 1) else 0)
 '''

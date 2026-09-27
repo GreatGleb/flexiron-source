@@ -20,6 +20,7 @@ import stat
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 
 
@@ -151,14 +152,14 @@ def link_report(root, doc, prefix, deadline):
     return int(found[-1])
 
 
-def disjoint_batch(candidates, size):
+def disjoint_batch(candidates, size, owned=()):
     """Сколько задач можно писать одновременно: те, что не делят ни одного файла.
 
     Владение файлом — единственный критерий. Два автора в одном файле затрут друг
     друга молча, и ни одна из проверок ядра этого не увидит: каждая правка сама по
     себе выглядит законной.
     """
-    batch, owned = [], set()
+    batch, owned = [], set(owned)
     for task in candidates:
         files = set(task["outputs"])
         if files & owned:
@@ -190,26 +191,25 @@ def port_free(port):
     return True
 
 
-def author_ports(count, base=AUTHOR_PORT_BASE, free=port_free):
-    """PW_PORT на каждого автора пачки: пары (порт, порт + 1) не пересекаются и свободны."""
+def author_ports(count, base=AUTHOR_PORT_BASE, free=port_free, taken=()):
+    """PW_PORT на каждого автора пачки: пары (порт, порт + 1) не пересекаются и свободны.
+
+    `taken` — порты авторов, которые уже работают: их сервер мог ещё не подняться, и
+    проба «свободен» отдала бы тот же порт второму.
+    """
     ports, port = [], base
     while len(ports) < count:
         if port > 65000:
             raise RuntimeError(f"Нет свободной пары портов для автора выше {base}")
-        if free(port) and free(port + 1):
+        if port not in taken and free(port) and free(port + 1):
             ports.append(port)
         port += 2
     return ports
 
 
-def write_author(root, backends, task, run_dir, deadline, env=None):
-    """Автор работает в своём worktree, а не в общем дереве.
-
-    Возвращает (результат, патч). Патч применяется в checkout позже и по одному:
-    параллелен здесь только автор, всё остальное — проверки, приёмка, коммит —
-    остаётся последовательным, иначе `npm run verify` погонит чужую недописанную
-    работу и упадёт не по своей причине.
-    """
+def add_worktree(root, task, run_dir):
+    """Worktree автора — из главного потока: `git worktree add` и `remove` в .git общие,
+    и потоки, делающие их наперегонки с коммитом ядра, отлаживались бы вслепую."""
     worktree = run_dir / f'wt-{task["id"]}'
     git(root, "worktree", "add", "--detach", str(worktree), "HEAD")
     modules = root / "frontend_vue/node_modules"
@@ -222,6 +222,23 @@ def write_author(root, backends, task, run_dir, deadline, env=None):
         # 119 в одиночном прогоне). Копия 230 МБ / 17 тыс. файлов — секунда.
         (worktree / "frontend_vue").mkdir(exist_ok=True)
         subprocess.run(["cp", "-a", str(modules), str(worktree / "frontend_vue/node_modules")], check=True)
+    return worktree
+
+
+def drop_worktree(root, worktree):
+    subprocess.run(["git", "-C", str(root), "worktree", "remove", "--force", str(worktree)],
+                   capture_output=True)
+
+
+def write_author(root, backends, task, run_dir, deadline, env=None):
+    """Автор работает в своём worktree (готовит его `add_worktree`), а не в общем дереве.
+
+    Возвращает (результат, патч). Патч применяется в checkout позже и по одному:
+    параллелен здесь только автор, всё остальное — проверки, приёмка, коммит —
+    остаётся последовательным, иначе `npm run verify` погонит чужую недописанную
+    работу и упадёт не по своей причине.
+    """
+    worktree = run_dir / f'wt-{task["id"]}'
     before = git_state(worktree)
     try:
         result = ask_agent(worktree, backends, task, "work", run_dir, deadline, env)
@@ -277,16 +294,20 @@ def drop_worktrees(root, run_dir):
     subprocess.run(["git", "-C", str(root), "worktree", "prune"], capture_output=True)
 
 
-def spent_tokens(backends, run_dir):
+def spent_tokens(backends, run_dir, unfinished=()):
     """Сколько токенов потрачено прогоном на бэкенды, идущие в счёт потолка.
 
     Считается по логам вызовов, а не накапливается в памяти: остановленный и
-    возобновлённый прогон видит тот же расход, что и непрерывный.
+    возобновлённый прогон видит тот же расход, что и непрерывный. Авторы из
+    `unfinished` ещё пишут: их лог пуст или недописан, и разбор уронил бы ночь —
+    их расход засчитается, когда они закончат.
     """
     total = 0
     for path in sorted(run_dir.glob("*.stdout.log")):
-        match = re.fullmatch(r".*-(work|review)(?:-retry-\d+)?\.stdout\.log", path.name)
-        role = match.group(1) if match else None
+        match = re.fullmatch(r"(.*)-(work|review)(?:-retry-\d+)?\.stdout\.log", path.name)
+        if match and match.group(2) == "work" and match.group(1) in unfinished:
+            continue
+        role = match.group(2) if match else None
         if role and backends[role].metered:
             total += backends[role].tokens(Path(str(path)[: -len(".stdout.log")]))
     return total
@@ -358,20 +379,42 @@ def retry_checkpoint(root, queue, previous):
     completed = [t["task"] for t in state["completed"]]
     resolved = set(completed) | {t["task"] for t in state.get("blocked", []) + state.get("waiting", [])}
     remaining = [t for t in tasks if t["id"] not in resolved]
-    if not remaining or state["current"] != remaining[0]["id"]:
+    # Остановка — на любой из оставшихся: конвейер принимает задачи в порядке готовности
+    # авторов, а не очереди, и первой оставшейся может быть задача, чей автор был погашен.
+    if state["current"] not in {t["id"] for t in remaining}:
         raise ValueError("Контрольная точка не соответствует очереди")
-    if completed != [t["id"] for t in tasks if t["id"] in completed]:
+    if len(set(completed)) != len(completed) or not set(completed) <= {t["id"] for t in tasks}:
         raise ValueError("Завершённые задачи не соответствуют очереди")
     expected_head = state["completed"][-1]["commit"] if completed else state["baseline"]
     if git(root, "rev-parse", "HEAD").strip() != expected_head or git(root, "diff", "--cached").strip():
         raise ValueError("HEAD или индекс изменились после остановки")
-    task = remaining[0]
+    task = next(t for t in remaining if t["id"] == state["current"])
     if not changed(root) or changed(root) - set(task["outputs"]) - renumbered_before(previous, task["id"]):
         raise ValueError("Изменения для повторной приёмки выходят за область задачи")
     work = json.loads((previous / f'{task["id"]}-work.json').read_text())
     if work.get("status") != "done":
         raise ValueError("Нет завершённого результата исполнителя")
     return state
+
+
+# Процессы, запущенные execute() из любого потока. Остановка ядра гасит их все: авторы
+# конвейера работают в потоках, и SIGTERM главному потоку до них не доходит — ядро
+# ждало бы их до конца (ловушка 26–27.09: убитая обёртка, живое ядро с авторами).
+LIVE, LIVE_LOCK = set(), threading.Lock()
+
+
+def stop_live(grace=5.0):
+    with LIVE_LOCK:
+        procs = list(LIVE)
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        for proc in procs:
+            try:
+                os.killpg(proc.pid, sig)
+            except ProcessLookupError:
+                pass
+        stop = time.monotonic() + grace
+        while any(proc.poll() is None for proc in procs) and time.monotonic() < stop:
+            time.sleep(0.05)
 
 
 def execute(command, root, prefix, deadline, prompt=None, env=None):
@@ -384,6 +427,8 @@ def execute(command, root, prefix, deadline, prompt=None, env=None):
     with prefix.with_suffix(".stdout.log").open("xb") as out, prefix.with_suffix(".stderr.log").open("xb") as err:
         proc = subprocess.Popen(command, cwd=root, stdin=subprocess.PIPE if prompt else subprocess.DEVNULL,
                                 stdout=out, stderr=err, start_new_session=True, env=environment)
+        with LIVE_LOCK:
+            LIVE.add(proc)
         try:
             proc.communicate(prompt.encode() if prompt else None, timeout=remaining)
         except BaseException:
@@ -403,6 +448,9 @@ def execute(command, root, prefix, deadline, prompt=None, env=None):
                 except ProcessLookupError:
                     pass
             raise
+        finally:
+            with LIVE_LOCK:
+                LIVE.discard(proc)
     if proc.returncode:
         raise CommandFailed(f"Команда завершилась с кодом {proc.returncode}: {prefix.name}; см. логи")
 
@@ -716,6 +764,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
         save("task-blocked")
 
     deadline = time.monotonic() + minutes * 60
+    pools = [None]
     save("start")
     try:
         if not retry:
@@ -730,102 +779,62 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             ["python3", "-m", "alembic", "upgrade", "head"], root / "backend",
             run_dir / "db-template", deadline, env={"DATABASE_URL": url}))
         attempts = 0
-        prepared = {}
-        for task in tasks:
-            resolved = {x["task"] for key in ("completed", "blocked", "waiting") for x in state[key]}
-            if task["id"] in resolved:
-                continue
-            unavailable = deps[task["id"]] & {x["task"] for key in ("blocked", "waiting") for x in state[key]}
-            if unavailable:
-                state["waiting"].append({"task": task["id"], "dependencies": sorted(unavailable)})
-                save("task-waiting")
-                continue
-            if attempts >= max_tasks:
-                continue
-            # Потолок проверяется между задачами: внутри задачи прерывать нечего —
+
+        def resolved():
+            return {x["task"] for key in ("completed", "blocked", "waiting") for x in state[key]}
+
+        def failed_deps(task):
+            return deps[task["id"]] & {x["task"] for key in ("blocked", "waiting") for x in state[key]}
+
+        writing = set()   # id авторов конвейера, которые ещё пишут
+
+        def budget_allows():
+            # Потолок проверяется перед каждым автором: внутри задачи прерывать нечего —
             # брошенный на середине автор оставит правки без приёмки. Значит прогон
-            # может превысить потолок не больше чем на одну задачу, и это записано.
-            measured = spent_tokens(backends, run_dir)
+            # может превысить потолок не больше чем на задачи, уже отданные авторам.
+            nonlocal spent, exhausted
+            measured = spent_tokens(backends, run_dir, writing)
             if measured > spent:
                 task_costs.append(measured - spent)
             spent = state["tokens"] = measured
-            if token_budget is not None:
-                remaining = token_budget - spent
-                need = max(task_costs, default=0)
-                if remaining <= 0:
-                    state["reason"] = f"Потолок токенов исчерпан: {spent} из {token_budget}"
-                elif remaining < need:
-                    state["reason"] = (f"Остатка не хватит на задачу: {remaining} из {token_budget}, "
-                                       f"самая дорогая виденная задача — {need}")
-                if state["reason"]:
-                    exhausted = True
-                    save("token-budget")
-                    break
-            attempts += 1
+            if token_budget is None:
+                return True
+            remaining = token_budget - spent
+            need = max(task_costs, default=0)
+            if remaining <= 0:
+                state["reason"] = f"Потолок токенов исчерпан: {spent} из {token_budget}"
+            elif remaining < need:
+                state["reason"] = (f"Остатка не хватит на задачу: {remaining} из {token_budget}, "
+                                   f"самая дорогая виденная задача — {need}")
+            if state["reason"]:
+                exhausted = True
+                save("token-budget")
+                return False
+            return True
+
+        def begin(task):
+            """Задача пошла в checkout: отметка и счёт битых ссылок ДО её правки."""
             state["current"] = task["id"]
             save("task-start")
-            expected_git = git_state(root)
             links_before = {}
             if (root / "frontend_vue/src/services/contractRefs.spec.ts").is_file():
                 for n, doc in enumerate(link_documents(task)):
                     links_before[doc] = link_report(root, doc, run_dir / f'{task["id"]}-links-before-{n}', deadline)
+            return git_state(root), links_before
+
+        def sources_missing(task, expected_git):
             missing = [name for name in task["sources"] if not (root / name).is_file()]
             if missing:
                 block(task, "sources", {"summary": "Нет необходимых источников", "evidence": missing}, expected_git)
                 databases.release(task["id"])
                 state["current"] = None
-                continue
-            work = {"status": "done"}
-            if retry and task["id"] == retry["current"]:
-                pass
-            elif parallel <= 1:
-                try:
-                    work = ask_agent(root, backends, task, "work", run_dir, deadline,
-                                     databases.env_for(task["id"]))
-                except CommandFailed:
-                    # Порядок веток тут — не стиль, а смысл: CommandFailed наследует
-                    # RuntimeError, и без этой строки отказ среды (упавший CLI, сбой
-                    # сервиса у автора) был бы принят за плохой ответ и тихо забракован
-                    # как одна задача. Отказ среды обязан останавливать ночь.
-                    raise
-                except (RuntimeError, ValueError) as error:
-                    # Та же политика, что в write_author: непригодный ответ — брак ОДНОЙ
-                    # задачи. Без этой ветки одиночный автор был защищён слабее, чем
-                    # параллельный: любая проза вместо JSON валила всю ночь. Разница
-                    # была не решением, а недосмотром — ветка `parallel <= 1` появилась
-                    # позже и обработку не унаследовала.
-                    work = {"status": "blocked",
-                            "summary": f'Ответ автора непригоден: {error}'[:500],
-                            "evidence": [str(run_dir / f'{task["id"]}-work.stdout.log')]}
-            else:
-                if task["id"] not in prepared:
-                    # Пачка — только задачи, не делящие файлов, и только те, что уже
-                    # можно начинать: зависимости и потолок проверены выше по циклу.
-                    resolved_now = {x["task"] for key in ("completed", "blocked", "waiting")
-                                    for x in state[key]}
-                    candidates = [t for t in tasks
-                                  if t["id"] not in resolved_now and t["id"] not in prepared
-                                  and not (deps[t["id"]] - resolved_now)]
-                    batch = disjoint_batch(candidates, min(parallel, max_tasks - attempts + 1))
-                    state["batch"] = [t["id"] for t in batch]
-                    save("batch")
-                    # Базы пачки заводятся здесь, в главном потоке: создание базы —
-                    # операция на сервере, и четыре потока, делающие её одновременно,
-                    # отлаживались бы вслепую. Автор получает уже готовый URL.
-                    ports = author_ports(len(batch))
-                    batch_env = {t["id"]: {**databases.env_for(t["id"]), "PW_PORT": str(port)}
-                                 for t, port in zip(batch, ports)}
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=len(batch)) as pool:
-                        futures = {pool.submit(write_author, root, backends, t, run_dir, deadline,
-                                               batch_env[t["id"]]): t
-                                   for t in batch}
-                        for future in concurrent.futures.as_completed(futures):
-                            prepared[futures[future]["id"]] = future.result()
-                    drop_worktrees(root, run_dir)
-                work, patch = prepared.pop(task["id"])
-                if patch is not None and work["status"] != "blocked":
-                    execute(["git", "apply", "--binary", str(patch)], root,
-                            run_dir / f'{task["id"]}-apply', deadline)
+            return bool(missing)
+
+        def accept(task, work, expected_git, links_before, patch=None, between=None):
+            """После автора: применить, проверить, отдать приёмщику, закоммитить или забраковать."""
+            if patch is not None and work["status"] != "blocked":
+                execute(["git", "apply", "--binary", str(patch)], root,
+                        run_dir / f'{task["id"]}-apply', deadline)
             # Git трогать нельзя никому и никогда: коммит, ветка или индекс, сдвинутые
             # автором, означают, что прогон больше не знает, на чём стоит. Это отказ,
             # а не плохая работа.
@@ -855,13 +864,13 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 block(task, "work", work, expected_git)
                 databases.release(task["id"])
                 state["current"] = None
-                continue
+                return
             if not changed(root):
                 block(task, "work", {"summary": "Исполнитель сообщил done без изменений; нужна сверка очереди",
                                      "evidence": work.get("evidence", [])}, expected_git)
                 databases.release(task["id"])
                 state["current"] = None
-                continue
+                return
             # Ссылки документов на сдвинутые строки чинит контроллер: автор не имеет
             # права трогать чужие документы, а держать в голове тысячи ссылок не может
             # никто. Молча правятся только дословно переехавшие строки; изменившиеся
@@ -899,7 +908,9 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 block(task, "checks", check_failure, expected_git)
                 databases.release(task["id"])
                 state["current"] = None
-                continue
+                return
+            if between:
+                between()   # приёмка идёт минуты — слот освободившегося автора не простаивает
             try:
                 review = ask_agent(root, backends, task, "review", run_dir, deadline,
                                    databases.env_for(task["id"]))
@@ -920,7 +931,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 block(task, "review", review, expected_git)
                 databases.release(task["id"])
                 state["current"] = None
-                continue
+                return
             execute(["git", "add", "--", *sorted(changed(root))], root,
                     run_dir / f'{task["id"]}-stage', deadline)
             expected_tree = git(root, "write-tree").strip()
@@ -934,6 +945,139 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             save("task-done")
             if changed(root):
                 raise RuntimeError("После коммита осталось изменённое дерево")
+
+        if retry:
+            # Сохранённая работа лежит в checkout — она идёт первой, до любого автора.
+            task = next(t for t in tasks if t["id"] == retry["current"])
+            if budget_allows():
+                attempts += 1
+                expected_git, links_before = begin(task)
+                if not sources_missing(task, expected_git):
+                    accept(task, {"status": "done"}, expected_git, links_before)
+
+        if parallel <= 1:
+            for task in tasks:
+                if exhausted:
+                    break
+                if task["id"] in resolved():
+                    continue
+                unavailable = failed_deps(task)
+                if unavailable:
+                    state["waiting"].append({"task": task["id"], "dependencies": sorted(unavailable)})
+                    save("task-waiting")
+                    continue
+                if attempts >= max_tasks:
+                    continue
+                if not budget_allows():
+                    break
+                attempts += 1
+                expected_git, links_before = begin(task)
+                if sources_missing(task, expected_git):
+                    continue
+                try:
+                    work = ask_agent(root, backends, task, "work", run_dir, deadline,
+                                     databases.env_for(task["id"]))
+                except CommandFailed:
+                    # Порядок веток тут — не стиль, а смысл: CommandFailed наследует
+                    # RuntimeError, и без этой строки отказ среды (упавший CLI, сбой
+                    # сервиса у автора) был бы принят за плохой ответ и тихо забракован
+                    # как одна задача. Отказ среды обязан останавливать ночь.
+                    raise
+                except (RuntimeError, ValueError) as error:
+                    # Та же политика, что в write_author: непригодный ответ — брак ОДНОЙ
+                    # задачи. Без этой ветки одиночный автор был защищён слабее, чем
+                    # параллельный: любая проза вместо JSON валила всю ночь.
+                    work = {"status": "blocked",
+                            "summary": f'Ответ автора непригоден: {error}'[:500],
+                            "evidence": [str(run_dir / f'{task["id"]}-work.stdout.log')]}
+                accept(task, work, expected_git, links_before)
+        else:
+            # Конвейер: автор закончил — его задача идёт на проверки и приёмку, а его слот
+            # сразу берёт следующую. Пачка «все пишут → все по очереди» держала быстрого
+            # автора без дела до конца самого медленного: 3–18 мин на пачку (ночи 27.09).
+            # Инварианты прежние: Git и checkout меняет только главный поток, коммит — по
+            # одной задаче, авторы в своих worktree.
+            # accepting — задача на проверках и приёмке: её файлы заняты, как у пишущих.
+            running, finished, ports, accepting = {}, [], {}, []
+            pool = pools[0] = concurrent.futures.ThreadPoolExecutor(max_workers=parallel)
+
+            def in_flight():
+                return [*running.values(), *(item[0] for item in finished), *accepting]
+
+            def fill(checkout_clean=True):
+                nonlocal attempts
+                active = {t["id"] for t in in_flight()}
+                # Незакоммиченная работа: её файлы нельзя ни писать, ни читать — читатель
+                # увидел бы старую версию, которую коммит соседа вот-вот заменит.
+                busy = {name for t in in_flight() for name in t["outputs"]}
+                candidates = []
+                for task in tasks:
+                    if task["id"] in active or task["id"] in resolved():
+                        continue
+                    unavailable = failed_deps(task)
+                    if unavailable:
+                        state["waiting"].append({"task": task["id"], "dependencies": sorted(unavailable)})
+                        save("task-waiting")
+                        continue
+                    if deps[task["id"]] - resolved() or busy & set(task["sources"]):
+                        continue
+                    candidates.append(task)
+                started = []
+                for task in disjoint_batch(candidates, parallel - len(running), busy):
+                    if exhausted or attempts >= max_tasks or not budget_allows():
+                        break
+                    if any(not (root / name).is_file() for name in task["sources"]):
+                        # Брак по источникам прячет checkout в stash — посреди чужой
+                        # приёмки это спрятало бы и её работу. Ждём чистого checkout.
+                        if checkout_clean:
+                            attempts += 1
+                            sources_missing(task, git_state(root))
+                        continue
+                    attempts += 1
+                    port = author_ports(1, taken={p + d for p in ports.values() for d in (-1, 0, 1)})[0]
+                    ports[task["id"]] = port
+                    add_worktree(root, task, run_dir)
+                    future = pool.submit(write_author, root, backends, task, run_dir, deadline,
+                                         {**databases.env_for(task["id"]), "PW_PORT": str(port)})
+                    running[future] = task
+                    writing.add(task["id"])
+                    started.append(task["id"])
+                if started:
+                    state["batch"] = started
+                    save("batch")
+
+            def harvest(wait):
+                if not running:
+                    return
+                done = [f for f in running if f.done()]
+                if wait and not done:
+                    done, _ = concurrent.futures.wait(running, return_when=concurrent.futures.FIRST_COMPLETED)
+                for future in done:
+                    task = running.pop(future)
+                    writing.discard(task["id"])
+                    ports.pop(task["id"], None)
+                    work, patch = future.result()   # отказ среды у автора — остановка ночи
+                    drop_worktree(root, run_dir / f'wt-{task["id"]}')
+                    finished.append((task, work, patch))
+
+            def between():
+                harvest(False)
+                fill(checkout_clean=False)
+
+            fill()
+            while running or finished:
+                if not finished:
+                    harvest(True)
+                    fill()
+                while finished:
+                    task, work, patch = finished.pop(0)
+                    accepting.append(task)
+                    expected_git, links_before = begin(task)
+                    accept(task, work, expected_git, links_before, patch, between)
+                    accepting.clear()
+                    harvest(False)
+                    fill()   # принятая задача могла открыть зависимые
+            pool.shutdown()
         state["current"] = None
         state["tokens"] = spent_tokens(backends, run_dir)
         resolved_count = sum(len(state[key]) for key in ("completed", "blocked", "waiting"))
@@ -945,6 +1089,14 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
         save("finish")
         return 0
     except (Exception, KeyboardInterrupt) as exc:
+        # Трассировка — рядом с журналом: причина «Expecting value…» без места, где она
+        # случилась, утром не разбирается ни человеком, ни сторожем.
+        import traceback
+        (run_dir / "stop-traceback.txt").write_text(traceback.format_exc())
+        # Авторы конвейера живут в потоках: без этого ядро ждало бы их до конца.
+        stop_live()
+        if pools[0]:
+            pools[0].shutdown(wait=True, cancel_futures=True)
         drop_worktrees(root, run_dir)
         databases.dispose()
         try:
