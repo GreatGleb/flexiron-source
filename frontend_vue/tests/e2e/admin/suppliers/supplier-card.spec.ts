@@ -287,21 +287,26 @@ test.describe('supplier-card › notes section', () => {
     const beforeCount = await page.locator('[data-test="supplier-form-note-item"]').count()
     await page.locator('[data-test="supplier-form-notes-input"]').fill('Tested via Playwright')
     await page.locator('[data-test="supplier-form-notes-add-btn"]').click()
-    await expect(page.locator('[data-test="supplier-form-note-item"]')).toHaveCount(beforeCount + 1)
+    await expect(page.locator('[data-test="supplier-form-note-item"]')).toHaveCount(
+      beforeCount + 1,
+      { timeout: DATA_READY_TIMEOUT },
+    )
   })
 
   test('add button is a no-op when the textarea is blank', async ({ page }) => {
     await expect(page.locator('[data-test="supplier-form-notes-input"]')).toBeVisible()
     const beforeCount = await page.locator('[data-test="supplier-form-note-item"]').count()
     await page.locator('[data-test="supplier-form-notes-add-btn"]').click()
-    await expect(page.locator('[data-test="supplier-form-note-item"]')).toHaveCount(beforeCount)
+    await expect(page.locator('[data-test="supplier-form-note-item"]')).toHaveCount(beforeCount, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('adding a note marks the form dirty (Save becomes enabled)', async ({ page }) => {
     await page.locator('[data-test="supplier-form-notes-input"]').fill('Dirty trigger')
     await page.locator('[data-test="supplier-form-notes-add-btn"]').click()
     const save = page.locator('[data-test="supplier-card-save-btn"]')
-    await expect(save).toBeEnabled()
+    await expect(save).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
     await expect(save).toHaveClass(/\bdirty\b/)
   })
 })
@@ -368,7 +373,7 @@ test.describe('supplier-card › files section', () => {
     // The 2nd `.action-btn-wrap` SVG inside .file-actions is the delete icon
     // (1st is the download anchor's icon — it sits inside the <a>, not in .file-actions).
     await items.first().locator('.file-actions svg.action-btn-wrap').last().click()
-    await expect(items).toHaveCount(before - 1)
+    await expect(items).toHaveCount(before - 1, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('upload via the hidden file input appends a new FileItem', async ({ page }) => {
@@ -382,7 +387,9 @@ test.describe('supplier-card › files section', () => {
       mimeType: 'text/plain',
       buffer: Buffer.from('hello playwright'),
     })
-    await expect(page.locator('[data-test="supplier-card-file-item"]')).toHaveCount(before + 1)
+    await expect(page.locator('[data-test="supplier-card-file-item"]')).toHaveCount(before + 1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // The new file's name should be rendered.
     await expect(page.locator('[data-test="supplier-card-file-item"]').last()).toContainText(
       'spec-attachment.txt',
@@ -419,16 +426,20 @@ test.describe('supplier-card › audit log', () => {
     const before = await page.locator('[data-test="supplier-card-audit-row"]').count()
     await page.locator('[data-test="supplier-card-audit-delete-btn"]').first().click()
     // AppModal renders with class `.modal-overlay.active` once open (Teleported to body).
-    await expect.soft(page.locator('.modal-overlay.active')).toBeVisible()
+    await expect
+      .soft(page.locator('.modal-overlay.active'))
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await expect.soft(page.locator('[data-test="supplier-card-audit-row"]')).toHaveCount(before)
   })
 
   test('cancelling the modal closes it and leaves the audit log untouched', async ({ page }) => {
     const before = await page.locator('[data-test="supplier-card-audit-row"]').count()
     await page.locator('[data-test="supplier-card-audit-delete-btn"]').first().click()
-    await expect(page.locator('.modal-overlay.active')).toBeVisible()
+    await expect(page.locator('.modal-overlay.active')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await page.locator('[data-test="supplier-card-audit-modal-cancel"]').click()
-    await expect.soft(page.locator('.modal-overlay.active')).toHaveCount(0)
+    await expect
+      .soft(page.locator('.modal-overlay.active'))
+      .toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
     await expect.soft(page.locator('[data-test="supplier-card-audit-row"]')).toHaveCount(before)
   })
 
@@ -438,7 +449,7 @@ test.describe('supplier-card › audit log', () => {
     const rows = page.locator('[data-test="supplier-card-audit-row"]')
     const before = await rows.count()
     await page.locator('[data-test="supplier-card-audit-delete-btn"]').first().click()
-    await expect(page.locator('.modal-overlay.active')).toBeVisible()
+    await expect(page.locator('.modal-overlay.active')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await page.locator('[data-test="supplier-card-audit-modal-confirm"]').click()
     // The mock-side delete and the page-side `splice(idx, 1)` both operate on the same
     // auditLog reference (mockGetSupplier returns MOCK_CARD['1'] by reference), so the
@@ -464,7 +475,7 @@ test.describe('supplier-card › dirty + save flow', () => {
     const save = page.locator('[data-test="supplier-card-save-btn"]')
     await expect.soft(save).toBeDisabled()
     await page.locator('[data-test="supplier-form-company"]').fill('Steel Plus OÜ — edited')
-    await expect.soft(save).toBeEnabled()
+    await expect.soft(save).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
     await expect.soft(save).toHaveClass(/\bdirty\b/)
   })
 
@@ -474,10 +485,10 @@ test.describe('supplier-card › dirty + save flow', () => {
     const company = page.locator('[data-test="supplier-form-company"]')
     const save = page.locator('[data-test="supplier-card-save-btn"]')
     await company.fill('mutated')
-    await expect(save).toBeEnabled()
+    await expect(save).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
     // Restoring the captured snapshot value should clear isDirty.
     await company.fill(MOCK.company)
-    await expect(save).toBeDisabled()
+    await expect(save).toBeDisabled({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('clicking Save commits the change, clears dirty, and toasts a success message', async ({
@@ -486,10 +497,10 @@ test.describe('supplier-card › dirty + save flow', () => {
     const newCompany = 'Steel Plus OÜ — saved'
     const save = page.locator('[data-test="supplier-card-save-btn"]')
     await page.locator('[data-test="supplier-form-company"]').fill(newCompany)
-    await expect(save).toBeEnabled()
+    await expect(save).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
     await save.click()
     // After the mock PATCH resolves: capture() runs → isDirty=false → button disabled.
-    await expect.soft(save).toBeDisabled()
+    await expect.soft(save).toBeDisabled({ timeout: DATA_READY_TIMEOUT })
     await expect.soft(save).not.toHaveClass(/\bdirty\b/)
     // Edited value persists in the DOM (server returned the merged entity).
     await expect.soft(page.locator('[data-test="supplier-form-company"]')).toHaveValue(newCompany)
@@ -509,10 +520,10 @@ test.describe('supplier-card › dirty + save flow', () => {
     // would overwrite the v-model'd value before capture() runs.
     await expect(save).not.toHaveClass(/\bloading\b/)
     await expect(save).not.toHaveClass(/\bdirty\b/)
-    await expect(save).toBeDisabled()
+    await expect(save).toBeDisabled({ timeout: DATA_READY_TIMEOUT })
     // Second edit must dirty the form again — proving capture() ran after save.
     await company.fill('Round 2')
-    await expect(save).toBeEnabled()
+    await expect(save).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
     await expect(save).toHaveClass(/\bdirty\b/)
   })
 })

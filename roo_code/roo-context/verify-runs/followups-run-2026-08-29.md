@@ -35,7 +35,7 @@ EXIT_E2E=1
 
 ```
   1 failed
-    [chromium] › tests/e2e/admin/orders/orders.spec.ts:538:3 ›
+    [chromium] › tests/e2e/admin/orders/orders.spec.ts:568:3 ›
     Order Card › fields & structure › editing the total spreads it across the lines
   1026 passed (18.0m)
 ```

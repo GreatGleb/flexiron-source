@@ -1,5 +1,6 @@
 import { testBare as test, expect } from './fixtures'
 import { ALL_FLAGS_ENABLED } from './helpers/flags'
+import { DATA_READY_TIMEOUT } from './helpers/ready'
 
 /**
  * For each page-level flag: turning it OFF redirects the corresponding route to /404.
@@ -44,7 +45,7 @@ for (const { flag, route } of PAGE_FLAG_ROUTES) {
       { ...ALL_FLAGS_ENABLED, [flag]: false },
     )
     await page.goto(route)
-    await expect(page).toHaveURL('/404')
+    await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
 }
 

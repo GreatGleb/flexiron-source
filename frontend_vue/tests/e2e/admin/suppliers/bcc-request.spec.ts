@@ -191,7 +191,7 @@ test.describe('bcc-request › products table', () => {
     const cb = row.locator('[data-test="bcc-request-product-checkbox"]')
     await expect(cb).not.toBeChecked()
     await row.click()
-    await expect(cb).toBeChecked()
+    await expect(cb).toBeChecked({ timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="bcc-request-products-count"]')).toContainText('1')
   })
 
@@ -205,14 +205,16 @@ test.describe('bcc-request › products table', () => {
     for (let i = 0; i < visible; i++) {
       await expect
         .soft(rows.nth(i).locator('[data-test="bcc-request-product-checkbox"]'))
-        .toBeChecked()
+        .toBeChecked({ timeout: DATA_READY_TIMEOUT })
     }
   })
 
   test('product search filters by name (case-insensitive substring)', async ({ page }) => {
     await page.locator('[data-test="bcc-request-products-search"] input').fill('sheet')
     // Four Sheet products in the mock — pagination size is 10 so they all fit.
-    await expect(page.locator('[data-test="bcc-request-product-row"]')).toHaveCount(4)
+    await expect(page.locator('[data-test="bcc-request-product-row"]')).toHaveCount(4, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -237,6 +239,7 @@ test.describe('bcc-request › recipients picker', () => {
     await first.locator('[data-test="bcc-request-recipient-checkbox"]').check()
     await expect(page.locator('[data-test="bcc-request-recipients-count"] .count')).toContainText(
       '1',
+      { timeout: DATA_READY_TIMEOUT },
     )
   })
 
@@ -246,17 +249,19 @@ test.describe('bcc-request › recipients picker', () => {
     await page.locator('[data-test="bcc-request-recipients-select-all"]').click()
     await expect(page.locator('[data-test="bcc-request-recipients-count"] .count')).toContainText(
       String(MOCK.recipientCount),
+      { timeout: DATA_READY_TIMEOUT },
     )
     await page.locator('[data-test="bcc-request-recipients-deselect-all"]').click()
     await expect(page.locator('[data-test="bcc-request-recipients-count"] .count')).toContainText(
       '0',
+      { timeout: DATA_READY_TIMEOUT },
     )
   })
 
   test('recipient search filters by company name or email', async ({ page }) => {
     await page.locator('[data-test="bcc-request-recipients-search"] input').fill('Steel Plus')
     const items = page.locator('[data-test="bcc-request-recipient-item"]')
-    await expect(items).toHaveCount(1)
+    await expect(items).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
     await expect(items.first()).toContainText('Steel Plus OÜ')
   })
 
@@ -342,7 +347,9 @@ test.describe('bcc-request › email template', () => {
 
   test('selecting a product rebuilds the body to include its label', async ({ page }) => {
     await page.locator('[data-test="bcc-request-product-row"][data-product-id="sheet-2mm"]').click()
-    await expect(page.locator('[data-test="email-template-body"]')).toHaveValue(/Sheet 2mm/)
+    await expect(page.locator('[data-test="email-template-body"]')).toHaveValue(/Sheet 2mm/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('uploading an attachment via the dropzone appends a FileItem', async ({ page }) => {
@@ -355,7 +362,10 @@ test.describe('bcc-request › email template', () => {
       mimeType: 'application/pdf',
       buffer: Buffer.from('attachment-content'),
     })
-    await expect(page.locator('[data-test="bcc-request-attachment-item"]')).toHaveCount(before + 1)
+    await expect(page.locator('[data-test="bcc-request-attachment-item"]')).toHaveCount(
+      before + 1,
+      { timeout: DATA_READY_TIMEOUT },
+    )
     await expect(page.locator('[data-test="bcc-request-attachment-item"]').last()).toContainText(
       'price-sheet.pdf',
     )
@@ -372,7 +382,9 @@ test.describe('bcc-request › send flow', () => {
 
   test('send with no products selected shows an error toast (select_product)', async ({ page }) => {
     await page.locator('[data-test="bcc-request-send-btn"]').click()
-    await expect.soft(page.locator('.toast-container .toast.show.toast-error')).toBeVisible()
+    await expect
+      .soft(page.locator('.toast-container .toast.show.toast-error'))
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('send with products but no recipients shows select_recipient error', async ({ page }) => {
@@ -390,9 +402,12 @@ test.describe('bcc-request › send flow', () => {
     await page.locator('[data-test="bcc-request-recipients-deselect-all"]').click()
     await expect(page.locator('[data-test="bcc-request-recipients-count"] .count')).toContainText(
       '0',
+      { timeout: DATA_READY_TIMEOUT },
     )
     await page.locator('[data-test="bcc-request-send-btn"]').click()
-    await expect.soft(page.locator('.toast-container .toast.show.toast-error')).toBeVisible()
+    await expect
+      .soft(page.locator('.toast-container .toast.show.toast-error'))
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('send with empty subject shows enter_subject error (no send happens)', async ({ page }) => {
@@ -400,7 +415,9 @@ test.describe('bcc-request › send flow', () => {
     // sheet-2mm auto-selects sup-001 + sup-003; recipients are now > 0.
     await page.locator('[data-test="email-template-subject"]').fill('')
     await page.locator('[data-test="bcc-request-send-btn"]').click()
-    await expect.soft(page.locator('.toast-container .toast.show.toast-error')).toBeVisible()
+    await expect
+      .soft(page.locator('.toast-container .toast.show.toast-error'))
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('full send: products + recipients + subject → success toast + new history rows', async ({
@@ -418,14 +435,18 @@ test.describe('bcc-request › send flow', () => {
       .toMatch(/\b[12]\b/)
     await page.locator('[data-test="bcc-request-send-btn"]').click()
     // Success toast (non-error).
-    await expect.soft(page.locator('.toast-container .toast.show').first()).toBeVisible()
+    await expect
+      .soft(page.locator('.toast-container .toast.show').first())
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
     // One new event row per (recipient × product); sheet-2mm auto-selects 1–2 recipients.
     await expect.poll(() => rows.count(), { timeout: DATA_READY_TIMEOUT }).toBeGreaterThan(before)
   })
 
   test('after a successful send, the product selection resets to 0', async ({ page }) => {
     await page.locator('[data-test="bcc-request-product-row"][data-product-id="sheet-2mm"]').click()
-    await expect(page.locator('[data-test="bcc-request-products-count"]')).toContainText('1')
+    await expect(page.locator('[data-test="bcc-request-products-count"]')).toContainText('1', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Wait for auto-select watcher to settle so validateSelection() doesn't bail on
     // empty recipients — otherwise the send never runs and products stay selected.
     await expect
@@ -435,7 +456,9 @@ test.describe('bcc-request › send flow', () => {
       )
       .toMatch(/\b[12]\b/)
     await page.locator('[data-test="bcc-request-send-btn"]').click()
-    await expect(page.locator('[data-test="bcc-request-products-count"]')).toContainText('0')
+    await expect(page.locator('[data-test="bcc-request-products-count"]')).toContainText('0', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -449,7 +472,9 @@ test.describe('bcc-request › log request', () => {
 
   test('caret opens the source dropdown with every SOURCE_OPTIONS entry', async ({ page }) => {
     await page.locator('[data-test="bcc-request-log-caret-btn"]').click()
-    await expect(page.locator('[data-test="bcc-request-log-dropdown"]')).toBeVisible()
+    await expect(page.locator('[data-test="bcc-request-log-dropdown"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="bcc-request-log-dropdown-item"]')).toHaveCount(
       MOCK.sources.length,
     )
@@ -479,7 +504,9 @@ test.describe('bcc-request › log request', () => {
 
   test('log with no products shows an error toast', async ({ page }) => {
     await page.locator('[data-test="bcc-request-log-btn"]').click()
-    await expect.soft(page.locator('.toast-container .toast.show.toast-error')).toBeVisible()
+    await expect
+      .soft(page.locator('.toast-container .toast.show.toast-error'))
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -560,7 +587,7 @@ test.describe('bcc-request › response modal', () => {
   }) => {
     const row = page.locator('[data-test="bcc-request-history-row"][data-event-id="evt-001"]')
     await row.locator('[data-test="bcc-request-history-accept-btn"]').click()
-    await expect(page.locator('.modal-overlay.active')).toBeVisible()
+    await expect(page.locator('.modal-overlay.active')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="bcc-request-response-supplier"]')).toHaveValue(
       'MetalProm LLC',
     )
@@ -569,14 +596,18 @@ test.describe('bcc-request › response modal', () => {
   test('edit on a responded row prefills price from the event', async ({ page }) => {
     const row = page.locator('[data-test="bcc-request-history-row"][data-event-id="evt-004"]')
     await row.locator('[data-test="bcc-request-history-edit-btn"]').click()
-    await expect(page.locator('[data-test="bcc-request-response-price"]')).toHaveValue('85000')
+    await expect(page.locator('[data-test="bcc-request-response-price"]')).toHaveValue('85000', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('save with empty price surfaces an error toast (modal stays open)', async ({ page }) => {
     const row = page.locator('[data-test="bcc-request-history-row"][data-event-id="evt-001"]')
     await row.locator('[data-test="bcc-request-history-accept-btn"]').click()
     await page.locator('[data-test="bcc-request-response-save-btn"]').click()
-    await expect.soft(page.locator('.toast-container .toast.show.toast-error')).toBeVisible()
+    await expect
+      .soft(page.locator('.toast-container .toast.show.toast-error'))
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await expect.soft(page.locator('.modal-overlay.active')).toBeVisible()
   })
 
@@ -585,7 +616,9 @@ test.describe('bcc-request › response modal', () => {
     const row = page.locator('[data-test="bcc-request-history-row"][data-event-id="evt-001"]')
     await row.locator('[data-test="bcc-request-history-accept-btn"]').click()
     await page.locator('[data-test="bcc-request-response-cancel-btn"]').click()
-    await expect.soft(page.locator('.modal-overlay.active')).toHaveCount(0)
+    await expect
+      .soft(page.locator('.modal-overlay.active'))
+      .toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
     await expect.soft(page.locator('[data-test="bcc-request-history-row"]')).toHaveCount(before)
   })
 
@@ -597,7 +630,9 @@ test.describe('bcc-request › response modal', () => {
     await row.locator('[data-test="bcc-request-history-accept-btn"]').click()
     await page.locator('[data-test="bcc-request-response-price"]').fill('1234')
     await page.locator('[data-test="bcc-request-response-save-btn"]').click()
-    await expect.soft(page.locator('.modal-overlay.active')).toHaveCount(0)
+    await expect
+      .soft(page.locator('.modal-overlay.active'))
+      .toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
     await expect.soft(page.locator('.toast-container .toast.show').first()).toBeVisible()
     await expect
       .poll(() => page.locator('[data-test="bcc-request-history-row"]').count(), {
@@ -615,6 +650,7 @@ test.describe('bcc-request › response modal', () => {
     await page.locator('[data-test="bcc-request-response-unit-option"][data-unit="ton"]').click()
     await expect(page.locator('[data-test="bcc-request-response-unit-trigger"]')).toContainText(
       'ton',
+      { timeout: DATA_READY_TIMEOUT },
     )
   })
 })

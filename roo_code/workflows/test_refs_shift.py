@@ -44,6 +44,30 @@ class ShiftTest(unittest.TestCase):
         self.assertEqual(unsafe, [])
         self.assertIn("code.ts:4", self.doc.read_text())
 
+    def test_number_the_author_already_fixed_is_not_shifted_again(self):
+        # Ночь 2026-09-27-0224: автор верно переписал 3 → 4 под вставку сверху, контроллер
+        # прочёл 4 как старый номер и сдвинул ещё раз — ссылка ушла мимо, задачу забраковали.
+        # Непохожие строки кода — чтобы «дословно» не спасло случайным совпадением.
+        self.code.write_text("один\nдва\nтри\nчетыре\nпять\nшесть\n")
+        self.commit("Ссылка на `три` — code.ts:3\nДругая на `пять` — code.ts:5\n")
+        self.code.write_text("ноль\nодин\nдва\nтри\nчетыре\nпять\nшесть\n")
+        self.doc.write_text("Ссылка на `три` — code.ts:4\nДругая на `пять` — code.ts:5\n")
+        safe, unsafe = refs_shift.renumber(self.root)
+        # Строку, которую не трогал автор, механика двигает как прежде.
+        self.assertEqual([(i["строка"], i["стало"]) for i in safe], [(2, "code.ts:6")])
+        # Строку автора — нет: номер уже новый, её проверяет приёмщик.
+        self.assertEqual([(i["строка"], i["было"]) for i in unsafe], [(1, "code.ts:4")])
+        self.assertEqual(self.doc.read_text(), "Ссылка на `три` — code.ts:4\nДругая на `пять` — code.ts:6\n")
+
+    def test_new_document_is_written_against_the_new_code(self):
+        self.commit("")
+        self.code.write_text("ноль\nодин\nдва\nтри\nчетыре\n")
+        new = self.root / "roo_code" / "новый.md"
+        new.write_text("Ссылка на `три` — code.ts:4\n")
+        safe, unsafe = refs_shift.renumber(self.root)
+        self.assertEqual(safe, [])
+        self.assertEqual(new.read_text(), "Ссылка на `три` — code.ts:4\n")
+
     def test_changed_line_is_left_for_human_eyes(self):
         self.commit("Ссылка на `три` — code.ts:3\n")
         self.code.write_text("ноль\nодин\nдва\nТРИ ДРУГОЕ\nчетыре\n")
@@ -175,6 +199,93 @@ class ShiftTest(unittest.TestCase):
         self.code.write_text("ноль\nодин\nдва\nтри\nчетыре\n")
         refs_shift.renumber(self.root)
         self.assertIn("code.ts:3", outside.read_text())
+
+    def test_short_reference_after_a_sole_path_is_renumbered(self):
+        """`:3` без пути рядом — файл подразумевается прозой: названный левее `code.ts`."""
+        self.commit("Строка `три` в `code.ts` — это `:3`.\n")
+        self.code.write_text("ноль\nодин\nдва\nтри\nчетыре\n")
+
+        safe, unsafe = refs_shift.renumber(self.root)
+
+        self.assertEqual([i["стало"] for i in safe], [":4"])
+        self.assertEqual(unsafe, [])
+        self.assertIn("`:4`", self.doc.read_text())
+
+    def test_short_range_moves_with_both_ends(self):
+        """Диапазон `:2-3` двигается ОБОИМИ концами; сдвиг одного дал бы `:3-3`."""
+        self.commit("`code.ts` — диапазон `:2-3`.\n")
+        self.code.write_text("ноль\nодин\nдва\nтри\nчетыре\n")
+
+        safe, _ = refs_shift.renumber(self.root)
+
+        self.assertEqual([i["стало"] for i in safe], [":3-4"])
+        self.assertIn("`:3-4`", self.doc.read_text())
+
+    def test_enumerated_tail_moves_every_number(self):
+        """Хвост `,3,4` в `models.py:2,3,4` — такие же ссылки, а не текст."""
+        models = self.root / "models.py"
+        models.write_text("альфа\nбета\nгамма\nдельта\n")
+        self.commit("Строки `models.py:2,3,4` — все три.\n")
+        models.write_text("ноль\nальфа\nбета\nгамма\nдельта\n")
+
+        safe, _ = refs_shift.renumber(self.root)
+
+        self.assertEqual([i["стало"] for i in safe], ["models.py:3,4,5"])
+        self.assertIn("`models.py:3,4,5`", self.doc.read_text())
+
+    def test_a_line_with_two_different_paths_is_left_for_human_eyes(self):
+        """`:3` после двух РАЗНЫХ `models.py` не двигается: файл угадать нельзя.
+
+        Строка с двумя разными путями — это ровно тот случай, где автоматика
+        2026-09-25 перепутала контекст (`:72` уехал по чужой карте сдвигов).
+        """
+        first, second = self.root / "one", self.root / "two"
+        for folder in (first, second):
+            folder.mkdir()
+            (folder / "models.py").write_text("альфа\nбета\nгамма\n")
+        self.commit("Открой `one/models.py` и `two/models.py`, строка `:3`.\n")
+        (first / "models.py").write_text("ноль\nальфа\nбета\nгамма\n")
+        (second / "models.py").write_text("ноль\nНОЛЬ\nальфа\nбета\nгамма\n")
+
+        safe, unsafe = refs_shift.renumber(self.root)
+
+        self.assertEqual(safe, [])
+        self.assertEqual([i["было"] for i in unsafe], [":3"])
+        self.assertIn("`:3`", self.doc.read_text())
+
+    def test_short_reference_to_a_changed_line_is_left_for_human_eyes(self):
+        """Строка не переехала, а изменилась — номер молча править нельзя."""
+        self.commit("`code.ts` — строка `:3`.\n")
+        self.code.write_text("ноль\nодин\nдва\nТРИ ДРУГОЕ\nчетыре\n")
+
+        safe, unsafe = refs_shift.renumber(self.root)
+
+        self.assertEqual(safe, [])
+        self.assertEqual([i["было"] for i in unsafe], [":3"])
+        self.assertIn("`:3`", self.doc.read_text())
+
+
+    def test_time_on_a_sole_path_line_is_not_a_short_reference(self):
+        """`17:36` после единственного пути — время вердикта, а не строка `:36`."""
+        self.commit("План `code.ts` · вердикт от 2026-09-13 17:3\n")
+        self.code.write_text("ноль\nодин\nдва\nтри\nчетыре\n")
+
+        safe, unsafe = refs_shift.renumber(self.root)
+
+        self.assertEqual(safe, [])
+        self.assertEqual(unsafe, [])
+        self.assertIn("17:3\n", self.doc.read_text())
+
+    def test_column_and_port_are_not_short_references(self):
+        """Колонка `code.ts:3:2` и порт `localhost:3` не двигаются; строка `:3` — двигается."""
+        self.commit("Стек `code.ts:3:2`, база на localhost:3\n")
+        self.code.write_text("ноль\nодин\nдва\nтри\nчетыре\n")
+
+        safe, unsafe = refs_shift.renumber(self.root)
+
+        self.assertEqual([i["стало"] for i in safe], ["code.ts:4"])
+        self.assertEqual(unsafe, [])
+        self.assertIn("`code.ts:4:2`, база на localhost:3\n", self.doc.read_text())
 
 
 _pilot_spec = importlib.util.spec_from_file_location(

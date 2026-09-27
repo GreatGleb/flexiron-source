@@ -1,6 +1,7 @@
 import { test, expect } from '../../fixtures'
 import { enableAllFlags } from '../../helpers/flags'
 import { openAdminPage } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /**
  * Пункт 7 плана `review-followups.md`: обрезок стало возможно выбрать в строке заказа.
@@ -37,11 +38,11 @@ test.describe('Обрезки в добавлении позиции заказ�
     await openAdminPage(page, '/admin/orders/new', '[data-test="order-create-add-item-btn"]')
     await page.locator('[data-test="order-create-add-item-btn"]').click()
     const modal = page.locator('[data-test="add-order-items-modal"]')
-    await expect(modal).toBeVisible()
+    await expect(modal).toBeVisible({ timeout: DATA_READY_TIMEOUT })
 
     await modal.locator('[data-test="add-items-filters"] input').fill(productName)
     const productRow = modal.locator('[data-test="add-items-product-row"]').first()
-    await expect(productRow).toContainText(productName)
+    await expect(productRow).toContainText(productName, { timeout: DATA_READY_TIMEOUT })
     await productRow.click()
 
     // Признак — не «панель появилась», а строка про ИМЕННО ЭТОТ кусок: панель
@@ -50,11 +51,15 @@ test.describe('Обрезки в добавлении позиции заказ�
       .locator('[data-test="add-items-offcut-row"]')
       .filter({ hasText: batchNumber })
       .first()
-    await expect(offcutRow).toBeVisible()
+    await expect(offcutRow).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     // Размер и место — то, по чему кусок и выбирают; прочерк здесь означал бы, что
     // строка нарисована, а данных в ней нет.
-    await expect(offcutRow.getByTestId('add-items-offcut-size')).not.toHaveText('—')
-    await expect(offcutRow.getByTestId('add-items-offcut-material')).not.toHaveText('—')
+    await expect(offcutRow.getByTestId('add-items-offcut-size')).not.toHaveText('—', {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(offcutRow.getByTestId('add-items-offcut-material')).not.toHaveText('—', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('выбор куска поднимает количество строки до его материала', async ({ page }) => {
@@ -70,7 +75,7 @@ test.describe('Обрезки в добавлении позиции заказ�
       .locator('[data-test="add-items-offcut-row"]')
       .filter({ hasText: batchNumber })
       .first()
-    await expect(offcutRow).toBeVisible()
+    await expect(offcutRow).toBeVisible({ timeout: DATA_READY_TIMEOUT })
 
     // Материал куска — то число, до которого количество обязано подтянуться.
     const materialText = ((await offcutRow
@@ -84,12 +89,14 @@ test.describe('Обрезки в добавлении позиции заказ�
     // утверждение «стало не меньше материала» устроило бы и бездействие (питфолл #68).
     const qty = modal.locator('[data-test="add-items-selected-qty"]').first()
     await qty.fill('0.01')
-    await expect(qty).toHaveValue('0.01')
+    await expect(qty).toHaveValue('0.01', { timeout: DATA_READY_TIMEOUT })
 
     await offcutRow.click()
 
-    await expect(offcutRow.getByTestId('add-items-offcut-checkbox')).toBeChecked()
-    await expect(qty).toHaveValue(String(material))
+    await expect(offcutRow.getByTestId('add-items-offcut-checkbox')).toBeChecked({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(qty).toHaveValue(String(material), { timeout: DATA_READY_TIMEOUT })
   })
 
   test('рядом стоит ссылка на экран резки', async ({ page }) => {
@@ -102,7 +109,9 @@ test.describe('Обрезки в добавлении позиции заказ�
     await modal.locator('[data-test="add-items-product-row"]').first().click()
 
     const link = modal.getByTestId('add-items-create-offcut-link').first()
-    await expect(link).toBeVisible()
-    await expect(link).toHaveAttribute('href', '/admin/warehouse/cutting')
+    await expect(link).toBeVisible({ timeout: DATA_READY_TIMEOUT })
+    await expect(link).toHaveAttribute('href', '/admin/warehouse/cutting', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })

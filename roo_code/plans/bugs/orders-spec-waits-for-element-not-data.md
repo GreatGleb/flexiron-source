@@ -19,7 +19,7 @@
 
 ## Что именно падает
 
-`tests/e2e/admin/orders/orders.spec.ts:1340` — «the panel is there, with nothing in it
+`tests/e2e/admin/orders/orders.spec.ts:1430` — «the panel is there, with nothing in it
 until something ships»:
 
 ```ts

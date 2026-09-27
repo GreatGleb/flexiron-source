@@ -149,3 +149,98 @@ def _to_response(service) -> ServiceResponse:
         created_at=service.created_at,
         updated_at=service.updated_at,
     )
+
+
+# ── List and archive ────────────────────────────────────────────────────────
+# Appended below the card/create/patch use cases rather than merged into the top
+# imports, so the addition doesn't shift the line numbers any document cites.
+from datetime import datetime, timezone  # noqa: E402
+
+from app.core.schemas import PaginatedResponse  # noqa: E402
+
+from .repository import (  # noqa: E402
+    archive_service as _archive_service,
+    list_services as _list_services,
+)
+
+#: Upper bound for `pageSize`, named by the second consumer: the add-services
+#: modal pulls the whole catalogue in one request with `pageSize=1000`
+#: (`AddOrderServicesModal.vue`), so that value must be allowed.
+MAX_PAGE_SIZE = 1000
+
+#: Contract default when `sortBy` is absent (`roo_code/roo-context/api/services.md`,
+#: "GET /api/services"). An empty string is not absent — it means "do not sort".
+DEFAULT_SORT_BY = "name"
+
+
+def _as_int(value: str | None, default: int) -> int:
+    """Read a query string as an int, falling back to the default.
+
+    The list declares no errors at all, so neither an empty value nor a
+    non-numeric one may raise here: both fall back to the default.
+    """
+    if value is None or value == "":
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+async def list_service_catalog(
+    db: AsyncSession,
+    tenant_id: UUID,
+    *,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_dir: str | None = None,
+    page: str | None = None,
+    page_size: str | None = None,
+) -> PaginatedResponse[ServiceResponse]:
+    """Execute the list-services use case.
+
+    All five query params may arrive empty; an empty string means "no filter". An
+    absent `sortBy` defaults to `name`, while an empty or unknown one means "do not
+    sort" — the rows keep the storage order and nothing is refused. Both `total`
+    and `totalPages` are derived at read time, never stored.
+    """
+    normalized_search = search or None
+    page_number = max(_as_int(page, 1), 1)
+    page_size_number = min(max(_as_int(page_size, 25), 1), MAX_PAGE_SIZE)
+    effective_sort_by = DEFAULT_SORT_BY if sort_by is None else sort_by
+    sort_desc = (sort_dir or "asc") == "desc"
+
+    entities, total = await _list_services(
+        db,
+        tenant_id,
+        search=normalized_search,
+        sort_by=effective_sort_by,
+        sort_desc=sort_desc,
+        page=page_number,
+        page_size=page_size_number,
+    )
+
+    return PaginatedResponse[ServiceResponse](
+        items=[_to_response(service) for service in entities],
+        total=total,
+        page=page_number,
+        pageSize=page_size_number,
+        totalPages=-(-total // page_size_number),
+    )
+
+
+async def archive_service_catalog_entry(
+    db: AsyncSession, tenant_id: UUID, service_id: UUID
+) -> None:
+    """Execute the archive-service use case (П44 — DELETE means archive).
+
+    The row is never removed and stays readable to old orders. A missing service,
+    a foreign tenant's service and an already archived one are indistinguishable
+    and all raise the contract's 404 `CATALOG_SERVICE_NOT_FOUND`: this DELETE is
+    deliberately not idempotent.
+    """
+    archived = await _archive_service(
+        db, service_id, tenant_id, datetime.now(timezone.utc)
+    )
+    if archived is None:
+        raise CatalogServiceNotFoundError(str(service_id))

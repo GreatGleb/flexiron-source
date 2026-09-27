@@ -1,0 +1,12 @@
+[Unit]
+Description=Flexiron: сторож ночного прогона (обход без модели)
+
+[Service]
+Type=oneshot
+# PATH нужен ночи, которую сторож поднимает: aider (~/.local/bin) и node/npm (nvm) живут
+# не в /usr/bin. Версия node зашита — сменилась в nvm, поменять и здесь (замер 2026-09-27).
+Environment=PATH=%h/.local/bin:%h/.nvm/versions/node/v22.23.1/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 %h/PycharmProjects/flexiron-source/roo_code/workflows/night-watchdog.py
+# Разбор неизвестной поломки сессией Claude — до 40 минут; таймер тем временем
+# новый обход не начнёт: юнит oneshot ещё активен.
+TimeoutStartSec=50min

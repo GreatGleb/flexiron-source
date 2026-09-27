@@ -91,3 +91,67 @@ async def patch_service_route(
         success=True,
         data=result.model_dump(mode="json", by_alias=True, exclude_none=True),
     )
+
+
+# ── List and archive ────────────────────────────────────────────────────────
+# Appended below the card/create/patch routes rather than merged into the top
+# imports, so the addition doesn't shift the line numbers any document cites.
+from fastapi import Query  # noqa: E402
+
+from .domain import (  # noqa: E402
+    archive_service_catalog_entry,
+    list_service_catalog,
+)
+
+
+@router.get("", response_model=ApiResponse)
+async def list_services_route(
+    search: str | None = Query(None),
+    sort_by: str | None = Query(None, alias="sortBy"),
+    sort_dir: str | None = Query(None, alias="sortDir"),
+    page: str | None = Query(None),
+    page_size: str | None = Query(None, alias="pageSize"),
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """List the tenant's live services — search, sort and server pagination.
+
+    All five query params are optional and may arrive empty; the empty string
+    means "no filter", and the server must never require a param's absence
+    (`roo_code/roo-context/api/services.md`, "GET /api/services"). The list has no
+    errors at all, so nothing here raises.
+    """
+    result = await list_service_catalog(
+        db,
+        current_user.tenant_id,
+        search=search,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        page=page,
+        page_size=page_size,
+    )
+    return ApiResponse(
+        success=True,
+        data=result.model_dump(mode="json", by_alias=True, exclude_none=True),
+    )
+
+
+@router.delete("/{service_id}", response_model=ApiResponse)
+async def delete_service_route(
+    service_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Archive a service (П44) — the row stays, only `archived_at` is stamped.
+
+    There is no success body. An unknown, foreign or already archived service is
+    404 `CATALOG_SERVICE_NOT_FOUND`: the DELETE is not idempotent.
+    """
+    try:
+        await archive_service_catalog_entry(db, current_user.tenant_id, service_id)
+    except CatalogServiceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": e.message, "code": e.code},
+        ) from e
+    return ApiResponse(success=True, message="Service archived")

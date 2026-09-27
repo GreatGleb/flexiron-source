@@ -149,7 +149,7 @@ $ python3 scan.py        # скрипт выше, дословно
 tests/e2e/admin/suppliers/suppliers-list.spec.ts MUT 582 | NAV 583 | ABS 586
 ```
 
-`suppliers-list.spec.ts:581` «stored kanban view is restored on reload (flag ON)»:
+`suppliers-list.spec.ts:639` «stored kanban view is restored on reload (flag ON)»:
 
 ```ts
 await page.locator('[data-test="suppliers-view-tabs"] button').nth(1).click()
@@ -175,9 +175,9 @@ await expect(page.locator('[data-test="suppliers-table-view"]')).toBeHidden()
 - `sales-crm.spec.ts:23` «KPI counts include an order created after them» — заказ создаётся
   и возврат идёт `page.goBack()` ×2, с комментарием ровно про то, что перезагрузка
   забыла бы созданный заказ. Правильно;
-- `audit-log.spec.ts:196/203/231` — те самые два теста из коммита f2def93: `goBack` и
+- `audit-log.spec.ts:223/203/231` — те самые два теста из коммита f2def93: `goBack` и
   `goForward`, состояние модулей живо. Правильно;
-- `layout.spec.ts:161` «collapsed state restored after reload» — `localStorage`,
+- `layout.spec.ts:201` «collapsed state restored after reload» — `localStorage`,
   перезагрузка предмет теста. Правильно;
 - `orders.spec.ts:122` — `fill` фильтра, потом `goto` на другую страницу; сравниваются
   числа, отсутствие не утверждается;
@@ -188,7 +188,7 @@ await expect(page.locator('[data-test="suppliers-table-view"]')).toBeHidden()
   не менял.
 
 Третьим прогоном — хуки: единственный `beforeEach` с действием во всём наборе
-(`suppliers-list.spec.ts:414`, переключение на канбан) не сопровождается в своих тестах
+(`suppliers-list.spec.ts:456`, переключение на канбан) не сопровождается в своих тестах
 ни одной полной загрузкой.
 
 **Итог прохода: настоящих случаев «мутация → полная загрузка → проверка
@@ -196,13 +196,13 @@ await expect(page.locator('[data-test="suppliers-table-view"]')).toBeHidden()
 
 ## 4. Наблюдение вне области пункта (кода не касался)
 
-`feature-flags-matrix.spec.ts:98–129` — четыре теста «секция выключена флагом»
+`feature-flags-matrix.spec.ts:99–129` — четыре теста «секция выключена флагом»
 утверждают отсутствие панели, доказав перед этим только заголовок страницы
 (`dashboard-title`, `suppliers-table-view`, `bcc-request-title`,
 `supplier-card-config-title`). Мутации перед ними нет, то есть по определению пункта 1b
 это законно; но по второму механизму #66 («присутствие должно было быть возможно»)
 заголовок — признак слабее данных. Для сравнения, одноимённый тест в
-`bcc-request.spec.ts:576` ждёт именно данные (`bcc-request-recipient-item`) и снабжён
+`bcc-request.spec.ts:605` ждёт именно данные (`bcc-request-recipient-item`) и снабжён
 ссылкой на #66. Правка здесь была бы «раз уж открыли файл», поэтому не делалась;
 если решат чинить — это отдельный пункт про механизм 2, а не про 1b.
 
@@ -290,8 +290,8 @@ $ grep -rn "^\s*\(test\|baseTest\|testWithFlags\|it\)\(\.\w\+\)*(" tests --inclu
     | grep -v "describe\|beforeEach\|afterEach\|beforeAll\|afterAll\|\.step(" | wc -l
 964
 $ diff <(разбор) <(греп)                # чего греп видит больше
-> tests/e2e/admin/settings/audit-log.spec.ts:130     test.skip(term.length < 3, …)
-> tests/e2e/admin/settings/audit-log.spec.ts:167     test.skip(!twins, …)
+> tests/e2e/admin/settings/audit-log.spec.ts:141     test.skip(term.length < 3, …)
+> tests/e2e/admin/settings/audit-log.spec.ts:190     test.skip(!twins, …)
 > tests/e2e/ready-exits.spec.ts:106                  test.setTimeout(300_000)
 > tests/e2e/ready-exits.spec.ts:149                  test.setTimeout(…)
 > tests/e2e/ready-real-api.spec.ts:20                test.use({ baseURL: … })
@@ -496,14 +496,14 @@ $ node scan-1b.js
 
 | # | Место | Почему не случай |
 |---|---|---|
-| 1 | `clients.spec.ts:639` «a payment that names a document is money on that document row» | «Мутация» — клик по `a.name-link`, то есть переход внутри SPA, ничего не меняющий. А само утверждение (`not.toHaveCount(unfiltered)`) стоит ПОСЛЕ загрузки и после `fill` фильтра: оно про фильтр, применённый уже на новой странице |
-| 2–3 | `order-offcuts.spec.ts:34` | «Мутация» — `firstAvailableOffcut`, которая только читает товар и партию со складской вкладки (внутри `openAdminPage` есть `evaluate(__mockCalls)`, отсюда и метка). Утверждения `not.toHaveText('—')` — про содержимое пришедшей строки, а не про исчезновение |
-| 4–5 | `categories.spec.ts:438` «switching language updates UI text» | Язык лежит в `localStorage`; перезагрузка его не откатывает — она и есть предмет теста. Утверждается, что подпись сменилась, а не что запись исчезла |
-| 6 | `audit-log.spec.ts:48` «loads without console errors and shows records» | `expect(errors).toHaveLength(0)` — про консоль, а не про данные; мутации нет вовсе (метку MUT дал `evaluate(__mockCalls)` внутри `navigateToAdmin`) |
-| 7 | `suppliers-list.spec.ts:581` «stored kanban view is restored on reload» | Сохранённый вид — `localStorage`, перезагрузка предмет теста. Присутствие канбана утверждается строкой выше, то есть ноль у таблицы не может быть истиной «страница пуста» |
+| 1 | `clients.spec.ts:673` «a payment that names a document is money on that document row» | «Мутация» — клик по `a.name-link`, то есть переход внутри SPA, ничего не меняющий. А само утверждение (`not.toHaveCount(unfiltered)`) стоит ПОСЛЕ загрузки и после `fill` фильтра: оно про фильтр, применённый уже на новой странице |
+| 2–3 | `order-offcuts.spec.ts:35` | «Мутация» — `firstAvailableOffcut`, которая только читает товар и партию со складской вкладки (внутри `openAdminPage` есть `evaluate(__mockCalls)`, отсюда и метка). Утверждения `not.toHaveText('—')` — про содержимое пришедшей строки, а не про исчезновение |
+| 4–5 | `categories.spec.ts:457` «switching language updates UI text» | Язык лежит в `localStorage`; перезагрузка его не откатывает — она и есть предмет теста. Утверждается, что подпись сменилась, а не что запись исчезла |
+| 6 | `audit-log.spec.ts:53` «loads without console errors and shows records» | `expect(errors).toHaveLength(0)` — про консоль, а не про данные; мутации нет вовсе (метку MUT дал `evaluate(__mockCalls)` внутри `navigateToAdmin`) |
+| 7 | `suppliers-list.spec.ts:639` «stored kanban view is restored on reload» | Сохранённый вид — `localStorage`, перезагрузка предмет теста. Присутствие канбана утверждается строкой выше, то есть ноль у таблицы не может быть истиной «страница пуста» |
 | 8 | `warehouse-map.spec.ts:61` «loads without console errors» | То же, что 6 |
 
-Пары из прохода 3 (`audit-log.spec.ts:188` и `:212`) — это и есть починенные в f2def93
+Пары из прохода 3 (`audit-log.spec.ts:215` и `:224`) — это и есть починенные в f2def93
 тесты: `goBack`/`goForward` вместо `goto`. История здесь принадлежит одному документу —
 `navigateToAdmin` в `beforeEach` вызывается ОДИН раз (строка 45), дальше только клик по
 ссылке и движения по истории, второй `goto` в тестах отсутствует. Значит модули живы и

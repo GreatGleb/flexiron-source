@@ -5,7 +5,8 @@
 `{"status","summary","evidence"}`. Всё остальное — дело адаптера.
 
 Роли назначаются бэкендам файлом маршрутизации, поэтому связка меняется правкой JSON,
-а не кода: всё на Claude Code, всё на Codex, автор Zoo Code/DeepSeek с приёмкой Claude Code.
+а не кода: всё на Claude Code, всё на Codex, автор Zoo Code или aider/DeepSeek с приёмкой
+Claude Code.
 
 Границы правок, неизменность Git, машинные проверки и коммиты остаются в ядре: адаптер
 не имеет права ничего из этого решать, иначе новый бэкенд молча ослабит политику прогона.
@@ -15,6 +16,7 @@ import json
 import os
 import re
 import shutil
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -121,7 +123,12 @@ class ClaudeBackend(Backend):
         if role == "review":
             # Проверяющий не выполняет команд и не пишет файлов. Ядро всё равно
             # сверит снимок файлов после него — это второй рубеж, а не первый.
-            argv += ["--restricted", "--disallowedTools", "Write", "Edit", "NotebookEdit"]
+            # --restricted ограничивает и ЧТЕНИЕ каталогами --add-dir, а логи проверок,
+            # которые промпт велит прочитать, лежат в run_dir вне checkout. Без него
+            # в 43 приёмках из 55 (все ночи по 2026-09-26) приёмщику отказали в Read
+            # на собственные логи, и он браковал «зелёный прогон не подтверждается».
+            argv += ["--add-dir", str(run_dir),
+                     "--restricted", "--disallowedTools", "Write", "Edit", "NotebookEdit"]
         else:
             argv += ["--permission-mode", self.options.get("permission_mode", "bypassPermissions")]
         return argv
@@ -188,34 +195,92 @@ class ZooBackend(Backend):
         return argv
 
 
-BACKENDS = {backend.name: backend for backend in (CodexBackend, ClaudeBackend, ZooBackend)}
+class AiderBackend(Backend):
+    """aider-chat как автор. Разбор задания и сборка результата — в aider-runner.py,
+    агентский цикл (проверки, команды, поиск файлов) — в aider-agent.py.
+
+    Только роль `work`: приёмщик, который правит файлы, — противоречие.
+    Модель и ключ задаются маршрутизацией: `model` в формате litellm
+    (`deepseek/deepseek-chat`), `env_file` — файл с ключом вне checkout. Потолки
+    цикла — `max_reflections`, `command_timeout`, `check_timeout` (секунды).
+    """
+
+    name = "aider"
+    roles = ("work",)
+
+    @property
+    def binary(self):
+        return self.options.get("binary", "aider")
+
+    def check(self):
+        if not shutil.which(self.binary):
+            raise ValueError(f"aider не найден: {self.binary}. Установка: uv tool install aider-chat")
+        if not self.options.get("model"):
+            raise ValueError("Для aider нужна модель: routing.work.model, например deepseek/deepseek-chat")
+        env_file = self.options.get("env_file")
+        if env_file and not Path(env_file).expanduser().is_file():
+            raise ValueError(f"Файл ключей aider не найден: {env_file}")
+
+    def result_instruction(self, result_path):
+        return ("Ты работаешь через aider. JSON-результат не пиши — его соберёт обёртка по "
+                "изменённым файлам. Править можно только файлы, открытые тебе для правки (outputs "
+                "задания). Нужен другой файл — назови его путь в ответе, и он откроется для чтения. "
+                "Команды (греп, чтение логов, тесты) предлагай блоком ```bash```: они выполнятся, "
+                "и ты увидишь вывод. Git — только читающие подкоманды. Машинные проверки задачи "
+                "запускаются сами, когда ты ответишь без правок и команд — то есть сочтёшь работу "
+                "сделанной; упавшие вернутся к тебе на починку и после каждой починки запустятся "
+                "снова. Прогнать их раньше можешь сам командой. Если критерий "
+                "требует мутации или прогона — сделай его командой: журнал команд с кодами возврата "
+                "уйдёт приёмщику. Последним ответом дай отчёт без команд: что изменил, что гонял и с "
+                "каким итогом. Если задачу выполнить нельзя (нет решения владельца, противоречие в "
+                "задании) — последний ответ начни строкой «НЕ МОГУ: <точная причина>».\n")
+
+    def build(self, role, root, run_dir, result_path):
+        if role not in self.roles:
+            raise ValueError(f"aider не может быть в роли {role}")
+        argv = [sys.executable, str(HERE / "aider-runner.py"), "--binary", self.binary,
+                "--model", self.options["model"], "--root", str(root), "--result", str(result_path),
+                "--timeout", str(int(self.options.get("timeout_seconds", 3600)))]
+        if self.options.get("env_file"):
+            argv += ["--env-file", str(Path(self.options["env_file"]).expanduser())]
+        for key in ("python", "edit_format", "max_reflections", "command_timeout", "check_timeout",
+                    "history_tokens"):
+            if self.options.get(key) is not None:
+                argv += ["--" + key.replace("_", "-"), str(self.options[key])]
+        return argv
+
+
+BACKENDS = {backend.name: backend for backend in (CodexBackend, ClaudeBackend, ZooBackend, AiderBackend)}
 
 
 def extract_json_object(text):
-    """Достать объект результата из текста модели: она любит обрамить его разметкой."""
-    stripped = re.sub(r"^\s*```(?:json)?|```\s*$", "", text.strip(), flags=re.MULTILINE).strip()
-    start, depth, in_string, escaped = stripped.find("{"), 0, False, False
-    if start < 0:
+    """Достать объект результата из текста модели: она любит обрамить его разметкой.
+
+    Берётся ПОСЛЕДНИЙ объект, который разбирается как JSON и несёт `status`, а не первая
+    фигурная скобка: ночь 2026-09-27-0224 умерла в 05:27, потому что приёмщик процитировал
+    код `{ timeout: DATA_READY_TIMEOUT }` раньше своего результата. Результат — последний
+    вывод по инструкции, значит и искать его с конца.
+    """
+    decoder = json.JSONDecoder()
+    found = parsed = None
+    index = text.find("{")
+    if index < 0:
         raise RuntimeError(f"В ответе нет JSON-объекта: {text[:400]}")
-    for index in range(start, len(stripped)):
-        char = stripped[index]
-        if in_string:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == '"':
-                in_string = False
+    while index >= 0:
+        try:
+            value, end = decoder.raw_decode(text, index)
+        except ValueError:
+            index = text.find("{", index + 1)
             continue
-        if char == '"':
-            in_string = True
-        elif char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-            if depth == 0:
-                return stripped[start:index + 1]
-    raise RuntimeError(f"JSON-объект в ответе не закрыт: {text[:400]}")
+        if isinstance(value, dict):
+            parsed = text[index:end]
+            if "status" in value:
+                found = parsed
+        index = text.find("{", end)
+    found = found or parsed
+    if found is None:
+        raise RuntimeError(f"В ответе нет JSON-объекта результата: {text[:400]}")
+    return found
 
 
 def load_routing(path, codex_binary=None):
@@ -232,6 +297,8 @@ def load_routing(path, codex_binary=None):
         name = options.pop("backend", None)
         if name not in BACKENDS:
             raise ValueError(f"Неизвестный бэкенд для роли {role}: {name}")
+        if role not in getattr(BACKENDS[name], "roles", ROLES):
+            raise ValueError(f"Бэкенд {name} не может быть в роли {role}")
         backends[role] = BACKENDS[name](options)
     if backends["work"].name == backends["review"].name and backends["work"].options == backends["review"].options:
         # Политика прогона: приёмку делает не тот, кто писал. Один и тот же бэкенд

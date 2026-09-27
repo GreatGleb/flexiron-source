@@ -22,16 +22,16 @@
 отличается от обязанностей сервера — §18; непрозрачность `id` — §19. Ниже — только то, что живёт в
 этом домене.
 
-**Источник истины — мок и клиент, по 35 путям из 37.** Два пути читаются с бэкенда: список партий
-`GET /api/warehouse/batches` (раздел «Партии» ниже) и `GET /api/warehouse/batches/:batchId/aggregates`
-(раздел ниже). Модуль `backend/app/modules/warehouse` существует, и у него **два** роута — оба в
-одном слайсе: `grep -rn "@router\." backend/app/modules/warehouse --include=*.py` находит два
-попадания, оба в `features/list_batches/action.py`; `features/` несёт полный слайс (`schemas.py`,
-`repository.py`, `domain.py`, `action.py`, `__init__.py`), а не только пустой `__init__.py`, и
-`app/main.py` подключает его наряду с остальными через
-`app.include_router(warehouse_list_batches_router)`. Поэтому у каждого раздела ниже, кроме списка
-партий и агрегатов, всё ещё стоит строка **`Бэкенд: не реализован`** — форма «модуль есть, серверной
-половины почти нет».
+**Источник истины — мок и клиент, по 30 путям из 37.** Семь путей обслуживает бэкенд: список партий
+`GET /api/warehouse/batches` (раздел «Партии» ниже), агрегаты
+`GET /api/warehouse/batches/:batchId/aggregates`, журнал партии `GET /api/warehouse/batches/:batchId/audit`,
+удаление его записи `DELETE /api/warehouse/batches/:batchId/audit/:entryId` (разделы ниже) и три раздела
+движений. Модуль `backend/app/modules/warehouse` существует, и у него **семь** роутов в трёх слайсах —
+`features/list_batches/`, `features/list_movements/` и `features/batch_audit/`; каждый несёт полный набор
+(`schemas.py`, `repository.py`, `domain.py`, `action.py`, `__init__.py`). `app/main.py` подключает их
+обходом `app/**/action.py`. Поэтому у каждого раздела ниже, кроме списка партий, агрегатов, трёх разделов
+движений и двух разделов журнала партии, всё ещё стоит строка **`Бэкенд: не реализован`** — форма
+«модуль есть, серверной половины почти нет».
 Метка `**Статус:** спроектировано` в этом домене не стоит ни у одного раздела и стоять не должна:
 она про отсутствие кода вообще, а клиент и мок есть у всех 37 путей.
 
@@ -724,7 +724,7 @@ Save-режим: чтение.
 тоже** (`WarehouseBatch.auditLog?`, `frontend_vue/src/types/warehouse.ts:123`), и оба пути обязаны
 отдавать одно и то же.
 
-Бэкенд: не реализован — но именно у этого журнала хранение на схеме есть:
+Бэкенд: реализован — слайс `backend/app/modules/warehouse/features/batch_audit/`, функция `get_batch_audit`; хранение на схеме есть:
 `stock_audit_entries` привязана к партии (`backend/app/modules/warehouse/shared/models.py:286-315`),
 автор — `user_id` с `ondelete="SET NULL"` (`:246-250`), тексты — `JSONB` (`:251`, `:253`). У
 остальных четырёх журналов домена таблицы нет.
@@ -750,7 +750,7 @@ Save-режим: quick-action по подтверждению модала.
 `id`, и решение владельца о праве. Из всех шести таких эндпоинтов домена прежний контракт описывал
 **только этот**, и описывал верно.
 
-Бэкенд: не реализован.
+Бэкенд: реализован — слайс `backend/app/modules/warehouse/features/batch_audit/`, функция `delete_batch_audit_entry`.
 Реализация: `services/warehouseService.ts:deleteBatchAuditEntry` · мок `mocks/index.ts:1443` →
 `services/mocks/warehouse.ts:mockDeleteBatchAuditEntry`
 

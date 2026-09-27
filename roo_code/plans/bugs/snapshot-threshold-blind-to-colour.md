@@ -109,7 +109,7 @@ rgba(0,210,180,.06) 0 0 12px`.
 
 Заведено 2026-08-30 при работе над порогом. **Вне области того пункта, не чинилось.**
 
-**File:** `frontend_vue/tests/e2e/admin/layout.spec.ts:372-378`
+**File:** `frontend_vue/tests/e2e/admin/layout.spec.ts:436-442`
 **Severity:** Low — эталон что-то охраняет, но не то, что обещает имя
 
 ### Problem

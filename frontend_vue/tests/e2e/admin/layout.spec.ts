@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import { test, expect } from '../fixtures'
 import { navigateToAdmin } from '../helpers/admin'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../helpers/visual'
-import { waitForDataReady } from '../helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from '../helpers/ready'
 
 /**
  * Deep audit of AdminLayout shell: AdminSidebar + AdminTopbar + useSidebar behavior.
@@ -55,10 +55,18 @@ test.describe('admin layout › structure', () => {
     await page.setViewportSize(DESKTOP)
     await navigateToAdmin(page, DASHBOARD)
 
-    await expect.soft(page.locator('[data-test="admin-shell"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="sidebar-root"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="topbar-root"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="admin-main"]')).toBeVisible()
+    await expect.soft(page.locator('[data-test="admin-shell"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect.soft(page.locator('[data-test="sidebar-root"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect.soft(page.locator('[data-test="topbar-root"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect.soft(page.locator('[data-test="admin-main"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('sidebar has all 6 nav entries', async ({ page }) => {
@@ -73,7 +81,9 @@ test.describe('admin layout › structure', () => {
       'sidebar-nav-finance',
     ]
     for (const id of expected) {
-      await expect.soft(page.locator(`[data-test="${id}"]`)).toBeVisible()
+      await expect.soft(page.locator(`[data-test="${id}"]`)).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     }
   })
 
@@ -82,11 +92,19 @@ test.describe('admin layout › structure', () => {
   }) => {
     await page.setViewportSize(DESKTOP)
     await page.goto(DASHBOARD)
-    await expect.soft(page.locator('[data-test="sidebar-footer"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="sidebar-settings"]')).toBeVisible()
+    await expect.soft(page.locator('[data-test="sidebar-footer"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect.soft(page.locator('[data-test="sidebar-settings"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // CSS (.sidebar .user-profile, .sidebar .lang-switcher { display: none }) — hidden on desktop
-    await expect.soft(page.locator('[data-test="sidebar-user"]')).toBeHidden()
-    await expect.soft(page.locator('[data-test="sidebar-lang-switcher"]')).toBeHidden()
+    await expect.soft(page.locator('[data-test="sidebar-user"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect.soft(page.locator('[data-test="sidebar-lang-switcher"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('sidebar footer @1000: user + lang + settings all visible (tablet takeover)', async ({
@@ -94,20 +112,38 @@ test.describe('admin layout › structure', () => {
   }) => {
     await page.setViewportSize(TABLET)
     await page.goto(DASHBOARD)
-    await expect.soft(page.locator('[data-test="sidebar-footer"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="sidebar-user"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="sidebar-lang-switcher"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="sidebar-settings"]')).toBeVisible()
+    await expect.soft(page.locator('[data-test="sidebar-footer"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect.soft(page.locator('[data-test="sidebar-user"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect.soft(page.locator('[data-test="sidebar-lang-switcher"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect.soft(page.locator('[data-test="sidebar-settings"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('topbar has menu-toggle, search, lang-switcher, notifications, user', async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await page.goto(DASHBOARD)
-    await expect.soft(page.locator('[data-test="topbar-menu-toggle"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="topbar-search"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="topbar-lang-switcher"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="topbar-notifications"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="topbar-user"]')).toBeVisible()
+    await expect.soft(page.locator('[data-test="topbar-menu-toggle"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect.soft(page.locator('[data-test="topbar-search"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect.soft(page.locator('[data-test="topbar-lang-switcher"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect.soft(page.locator('[data-test="topbar-notifications"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect.soft(page.locator('[data-test="topbar-user"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -121,7 +157,9 @@ test.describe('admin layout › sidebar collapse (desktop)', () => {
 
   test('initial state: shell is not collapsed', async ({ page }) => {
     await page.goto(DASHBOARD)
-    await expect(page.locator('[data-test="admin-shell"]')).not.toHaveClass(/sidebar-collapsed/)
+    await expect(page.locator('[data-test="admin-shell"]')).not.toHaveClass(/sidebar-collapsed/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('clicking menu-toggle adds sidebar-collapsed class', async ({ page }) => {
@@ -130,7 +168,9 @@ test.describe('admin layout › sidebar collapse (desktop)', () => {
     // успела ли страница подняться, а этого он не контролирует.
     await waitForDataReady(page)
     await page.locator('[data-test="topbar-menu-toggle"]').click()
-    await expect(page.locator('[data-test="admin-shell"]')).toHaveClass(/sidebar-collapsed/)
+    await expect(page.locator('[data-test="admin-shell"]')).toHaveClass(/sidebar-collapsed/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('clicking menu-toggle twice restores expanded state', async ({ page }) => {
@@ -138,9 +178,9 @@ test.describe('admin layout › sidebar collapse (desktop)', () => {
     const toggle = page.locator('[data-test="topbar-menu-toggle"]')
     const shell = page.locator('[data-test="admin-shell"]')
     await toggle.click()
-    await expect(shell).toHaveClass(/sidebar-collapsed/)
+    await expect(shell).toHaveClass(/sidebar-collapsed/, { timeout: DATA_READY_TIMEOUT })
     await toggle.click()
-    await expect(shell).not.toHaveClass(/sidebar-collapsed/)
+    await expect(shell).not.toHaveClass(/sidebar-collapsed/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('collapsed state persists to localStorage', async ({ page }) => {
@@ -159,7 +199,9 @@ test.describe('admin layout › sidebar collapse (desktop)', () => {
     // успела ли страница подняться, а этого он не контролирует.
     await waitForDataReady(page)
     await page.locator('[data-test="topbar-menu-toggle"]').click()
-    await expect(page.locator('[data-test="admin-shell"]')).toHaveClass(/sidebar-collapsed/)
+    await expect(page.locator('[data-test="admin-shell"]')).toHaveClass(/sidebar-collapsed/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.reload()
     // Тот же признак, что и до перезагрузки: страница снова поднялась и получила
     // свои данные. `networkidle` наступал бы раньше этого.
@@ -170,7 +212,9 @@ test.describe('admin layout › sidebar collapse (desktop)', () => {
   test('sidebar-close button is hidden on desktop (CSS)', async ({ page }) => {
     // `.sidebar-close { display: none }` until the <=860 media query; ensure we don't rely on it at desktop.
     await page.goto(DASHBOARD)
-    await expect(page.locator('[data-test="sidebar-close-btn"]')).toBeHidden()
+    await expect(page.locator('[data-test="sidebar-close-btn"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -184,14 +228,16 @@ test.describe('admin layout › sidebar drawer (mobile)', () => {
 
   test('initial state: shell is not active', async ({ page }) => {
     await page.goto(DASHBOARD)
-    await expect(page.locator('[data-test="admin-shell"]')).not.toHaveClass(/sidebar-active/)
+    await expect(page.locator('[data-test="admin-shell"]')).not.toHaveClass(/sidebar-active/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('menu-toggle toggles sidebar-active on mobile', async ({ page }) => {
     await page.goto(DASHBOARD)
     const shell = page.locator('[data-test="admin-shell"]')
     await page.locator('[data-test="topbar-menu-toggle"]').click()
-    await expect(shell).toHaveClass(/sidebar-active/)
+    await expect(shell).toHaveClass(/sidebar-active/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('mobile toggle does NOT persist to localStorage', async ({ page }) => {
@@ -209,10 +255,12 @@ test.describe('admin layout › sidebar drawer (mobile)', () => {
     await page.goto(DASHBOARD)
     const shell = page.locator('[data-test="admin-shell"]')
     await page.locator('[data-test="topbar-menu-toggle"]').click()
-    await expect(shell).toHaveClass(/sidebar-active/)
-    await expect(page.locator('[data-test="sidebar-close-btn"]')).toBeVisible()
+    await expect(shell).toHaveClass(/sidebar-active/, { timeout: DATA_READY_TIMEOUT })
+    await expect(page.locator('[data-test="sidebar-close-btn"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.locator('[data-test="sidebar-close-btn"]').click()
-    await expect(shell).not.toHaveClass(/sidebar-active/)
+    await expect(shell).not.toHaveClass(/sidebar-active/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('open drawer locks body scroll', async ({ page }) => {
@@ -235,9 +283,9 @@ test.describe('admin layout › topbar search', () => {
     await page.goto(DASHBOARD)
     const search = page.locator('[data-test="topbar-search"]')
     await search.fill('acme')
-    await expect(search).toHaveValue('acme')
+    await expect(search).toHaveValue('acme', { timeout: DATA_READY_TIMEOUT })
     await search.fill('')
-    await expect(search).toHaveValue('')
+    await expect(search).toHaveValue('', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('has a localized placeholder', async ({ page }) => {
@@ -264,7 +312,9 @@ test.describe('admin layout › lang switcher', () => {
     // успела ли страница подняться, а этого он не контролирует.
     await waitForDataReady(page)
     await page.locator('[data-test="topbar-lang-en"]').click()
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     const stored = await page.evaluate(() => localStorage.getItem('flexiron_lang'))
     expect(stored).toBe('en')
   })
@@ -275,7 +325,9 @@ test.describe('admin layout › lang switcher', () => {
     // успела ли страница подняться, а этого он не контролирует.
     await waitForDataReady(page)
     await page.locator('[data-test="topbar-lang-lt"]').click()
-    await expect(page.locator('html')).toHaveAttribute('lang', 'lt')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'lt', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('topbar RU click sets html[lang]=ru', async ({ page }) => {
@@ -285,7 +337,9 @@ test.describe('admin layout › lang switcher', () => {
     await waitForDataReady(page)
     await page.locator('[data-test="topbar-lang-en"]').click()
     await page.locator('[data-test="topbar-lang-ru"]').click()
-    await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('sidebar EN click sets html[lang]=en (tablet viewport)', async ({ page }) => {
@@ -296,7 +350,9 @@ test.describe('admin layout › lang switcher', () => {
     // успела ли страница подняться, а этого он не контролирует.
     await waitForDataReady(page)
     await page.locator('[data-test="sidebar-lang-en"]').click()
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('active class reflects current locale in both switchers', async ({ page }) => {
@@ -306,8 +362,12 @@ test.describe('admin layout › lang switcher', () => {
     // успела ли страница подняться, а этого он не контролирует.
     await waitForDataReady(page)
     await page.locator('[data-test="topbar-lang-en"]').click()
-    await expect(page.locator('[data-test="topbar-lang-en"]')).toHaveClass(/active/)
-    await expect(page.locator('[data-test="sidebar-lang-en"]')).toHaveClass(/active/)
+    await expect(page.locator('[data-test="topbar-lang-en"]')).toHaveClass(/active/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="sidebar-lang-en"]')).toHaveClass(/active/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -325,17 +385,21 @@ test.describe('admin layout › navigation', () => {
     // успела ли страница подняться, а этого он не контролирует.
     await waitForDataReady(page)
     await page.locator('[data-test="sidebar-nav-suppliers"]').click()
-    await expect(page).toHaveURL(SUPPLIERS)
+    await expect(page).toHaveURL(SUPPLIERS, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('analytics nav-link gets active class on analytics routes', async ({ page }) => {
     await page.goto(DASHBOARD)
-    await expect(page.locator('[data-test="sidebar-nav-analytics"]')).toHaveClass(/active/)
+    await expect(page.locator('[data-test="sidebar-nav-analytics"]')).toHaveClass(/active/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('suppliers nav-link gets active class on /admin/suppliers', async ({ page }) => {
     await page.goto(SUPPLIERS)
-    await expect(page.locator('[data-test="sidebar-nav-suppliers"]')).toHaveClass(/active/)
+    await expect(page.locator('[data-test="sidebar-nav-suppliers"]')).toHaveClass(/active/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('placeholder nav-links (items/warehouse/sales/finance) do not navigate away', async ({
@@ -392,16 +456,19 @@ test.describe('admin layout › visual @1440', () => {
     expect(beforeBox!.x).toBeGreaterThanOrEqual(0)
 
     await page.locator('[data-test="topbar-menu-toggle"]').click()
-    await expect(shell).toHaveClass(/sidebar-collapsed/)
+    await expect(shell).toHaveClass(/sidebar-collapsed/, { timeout: DATA_READY_TIMEOUT })
 
     // Сайдбар действительно УЕХАЛ, а не просто получил класс: его правый край левее
     // нуля. Утверждение о классе одно этого не доказывает — класс может ничего не
     // делать, и тогда снимок ниже сторожил бы перекрытый дашборд как нормальный вид.
     await expect
-      .poll(async () => {
-        const box = await sidebar.boundingBox()
-        return box === null ? -1 : box.x + box.width
-      })
+      .poll(
+        async () => {
+          const box = await sidebar.boundingBox()
+          return box === null ? -1 : box.x + box.width
+        },
+        { timeout: DATA_READY_TIMEOUT },
+      )
       .toBeLessThanOrEqual(0)
 
     await expect(page.locator('[data-test="sidebar-root"]')).toHaveScreenshot(

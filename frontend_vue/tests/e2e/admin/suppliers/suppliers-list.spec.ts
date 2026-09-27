@@ -221,27 +221,39 @@ test.describe('suppliers-list › search', () => {
   test('typing "Steel" narrows to 2 rows (Steel Plus + Nordic Steel)', async ({ page }) => {
     await page.locator('[data-test="suppliers-search-input"]').fill('Steel')
     // 300 ms debounce + reactive watcher — poll until the expected count lands.
-    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(2)
+    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(2, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('typing "metal" (case-insensitive) narrows to 3 rows', async ({ page }) => {
     // "Metal Trade", "Baltic Metal", "Euro Metal" — 3 rows.
     await page.locator('[data-test="suppliers-search-input"]').fill('metal')
-    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(3)
+    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(3, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('non-matching query yields the empty state instead of rows', async ({ page }) => {
     await page.locator('[data-test="suppliers-search-input"]').fill('zzz-no-match')
-    await expect(page.locator('[data-test="suppliers-empty-state"]')).toBeVisible()
-    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="suppliers-empty-state"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('clearing the search restores all rows', async ({ page }) => {
     const input = page.locator('[data-test="suppliers-search-input"]')
     await input.fill('Steel')
-    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(2)
+    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(2, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await input.fill('')
-    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(TOTAL_MOCK)
+    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(TOTAL_MOCK, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -262,7 +274,7 @@ test.describe('suppliers-list › status filter', () => {
     const options = page.locator(
       '[data-test="suppliers-filter-status"] .custom-select-list.open .custom-select-option',
     )
-    await expect(options).toHaveCount(7)
+    await expect(options).toHaveCount(7, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('selecting "active" narrows to 3 rows', async ({ page }) => {
@@ -273,7 +285,9 @@ test.describe('suppliers-list › status filter', () => {
         '[data-test="suppliers-filter-status"] .custom-select-option .status-pill.pill-success',
       )
       .click()
-    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(3)
+    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(3, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('selecting "preferred" narrows to 1 row', async ({ page }) => {
@@ -281,7 +295,9 @@ test.describe('suppliers-list › status filter', () => {
     await page
       .locator('[data-test="suppliers-filter-status"] .custom-select-option .status-pill.pill-info')
       .click()
-    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('selecting "blocked" yields the empty state (0 mock rows with that status)', async ({
@@ -293,7 +309,9 @@ test.describe('suppliers-list › status filter', () => {
         '[data-test="suppliers-filter-status"] .custom-select-option .status-pill.pill-danger',
       )
       .click()
-    await expect(page.locator('[data-test="suppliers-empty-state"]')).toBeVisible()
+    await expect(page.locator('[data-test="suppliers-empty-state"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -308,7 +326,7 @@ test.describe('suppliers-list › category filter', () => {
     const options = page.locator(
       '[data-test="suppliers-filter-category"] .multi-select-list.open .multi-select-option',
     )
-    await expect(options).toHaveCount(8)
+    await expect(options).toHaveCount(8, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('checking first category (Sheets) narrows to 2 rows (Steel Plus + Nordic Steel)', async ({
@@ -320,7 +338,9 @@ test.describe('suppliers-list › category filter', () => {
       .first()
       .locator('input[type="checkbox"]')
       .check()
-    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(2)
+    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(2, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('checking two categories uses OR semantics (union of matches)', async ({ page }) => {
@@ -329,7 +349,9 @@ test.describe('suppliers-list › category filter', () => {
     const opts = page.locator('[data-test="suppliers-filter-category"] .multi-select-option')
     await opts.nth(0).locator('input[type="checkbox"]').check() // Sheets
     await opts.nth(2).locator('input[type="checkbox"]').check() // Beams
-    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(4)
+    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(4, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('selected categories render as chips inside the trigger', async ({ page }) => {
@@ -343,7 +365,7 @@ test.describe('suppliers-list › category filter', () => {
       page.locator(
         '[data-test="suppliers-filter-category"] .custom-select-trigger .multi-select-tags .tag:not(.tag-more)',
       ),
-    ).toHaveCount(1)
+    ).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -358,20 +380,24 @@ test.describe('suppliers-list › rating filter', () => {
     const options = page.locator(
       '[data-test="suppliers-filter-rating"] .custom-select-list.open .custom-select-option',
     )
-    await expect(options).toHaveCount(6)
+    await expect(options).toHaveCount(6, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('selecting 5-star narrows to 1 row (Steel Plus)', async ({ page }) => {
     await page.locator('[data-test="suppliers-filter-rating"] .custom-select-trigger').click()
     // Options order: [0 any, 5, 4, 3, 2, 1]. nth(1) = 5.
     await page.locator('[data-test="suppliers-filter-rating"] .custom-select-option').nth(1).click()
-    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('selecting 4-star narrows to 3 rows', async ({ page }) => {
     await page.locator('[data-test="suppliers-filter-rating"] .custom-select-trigger').click()
     await page.locator('[data-test="suppliers-filter-rating"] .custom-select-option').nth(2).click()
-    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(3)
+    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(3, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -386,24 +412,34 @@ test.describe('suppliers-list › view switch', () => {
 
   test('clicking the kanban tab shows the kanban view and hides the table', async ({ page }) => {
     await page.locator('[data-test="suppliers-view-tabs"] button').nth(1).click()
-    await expect.soft(page.locator('[data-test="suppliers-kanban-view"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="suppliers-table-view"]')).toBeHidden()
+    await expect
+      .soft(page.locator('[data-test="suppliers-kanban-view"]'))
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
+    await expect.soft(page.locator('[data-test="suppliers-table-view"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('clicking the kanban tab marks it active and un-marks the table tab', async ({ page }) => {
     const tabs = page.locator('[data-test="suppliers-view-tabs"] button')
     await tabs.nth(1).click()
-    await expect.soft(tabs.nth(1)).toHaveClass(/\bactive\b/)
-    await expect.soft(tabs.nth(0)).not.toHaveClass(/\bactive\b/)
+    await expect.soft(tabs.nth(1)).toHaveClass(/\bactive\b/, { timeout: DATA_READY_TIMEOUT })
+    await expect.soft(tabs.nth(0)).not.toHaveClass(/\bactive\b/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('clicking the table tab after kanban restores the table view', async ({ page }) => {
     const tabs = page.locator('[data-test="suppliers-view-tabs"] button')
     await tabs.nth(1).click()
-    await expect(page.locator('[data-test="suppliers-kanban-view"]')).toBeVisible()
+    await expect(page.locator('[data-test="suppliers-kanban-view"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await tabs.nth(0).click()
-    await expect.soft(page.locator('[data-test="suppliers-table-view"]')).toBeVisible()
-    await expect.soft(page.locator('[data-test="suppliers-kanban-view"]')).toBeHidden()
+    await expect
+      .soft(page.locator('[data-test="suppliers-table-view"]'))
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
+    await expect.soft(page.locator('[data-test="suppliers-kanban-view"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -415,20 +451,24 @@ test.describe('suppliers-list › kanban view', () => {
     await page.setViewportSize(DESKTOP)
     await openSuppliersList(page)
     await page.locator('[data-test="suppliers-view-tabs"] button').nth(1).click()
-    await expect(page.locator('[data-test="suppliers-kanban-view"]')).toBeVisible()
+    await expect(page.locator('[data-test="suppliers-kanban-view"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('renders 6 columns (one per status)', async ({ page }) => {
     for (const status of ['active', 'preferred', 'new', 'under_review', 'suspended', 'blocked']) {
       await expect
         .soft(page.locator(`[data-test="suppliers-kanban-column-${status}"]`))
-        .toBeVisible()
+        .toBeVisible({ timeout: DATA_READY_TIMEOUT })
     }
   })
 
   test('active column holds 3 cards', async ({ page }) => {
     const col = page.locator('[data-test="suppliers-kanban-column-active"]')
-    await expect(col.locator('[data-test="suppliers-kanban-card"]')).toHaveCount(3)
+    await expect(col.locator('[data-test="suppliers-kanban-card"]')).toHaveCount(3, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('preferred/new/under_review columns hold exactly 1 card each', async ({ page }) => {
@@ -438,21 +478,21 @@ test.describe('suppliers-list › kanban view', () => {
           .locator('[data-test="suppliers-kanban-column-preferred"]')
           .locator('[data-test="suppliers-kanban-card"]'),
       )
-      .toHaveCount(1)
+      .toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
     await expect
       .soft(
         page
           .locator('[data-test="suppliers-kanban-column-new"]')
           .locator('[data-test="suppliers-kanban-card"]'),
       )
-      .toHaveCount(1)
+      .toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
     await expect
       .soft(
         page
           .locator('[data-test="suppliers-kanban-column-under_review"]')
           .locator('[data-test="suppliers-kanban-card"]'),
       )
-      .toHaveCount(1)
+      .toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('suspended and blocked columns are empty', async ({ page }) => {
@@ -462,14 +502,14 @@ test.describe('suppliers-list › kanban view', () => {
           .locator('[data-test="suppliers-kanban-column-suspended"]')
           .locator('[data-test="suppliers-kanban-card"]'),
       )
-      .toHaveCount(0)
+      .toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
     await expect
       .soft(
         page
           .locator('[data-test="suppliers-kanban-column-blocked"]')
           .locator('[data-test="suppliers-kanban-card"]'),
       )
-      .toHaveCount(0)
+      .toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('column header badge shows the card count', async ({ page }) => {
@@ -477,12 +517,12 @@ test.describe('suppliers-list › kanban view', () => {
     const activeBadge = page.locator(
       '[data-test="suppliers-kanban-column-active"] .panel-badge span',
     )
-    await expect(activeBadge).toHaveText('3')
+    await expect(activeBadge).toHaveText('3', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('kanban cards are draggable', async ({ page }) => {
     const card = page.locator('[data-test="suppliers-kanban-card"]').first()
-    await expect(card).toHaveAttribute('draggable', 'true')
+    await expect(card).toHaveAttribute('draggable', 'true', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('kanban card title links to the supplier card page', async ({ page }) => {
@@ -490,7 +530,9 @@ test.describe('suppliers-list › kanban view', () => {
       .locator('[data-test="suppliers-kanban-card"]')
       .first()
       .locator('.kanban-card-title')
-    await expect(link).toHaveAttribute('href', /\/admin\/suppliers\/\w+$/)
+    await expect(link).toHaveAttribute('href', /\/admin\/suppliers\/\w+$/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -532,8 +574,10 @@ test.describe('suppliers-list › pagination', () => {
   test('page-size dropdown opens upward and lists three options (25/50/100)', async ({ page }) => {
     await page.locator('[data-test="suppliers-page-size"] .custom-select-trigger').click()
     const list = page.locator('[data-test="suppliers-page-size"] .custom-select-list.open')
-    await expect.soft(list).toHaveClass(/\bopen-up\b/)
-    await expect.soft(list.locator('.custom-select-option')).toHaveCount(3)
+    await expect.soft(list).toHaveClass(/\bopen-up\b/, { timeout: DATA_READY_TIMEOUT })
+    await expect.soft(list.locator('.custom-select-option')).toHaveCount(3, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -583,8 +627,12 @@ test.describe('suppliers-list › save view', () => {
     await page.locator('[data-test="suppliers-save-view-btn"]').click()
     await page.reload()
     // Признак — сам восстановленный вид: утверждение ниже его и ждёт.
-    await expect(page.locator('[data-test="suppliers-kanban-view"]')).toBeVisible()
-    await expect(page.locator('[data-test="suppliers-table-view"]')).toBeHidden()
+    await expect(page.locator('[data-test="suppliers-kanban-view"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="suppliers-table-view"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -695,7 +743,7 @@ test.describe('suppliers-list › visual @1440', () => {
   test('kanban board', async ({ page }) => {
     await page.locator('[data-test="suppliers-view-tabs"] button').nth(1).click()
     const kanban = page.locator('[data-test="suppliers-kanban-board"]')
-    await expect(kanban).toBeVisible()
+    await expect(kanban).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await expect(kanban).toHaveScreenshot('suppliers-list-kanban-board.png', SNAPSHOT_OPTIONS)
   })
 })

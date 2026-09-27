@@ -15,6 +15,9 @@ import unittest
 
 
 RUNNER = Path(__file__).with_name("codex-night.py").resolve()
+_refs = importlib.util.spec_from_file_location("refs_shift", RUNNER.with_name("refs_shift.py"))
+refs_shift = importlib.util.module_from_spec(_refs)
+_refs.loader.exec_module(refs_shift)
 _spec = importlib.util.spec_from_file_location("night_db", RUNNER.with_name("night_db.py"))
 night_db = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(night_db)
@@ -71,6 +74,8 @@ if work:
         subprocess.check_call(['git', 'add', 'plan.md'])
     if mode == 'branch':
         subprocess.check_call(['git', 'switch', '-c', 'auto/unexpected'])
+if not work:
+    time.sleep(float(os.environ.get('NIGHT_TEST_REVIEW_SLEEP', '0')))
 if not work and mode in ('review-writes', 'review-writes-blocked'):
     pathlib.Path('plan.md').write_text('tampered\n')
 if mode == 'cli-error' or (not work and mode == 'review-cli-error'):
@@ -105,6 +110,8 @@ countfile = pathlib.Path(os.environ['NIGHT_TEST_COUNT'])
 count = int(countfile.read_text()) if countfile.exists() else 0
 countfile.write_text(str(count + 1))
 print('fake verification', count)
+import time
+time.sleep(float(os.environ.get('NIGHT_TEST_VERIFY_SLEEP', '0')))
 sys.exit(1 if mode == 'baseline-red' or (mode == 'verify-red' and count > 0)
          or (mode == 'first-check-red' and count == 1) else 0)
 '''
@@ -384,6 +391,24 @@ class PilotTest(unittest.TestCase):
         self.assertTrue((self.logs / "plan-check-verify.stdout.log").is_file())
         self.assertFalse((self.logs / "plan-work.prompt.txt").exists())
 
+    def test_retry_accepts_references_renumbered_by_the_controller(self):
+        """Ночь 2026-09-27-0224: после остановки на приёмке в checkout лежал и документ,
+        перенумерованный контроллером, — повтор отказывал «вне области задачи»."""
+        (self.root / "ref.md").write_text("ссылка plan.md:1\n")
+        self.git("add", "ref.md")
+        self.git("commit", "-m", "документ со ссылкой")
+        self.assertEqual(self.invoke("review-cli-error").returncode, 1)
+        previous = self.logs
+        (self.root / "ref.md").write_text("ссылка plan.md:2\n")   # как после refs_shift
+        (previous / "plan-refs.json").write_text(json.dumps(
+            {"перенумеровано": [{"документ": "ref.md", "строка": 1, "было": "plan.md:1", "стало": "plan.md:2"}],
+             "требуют_глаз": []}, ensure_ascii=False))
+        self.logs = self.base / "retry"
+        result = self.invoke("must-not-repeat-author", previous=previous)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["status"], "completed", self.state())
+        self.assertIn("ref.md", self.git("show", "--name-only", "--format=", "HEAD").split())
+
     def test_retry_rejects_unrelated_changes(self):
         self.assertEqual(self.invoke("review-cli-error").returncode, 1)
         previous = self.logs
@@ -559,6 +584,31 @@ class PilotTest(unittest.TestCase):
         self.assertEqual([x["task"] for x in state["completed"]], ["third"])
         self.assertNotEqual(state["blocked"][0]["stash"], state["blocked"][1]["stash"])
         self.assertEqual(self.git("diff", "--name-only", self.baseline, "HEAD"), "third.md")
+
+    def test_more_broken_links_block_the_task_at_checks(self):
+        # Поддельный резолвер: битая ссылка — строка «prepared», которую пишет автор.
+        spec = self.root / "frontend_vue/src/services/contractRefs.spec.ts"
+        spec.parent.mkdir(parents=True)
+        spec.write_text("// резолвер\n")
+        (self.root / ".gitignore").write_text("node_modules/\n")
+        self.git("add", "-A")
+        self.git("commit", "-m", "резолвер")
+        vitest = self.root / "frontend_vue/node_modules/.bin/vitest"
+        vitest.parent.mkdir(parents=True)
+        vitest.write_text("#!/usr/bin/env python3\nimport os, pathlib\n"
+                          "doc = pathlib.Path('..', os.environ['CONTRACT_REFS']).read_text()\n"
+                          "print(f'[ссылки] документов 1 · ссылок 3 · битых {doc.count(\"prepared\")}')\n")
+        vitest.chmod(0o755)
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        blocked = self.state()["blocked"]
+        self.assertEqual([(b["task"], b["phase"]) for b in blocked], [("plan", "checks")])
+        self.assertIn("plan.md: битых ссылок стало больше — было 0, стало 1", blocked[0]["reason"])
+
+    def test_link_report_is_parsed_from_the_last_count(self):
+        self.assertIsNone(refs_shift.broken_links("vitest упал до отчёта"))
+        self.assertEqual(refs_shift.broken_links("[ссылки] документов 1 · ссылок 9 · битых 2\n"
+                                                 "[ссылки] документов 1 · ссылок 9 · битых 7"), 7)
 
     def test_archive_preserves_deletion_binary_mode_and_symlink(self):
         self.tasks(("plan", {"outputs": ["plan.md", "new.bin", "script.sh", "link"]}),

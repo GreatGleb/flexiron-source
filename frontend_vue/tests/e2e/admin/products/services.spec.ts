@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import { openAdminPage } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 test.describe('Services page', () => {
   test.beforeEach(async ({ page }) => {
@@ -26,11 +27,13 @@ test.describe('Services page', () => {
 
   test('should navigate to service card on open button click', async ({ page }) => {
     await page.click('[data-test="services-btn-open"]:first-child')
-    await expect(page).toHaveURL(/\/admin\/products\/services\/svc-/)
+    await expect(page).toHaveURL(/\/admin\/products\/services\/svc-/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('should navigate back to products page via breadcrumb', async ({ page }) => {
     await page.click('.breadcrumb-link')
-    await expect(page).toHaveURL(/\/admin\/products$/)
+    await expect(page).toHaveURL(/\/admin\/products$/, { timeout: DATA_READY_TIMEOUT })
   })
 })

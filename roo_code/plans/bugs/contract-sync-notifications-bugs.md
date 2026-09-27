@@ -237,7 +237,7 @@ unreadCount.value = 0                                            // :68
 (`frontend_vue/src/views/admin/notifications/NotificationsPage.vue:96-99`).
 
 E2E этого не ловит: тест «mark all read in dropdown updates badge count» проверяет только
-исчезновение бейджа (`frontend_vue/tests/e2e/admin/notifications/notifications.spec.ts:166-178`).
+исчезновение бейджа (`frontend_vue/tests/e2e/admin/notifications/notifications.spec.ts:176-188`).
 
 ### Fix
 
