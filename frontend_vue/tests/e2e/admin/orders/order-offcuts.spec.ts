@@ -1,6 +1,7 @@
 import { test, expect } from '../../fixtures'
 import { enableAllFlags } from '../../helpers/flags'
 import { openAdminPage } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /**
  * Пункт 7 плана `review-followups.md`: обрезок стало возможно выбрать в строке заказа.
@@ -41,7 +42,7 @@ test.describe('Обрезки в добавлении позиции заказ�
 
     await modal.locator('[data-test="add-items-filters"] input').fill(productName)
     const productRow = modal.locator('[data-test="add-items-product-row"]').first()
-    await expect(productRow).toContainText(productName)
+    await expect(productRow).toContainText(productName, { timeout: DATA_READY_TIMEOUT })
     await productRow.click()
 
     // Признак — не «панель появилась», а строка про ИМЕННО ЭТОТ кусок: панель
@@ -84,12 +85,12 @@ test.describe('Обрезки в добавлении позиции заказ�
     // утверждение «стало не меньше материала» устроило бы и бездействие (питфолл #68).
     const qty = modal.locator('[data-test="add-items-selected-qty"]').first()
     await qty.fill('0.01')
-    await expect(qty).toHaveValue('0.01')
+    await expect(qty).toHaveValue('0.01', { timeout: DATA_READY_TIMEOUT })
 
     await offcutRow.click()
 
     await expect(offcutRow.getByTestId('add-items-offcut-checkbox')).toBeChecked()
-    await expect(qty).toHaveValue(String(material))
+    await expect(qty).toHaveValue(String(material), { timeout: DATA_READY_TIMEOUT })
   })
 
   test('рядом стоит ссылка на экран резки', async ({ page }) => {
