@@ -32,13 +32,15 @@ async function selectEntity(page: import('@playwright/test').Page, label: string
     .locator('.custom-select-option')
     .filter({ hasText: new RegExp(`^\\s*${label}\\s*$`) })
     .click()
-  await expect(select.locator('.curr-val')).toHaveText(label)
+  await expect(select.locator('.curr-val')).toHaveText(label, { timeout: DATA_READY_TIMEOUT })
   await expect(page.getByTestId('audit-log-reset-filters')).toBeVisible()
   // The reset button appears the moment the filter changes — the rows arrive one
   // request later. Wait for the feed itself, or the next read snapshots the old
   // table (whose first page is all Order rows, since an order stamps its creation
   // entry with the current time).
-  await expect(rows(page).first().locator('.audit-log-kind')).toHaveText(label)
+  await expect(rows(page).first().locator('.audit-log-kind')).toHaveText(label, {
+    timeout: DATA_READY_TIMEOUT,
+  })
 }
 
 test.describe('Audit log page', () => {
@@ -137,7 +139,9 @@ test.describe('Audit log page', () => {
     await expect(page.getByTestId('audit-log-total')).not.toHaveText(totalBefore)
 
     await page.getByTestId('audit-log-reset-filters').click()
-    await expect(page.getByTestId('audit-log-total')).toHaveText(totalBefore)
+    await expect(page.getByTestId('audit-log-total')).toHaveText(totalBefore, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('deleting removes exactly the row asked for', async ({ page }) => {
@@ -150,8 +154,12 @@ test.describe('Audit log page', () => {
     await expect(page.getByTestId('audit-log-delete-modal')).toBeVisible()
     await page.getByTestId('audit-log-delete-confirm').click()
 
-    await expect(page.locator(`[data-row-key="${targetKey}"]`)).toHaveCount(0)
-    await expect(page.locator(`[data-row-key="${neighbourKey}"]`)).toHaveCount(1)
+    await expect(page.locator(`[data-row-key="${targetKey}"]`)).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator(`[data-row-key="${neighbourKey}"]`)).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('two rows sharing an entry id: deleting one leaves the other', async ({ page }) => {
@@ -173,8 +181,12 @@ test.describe('Audit log page', () => {
     await page.locator(`[data-row-key="${first}"]`).getByTestId('audit-log-delete-btn').click()
     await page.getByTestId('audit-log-delete-confirm').click()
 
-    await expect(page.locator(`[data-row-key="${first}"]`)).toHaveCount(0)
-    await expect(page.locator(`[data-row-key="${second}"]`)).toHaveCount(1)
+    await expect(page.locator(`[data-row-key="${first}"]`)).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator(`[data-row-key="${second}"]`)).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   /**
@@ -204,12 +216,16 @@ test.describe('Audit log page', () => {
     await expect(page.locator(`[data-row-key="${key}"]`)).toBeVisible()
     await page.locator(`[data-row-key="${key}"]`).getByTestId('audit-log-delete-btn').click()
     await page.getByTestId('audit-log-delete-confirm').click()
-    await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0)
+    await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await page.goForward()
     await expect(page.getByTestId('batch-card-audit-row').first()).toBeVisible()
     // The card reads the same log: the record deleted in the feed is not on it.
-    await expect(page.locator(`[data-entry-id="${entryId}"]`)).toHaveCount(0)
+    await expect(page.locator(`[data-entry-id="${entryId}"]`)).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('deleted on the object card, gone from the feed', async ({ page }) => {
@@ -232,10 +248,12 @@ test.describe('Audit log page', () => {
     await cardRow.getByTestId('batch-card-audit-delete-btn').click()
     await expect(page.getByTestId('batch-card-audit-modal')).toBeVisible()
     await page.getByTestId('batch-card-audit-modal-confirm').click()
-    await expect(cardRows).toHaveCount(before - 1)
+    await expect(cardRows).toHaveCount(before - 1, { timeout: DATA_READY_TIMEOUT })
 
     await page.goBack()
     await expect(rows(page).first()).toBeVisible()
-    await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0)
+    await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })

@@ -151,7 +151,9 @@ test.describe('Mail Settings', () => {
     await page.locator('[data-test="settings-mail-test-btn"]').click()
 
     // Успех именно этой отправки: в тосте адрес отправителя, а не любое сообщение.
-    await expect(page.locator('.toast-container .toast.show')).toContainText(sender)
+    await expect(page.locator('.toast-container .toast.show')).toContainText(sender, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('typing in the host field makes the save bar dirty', async ({ page }) => {
@@ -195,7 +197,9 @@ test.describe('Finance Settings', () => {
     // A currency has a code and a name, and no rate: there is no conversion
     // anywhere in this system, so a rate here would be a number nothing reads.
     // The directory of currencies stays; the table of rates is gone (§7.1).
-    await expect(page.locator('[data-test="settings-modal-currency-rate"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="settings-modal-currency-rate"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('currency delete button is visible', async ({ page }) => {
@@ -244,7 +248,9 @@ test.describe('Units Settings', () => {
     // AppModal renders .modal-overlay.active with .modal-title containing the title text
     const activeOverlay = page.locator('.modal-overlay.active')
     await expect(activeOverlay).toBeVisible({ timeout: 3000 })
-    await expect(activeOverlay.locator('.modal-title')).toContainText(/Conversion|Add/)
+    await expect(activeOverlay.locator('.modal-title')).toContainText(/Conversion|Add/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 

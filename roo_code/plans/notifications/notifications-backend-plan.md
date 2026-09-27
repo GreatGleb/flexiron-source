@@ -307,7 +307,7 @@
    и по §18 мок обязан быть неотличим от сервера — рычаг, который бросает не то, что бросил бы
    сервер, проверяет не тот путь. e2e при этом не ломается: тест смотрит на видимость
    `[data-test="notifications-error"]`, а не на текст
-   ([`frontend_vue/tests/e2e/admin/notifications/notifications.spec.ts:77-88`](../../../frontend_vue/tests/e2e/admin/notifications/notifications.spec.ts)).
+   ([`frontend_vue/tests/e2e/admin/notifications/notifications.spec.ts:79-90`](../../../frontend_vue/tests/e2e/admin/notifications/notifications.spec.ts)).
    В каталоге кодов домена он остаётся с пометкой «рычаг, сервером не бросается».
 2. **`NOTIFICATION_NOT_FOUND`** ([`frontend_vue/src/services/mocks/notifications.ts:442`](../../../frontend_vue/src/services/mocks/notifications.ts))
    → `ApiRequestError({ status: 404, message: 'Notification not found', code: 'NOTIFICATION_NOT_FOUND' })`.

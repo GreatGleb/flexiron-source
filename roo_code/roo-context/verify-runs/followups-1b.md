@@ -175,7 +175,7 @@ await expect(page.locator('[data-test="suppliers-table-view"]')).toBeHidden()
 - `sales-crm.spec.ts:23` «KPI counts include an order created after them» — заказ создаётся
   и возврат идёт `page.goBack()` ×2, с комментарием ровно про то, что перезагрузка
   забыла бы созданный заказ. Правильно;
-- `audit-log.spec.ts:199/203/231` — те самые два теста из коммита f2def93: `goBack` и
+- `audit-log.spec.ts:211/203/231` — те самые два теста из коммита f2def93: `goBack` и
   `goForward`, состояние модулей живо. Правильно;
 - `layout.spec.ts:161` «collapsed state restored after reload» — `localStorage`,
   перезагрузка предмет теста. Правильно;
@@ -290,8 +290,8 @@ $ grep -rn "^\s*\(test\|baseTest\|testWithFlags\|it\)\(\.\w\+\)*(" tests --inclu
     | grep -v "describe\|beforeEach\|afterEach\|beforeAll\|afterAll\|\.step(" | wc -l
 964
 $ diff <(разбор) <(греп)                # чего греп видит больше
-> tests/e2e/admin/settings/audit-log.spec.ts:133     test.skip(term.length < 3, …)
-> tests/e2e/admin/settings/audit-log.spec.ts:170     test.skip(!twins, …)
+> tests/e2e/admin/settings/audit-log.spec.ts:135     test.skip(term.length < 3, …)
+> tests/e2e/admin/settings/audit-log.spec.ts:178     test.skip(!twins, …)
 > tests/e2e/ready-exits.spec.ts:106                  test.setTimeout(300_000)
 > tests/e2e/ready-exits.spec.ts:149                  test.setTimeout(…)
 > tests/e2e/ready-real-api.spec.ts:20                test.use({ baseURL: … })
@@ -496,14 +496,14 @@ $ node scan-1b.js
 
 | # | Место | Почему не случай |
 |---|---|---|
-| 1 | `clients.spec.ts:639` «a payment that names a document is money on that document row» | «Мутация» — клик по `a.name-link`, то есть переход внутри SPA, ничего не меняющий. А само утверждение (`not.toHaveCount(unfiltered)`) стоит ПОСЛЕ загрузки и после `fill` фильтра: оно про фильтр, применённый уже на новой странице |
+| 1 | `clients.spec.ts:657` «a payment that names a document is money on that document row» | «Мутация» — клик по `a.name-link`, то есть переход внутри SPA, ничего не меняющий. А само утверждение (`not.toHaveCount(unfiltered)`) стоит ПОСЛЕ загрузки и после `fill` фильтра: оно про фильтр, применённый уже на новой странице |
 | 2–3 | `order-offcuts.spec.ts:34` | «Мутация» — `firstAvailableOffcut`, которая только читает товар и партию со складской вкладки (внутри `openAdminPage` есть `evaluate(__mockCalls)`, отсюда и метка). Утверждения `not.toHaveText('—')` — про содержимое пришедшей строки, а не про исчезновение |
 | 4–5 | `categories.spec.ts:441` «switching language updates UI text» | Язык лежит в `localStorage`; перезагрузка его не откатывает — она и есть предмет теста. Утверждается, что подпись сменилась, а не что запись исчезла |
-| 6 | `audit-log.spec.ts:49` «loads without console errors and shows records» | `expect(errors).toHaveLength(0)` — про консоль, а не про данные; мутации нет вовсе (метку MUT дал `evaluate(__mockCalls)` внутри `navigateToAdmin`) |
+| 6 | `audit-log.spec.ts:51` «loads without console errors and shows records» | `expect(errors).toHaveLength(0)` — про консоль, а не про данные; мутации нет вовсе (метку MUT дал `evaluate(__mockCalls)` внутри `navigateToAdmin`) |
 | 7 | `suppliers-list.spec.ts:613` «stored kanban view is restored on reload» | Сохранённый вид — `localStorage`, перезагрузка предмет теста. Присутствие канбана утверждается строкой выше, то есть ноль у таблицы не может быть истиной «страница пуста» |
 | 8 | `warehouse-map.spec.ts:61` «loads without console errors» | То же, что 6 |
 
-Пары из прохода 3 (`audit-log.spec.ts:191` и `:212`) — это и есть починенные в f2def93
+Пары из прохода 3 (`audit-log.spec.ts:203` и `:212`) — это и есть починенные в f2def93
 тесты: `goBack`/`goForward` вместо `goto`. История здесь принадлежит одному документу —
 `navigateToAdmin` в `beforeEach` вызывается ОДИН раз (строка 45), дальше только клик по
 ссылке и движения по истории, второй `goto` в тестах отсутствует. Значит модули живы и

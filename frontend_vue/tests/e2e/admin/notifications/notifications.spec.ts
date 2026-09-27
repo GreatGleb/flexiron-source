@@ -1,5 +1,5 @@
 import { test, expect } from '../../fixtures'
-import { waitForDataReady } from '../../helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from '../../helpers/ready'
 import { enableAllFlags } from '../../helpers/flags'
 
 test.beforeEach(async ({ context }) => {
@@ -71,7 +71,9 @@ test.describe('Notifications Page', () => {
     // что до фильтра список был непустым (#66: отсутствие проверяется там, где
     // присутствие было).
     await expect(page.locator('[data-test="notifications-empty"]')).toBeVisible()
-    await expect(page.locator('[data-test="notifications-row"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="notifications-row"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('error state shows retry button', async ({ page }) => {
@@ -95,7 +97,7 @@ test.describe('Notifications Page', () => {
     await page.locator('[data-test="notifications-header"] button').click()
     // All rows should show "read" status
     const unreadRows = page.locator('[data-test="notifications-row"].notif-row--unread')
-    await expect(unreadRows).toHaveCount(0)
+    await expect(unreadRows).toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('clicking a notification navigates to linked entity', async ({ page }) => {

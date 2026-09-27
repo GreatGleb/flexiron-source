@@ -66,7 +66,7 @@
 **Домен не бросает ни одного кода.** Единственное исключение в моке —
 `new Error('SIMULATED_MOCK_ERROR')` под флагом `localStorage.test_mock_force_error`
 (`mocks/notifications.ts:414-419`; флаг ставит и снимает e2e-тест
-`frontend_vue/tests/e2e/admin/notifications/notifications.spec.ts:80,86`). Это тестовый рычаг, а не
+`frontend_vue/tests/e2e/admin/notifications/notifications.spec.ts:82,88`). Это тестовый рычаг, а не
 код домена. Ни `mockGetUnreadCount` (`mocks/notifications.ts:432-434`), ни `mockMarkAsRead`
 (`:436-441`), ни `mockMarkAllAsRead` (`:443-445`) не содержат ни одного `throw`.
 

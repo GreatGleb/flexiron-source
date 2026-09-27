@@ -157,7 +157,9 @@ test.describe('clients-list › search', () => {
     const searchInput = page.locator('[data-test="clients-search-input"] input')
     await searchInput.fill('Metalica')
     // Wait for 300ms debounce + mock delay
-    await expect(page.locator('[data-test="clients-row"]')).toHaveCount(1, { timeout: 5000 })
+    await expect(page.locator('[data-test="clients-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('typing "steelworks" (case-insensitive) narrows to 1 row (SIA SteelWorks)', async ({
@@ -166,23 +168,29 @@ test.describe('clients-list › search', () => {
     // Mock search checks name, companyCode, email — SIA SteelWorks name includes "SteelWorks"
     const searchInput = page.locator('[data-test="clients-search-input"] input')
     await searchInput.fill('SteelWorks')
-    await expect(page.locator('[data-test="clients-row"]')).toHaveCount(1, { timeout: 5000 })
+    await expect(page.locator('[data-test="clients-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('non-matching query yields the empty state instead of rows', async ({ page }) => {
     const searchInput = page.locator('[data-test="clients-search-input"] input')
     await searchInput.fill('zzz-no-match')
     await expect(page.locator('[data-test="clients-empty-state"]')).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('[data-test="clients-row"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="clients-row"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('clearing the search restores all rows on page 1', async ({ page }) => {
     const searchInput = page.locator('[data-test="clients-search-input"] input')
     await searchInput.fill('Metalica')
-    await expect(page.locator('[data-test="clients-row"]')).toHaveCount(1, { timeout: 5000 })
+    await expect(page.locator('[data-test="clients-row"]')).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await searchInput.fill('')
     await expect(page.locator('[data-test="clients-row"]')).toHaveCount(DEFAULT_PAGE_SIZE, {
-      timeout: 5000,
+      timeout: DATA_READY_TIMEOUT,
     })
   })
 })
@@ -231,7 +239,9 @@ test.describe('clients-list › status filter', () => {
     // здесь это отсутствие АКТИВНЫХ бейджей. До фильтра они есть, после — ни одного,
     // и пустой список этого признака не портит (см. проверку непустоты ниже).
     const rows = page.locator('[data-test="clients-row"]')
-    await expect(rows.locator('.client-status-badge.badge-active')).toHaveCount(0)
+    await expect(rows.locator('.client-status-badge.badge-active')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     // Один снимок DOM: количество строк и количество неактивных бейджей из ОДНОГО
     // рендера. Два отдельных чтения давали числа из разных моментов — та же
@@ -327,7 +337,9 @@ test.describe('clients-list › delete modal', () => {
     // and it must not flash into view before the answer arrives either.
     await page.locator('[data-test="clients-delete-btn"]').first().click()
     await expect(page.locator('[data-test="clients-delete-modal"]')).toBeVisible()
-    await expect(page.locator('[data-test="clients-delete-confirm"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="clients-delete-confirm"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="clients-delete-modal"] .text-warning')).toBeVisible()
   })
 })
@@ -538,7 +550,9 @@ test.describe('client-card › fields & save flow', () => {
     await saveBar.locator('button.btn-secondary').click()
     // Ожидание не нужно: toHaveValue ниже повторяется само, пока load() не вернёт форму.
     // Value should be restored
-    await expect(page.locator('[data-test="field-name"]')).toHaveValue('UAB Metalica')
+    await expect(page.locator('[data-test="field-name"]')).toHaveValue('UAB Metalica', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('save commits the change and disables save button', async ({ page }) => {
@@ -551,7 +565,9 @@ test.describe('client-card › fields & save flow', () => {
     await expect(saveBtn).toBeDisabled({ timeout: 5000 })
     await expect(saveBtn).not.toHaveClass(/\bdirty\b/)
     // Value persists
-    await expect(page.locator('[data-test="field-name"]')).toHaveValue(newName)
+    await expect(page.locator('[data-test="field-name"]')).toHaveValue(newName, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -586,7 +602,7 @@ test.describe('client-card › audit log', () => {
     await page.locator('[data-test="client-card-audit-delete-btn"]').first().click()
     // Deleting asks first — the row goes only after the confirmation.
     await page.click('[data-test="client-card-audit-modal-confirm"]')
-    await expect(rows).toHaveCount(before - 1)
+    await expect(rows).toHaveCount(before - 1, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('cancelling the delete keeps the entry', async ({ page }) => {
@@ -597,7 +613,7 @@ test.describe('client-card › audit log', () => {
     const before = await rows.count()
     await page.locator('[data-test="client-card-audit-delete-btn"]').first().click()
     await page.click('[data-test="client-card-audit-modal-cancel"]')
-    await expect(rows).toHaveCount(before)
+    await expect(rows).toHaveCount(before, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('delete entry shows toast notification', async ({ page }) => {
@@ -632,7 +648,9 @@ test.describe('client-card › order history', () => {
 
     await rows.first().locator('.order-link').click()
     await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/, { timeout: DATA_READY_TIMEOUT })
-    await expect(page.locator('[data-test="field-client"]')).toHaveText(clientName)
+    await expect(page.locator('[data-test="field-client"]')).toHaveText(clientName, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('order row renders order ID, date, total and status', async ({ page }) => {
@@ -789,13 +807,15 @@ test.describe('client-card › interaction history', () => {
     await page.locator('[data-test="client-card-add-interaction-btn"]').click()
     // Признак вместо 300 мс по часам: строк стало на одну больше. Само ожидание и есть
     // проверка, поэтому второе чтение не нужно.
-    await expect(interactionRows).toHaveCount(rowsBefore + 1)
+    await expect(interactionRows).toHaveCount(rowsBefore + 1, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('discard button resets the interaction form', async ({ page }) => {
     await page.locator('[data-test="field-interaction-summary-inline"]').fill('Some text')
     await page.locator('[data-test="client-card-reset-interaction-btn"]').click()
-    await expect(page.locator('[data-test="field-interaction-summary-inline"]')).toHaveValue('')
+    await expect(page.locator('[data-test="field-interaction-summary-inline"]')).toHaveValue('', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('interaction table renders with rows for CL-001', async ({ page }) => {
@@ -815,7 +835,7 @@ test.describe('client-card › interaction history', () => {
     await expect(rows.first()).toBeVisible()
     const before = await rows.count()
     await page.locator('[data-test="client-card-interaction-delete-btn"]').first().click()
-    await expect(rows).toHaveCount(before - 1)
+    await expect(rows).toHaveCount(before - 1, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
