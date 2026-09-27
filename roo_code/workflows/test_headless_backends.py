@@ -1052,6 +1052,81 @@ class AiderDriverTest(unittest.TestCase):
         self.assertIn("port=5412", stats["command_log"][0])
         self.assertEqual((stats["checks_runs"], stats["checks_green"]), (1, True), stats)
 
+    # --- ссылки своих документов (П5) ---
+
+    def with_resolver(self):
+        """Поддельный резолвер: битая ссылка — каждое слово BROKEN в документе CONTRACT_REFS."""
+        spec = self.root / "frontend_vue/src/services/contractRefs.spec.ts"
+        spec.parent.mkdir(parents=True)
+        spec.write_text("// резолвер\n")
+        vitest = self.root / "frontend_vue/node_modules/.bin/vitest"
+        vitest.parent.mkdir(parents=True)
+        vitest.write_text("#!/usr/bin/env python3\nimport os, pathlib\n"
+                          "doc = pathlib.Path('..', os.environ['CONTRACT_REFS']).read_text()\n"
+                          "print(f'[ссылки] документов 1 · ссылок 5 · битых {doc.count(\"BROKEN\")}')\n")
+        vitest.chmod(0o755)
+        (self.root / ".gitignore").write_text("node_modules/\n")
+        (self.root / "notes.md").write_text("Число: ? (старая битая: BROKEN)\n")
+        self.commit_all()
+
+    def commit_all(self):
+        self.git("add", "-A")
+        self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "fixture")
+        self.head, self.index = self.git("rev-parse", "HEAD"), self.git("write-tree")
+
+    def test_more_broken_links_go_back_to_the_model(self):
+        # Старая битая ссылка — чужая гниль, её не судят; новая — возвращается на починку.
+        self.with_resolver()
+        result, stats = self.drive([
+            edit("notes.md", "Число: ? (старая битая: BROKEN)", "Число: 42 BROKEN (старая битая: BROKEN)"),
+            "Готово.",
+            edit("notes.md", "Число: 42 BROKEN (старая битая: BROKEN)", "Число: 42 (старая битая: BROKEN)"),
+            "Починил ссылку."], ["notes.md"])
+        prompts = self.prompts()
+        self.assertIn("notes.md: битых ссылок было 1, стало 2", prompts[2])
+        self.assertEqual(stats["links_before"], {"notes.md": 1})
+        self.assertEqual((stats["checks_runs"], stats["checks_green"]), (2, True), stats)
+        self.assertEqual(result["status"], "done", result)
+        self.assertGitUntouched()
+
+    def test_old_broken_links_alone_do_not_fail_the_checks(self):
+        self.with_resolver()
+        _, stats = self.drive([edit("notes.md", "Число: ?", "Число: 42"), "Готово."], ["notes.md"])
+        self.assertEqual((stats["checks_runs"], stats["checks_green"]), (1, True), stats)
+        self.assertFalse(any("битых ссылок было" in p for p in self.prompts()))
+
+    def with_code_reference(self):
+        (self.root / "roo_code").mkdir()
+        (self.root / "roo_code/doc.md").write_text("Вычитание — `return a - b` (calc.py:2).\n")
+        self.commit_all()
+
+    CHANGED = edit("calc.py", "def add(a, b):\n    return a - b",
+                   "# сложение\ndef add(a, b):\n    return a + b")
+
+    def test_links_to_changed_lines_are_shown_to_the_model_once(self):
+        # Строка-цель изменилась, а не переехала: контроллер её не перенумерует.
+        self.with_code_reference()
+        # После записки автор правит документ: проверки идут снова, строка ссылки теперь его
+        # и по-прежнему «требует глаз» — второй раз её показывать нельзя.
+        result, _ = self.drive([self.CHANGED, "Готово.",
+                                edit("roo_code/doc.md", "Вычитание — `return a - b` (calc.py:2).",
+                                     "Сложение — `return a + b` (calc.py:3)."), "Готово."],
+                               ["calc.py", "roo_code/doc.md"])
+        last = self.prompts()[-1]
+        self.assertEqual(last.count("Контроллер их не перенумерует"), 1,
+                         "список ссылок показывается один раз, а не на каждой проверке")
+        self.assertIn("roo_code/doc.md:1", last)
+        self.assertIn("calc.py:2", last)
+        self.assertEqual(result["status"], "done", result)
+
+    def test_links_in_foreign_documents_are_not_the_authors(self):
+        # Чужой документ автор править не вправе — показывать ему нечего.
+        self.with_code_reference()
+        # notes.md — свой документ: проверка ссылок идёт, но чужой doc.md в ней не показан.
+        self.drive([self.CHANGED, edit("notes.md", "Число: ?", "Число: 5"), "Готово."], ["calc.py", "notes.md"])
+        self.assertTrue(any("Задача закончена?" in p for p in self.prompts()))
+        self.assertFalse(any("Контроллер их не перенумерует" in p for p in self.prompts()))
+
     def test_checks_run_at_the_end_even_without_edits(self):
         """Правок не было, а ответ без правок — объявление готовности: проверки гоняются и здесь."""
         red = {"cwd": ".", "argv": [sys.executable, "-c", "raise SystemExit(1)"]}

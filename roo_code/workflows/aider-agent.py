@@ -25,6 +25,11 @@ aider и почему именно так — всё сверено с исхо�
   Остальное защищает ядро, как и у других авторов: границы задачи, неизменность Git.
 - **Найденные файлы открываются только для чтения.** Упомянутый моделью файл aider
   добавил бы редактируемым; здесь — только для чтения и с потолком по числу и размеру.
+- **Ссылки своих документов — до сдачи, тем же счётом, что у ядра.** Битых ссылок в
+  документе из outputs не должно стать больше, чем до задачи (резолвер
+  `contractRefs.spec.ts`); стало — красное возвращается модели, как упавшие checks.
+  Ссылки её документов на строки, которые ИЗМЕНИЛИСЬ, контроллер не перенумерует —
+  модель получает их список один раз. Брак 27.09: три задачи из пяти — ссылки.
 """
 
 import json
@@ -38,6 +43,9 @@ import sys
 import threading
 import time
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import refs_shift  # noqa: E402  (только stdlib — годится и для питона aider)
 
 CONFIG, ROOT, OUTPUTS = {}, None, []
 GIT_READ_ONLY = {"status", "diff", "log", "show", "grep", "ls-files", "blame", "rev-parse", "cat-file",
@@ -370,6 +378,51 @@ def drive(config_path):
         return {name: (ROOT / name).read_bytes() if (ROOT / name).is_file() else None for name in OUTPUTS}
 
     checked = {"state": None}
+    counting = (ROOT / "frontend_vue" / refs_shift.RESOLVER_SPEC).is_file()
+    # Документы, которым есть чем проверяться: резолвер или ссылки из roo_code/ (refs_shift).
+    docs = [name for name in OUTPUTS if name.endswith(".md")
+            and (counting or (ROOT / "roo_code").is_dir())]
+
+    def broken(doc):
+        """Битые ссылки документа — та же команда и тот же разбор, что у ядра."""
+        if not (ROOT / doc).is_file():
+            return 0, ""
+        code, out = run_limited(refs_shift.link_check_argv(doc), ROOT / "frontend_vue",
+                                CONFIG["check_timeout"], shell=False)
+        return refs_shift.broken_links(out), out
+
+    links_before = {doc: broken(doc)[0] for doc in docs} if counting else {}
+    stats["links_before"] = links_before
+    shown = set()   # (документ, строка) уже показанных ссылок — показываются один раз
+
+    def link_failures():
+        failures = []
+        for doc, before in links_before.items():
+            after, out = broken(doc)
+            if before is not None and (after is None or after > before):
+                failures.append(f"{doc}: битых ссылок было {before}, стало {after} — ядро забракует "
+                                f"задачу. Отчёт резолвера:\n{out}")
+        return failures
+
+    def changed_links():
+        """Ссылки моих документов на изменившиеся строки: контроллер их не тронет."""
+        try:
+            _, eyes = refs_shift.survey(ROOT)
+        except Exception as error:  # отчёт не должен ронять автора; ядро проверит само
+            stats["aider_errors"].append(f"refs_shift: {error}"[:300])
+            return None
+        fresh = [item for item in eyes if item["документ"] in OUTPUTS
+                 and (item["документ"], item["строка"]) not in shown]
+        if not fresh:
+            return None
+        shown.update((item["документ"], item["строка"]) for item in fresh)
+        lines = "\n".join(f"- {i['документ']}:{i['строка']} — `{i['было']}` (механический сдвиг дал бы "
+                          f"`{i['стало']}`, но строка-цель изменилась)" for i in fresh)
+        return ("Ссылки в твоих документах указывают на строки кода, которые ты изменил. Контроллер "
+                "их не перенумерует. Для каждой: найди, где теперь то, о чём говорит предложение, и "
+                "поставь этот номер; в том же предложении должен стоять токен в бэктиках, который "
+                "ЕСТЬ на целевой строке, — резолвер проверит его. Ссылка всё ещё верна — оставь.\n"
+                + lines)
 
     def run_checks():
         checked["state"] = outputs_state()
@@ -378,12 +431,14 @@ def drive(config_path):
             code, out = run_limited(check["argv"], ROOT / check["cwd"], CONFIG["check_timeout"], shell=False)
             if code:
                 failures.append(f"$ cd {check['cwd']} && {shlex.join(check['argv'])}  → код {code}\n{out}")
+        failures += link_failures()
         stats["checks_runs"] += 1
         stats["checks_green"] = not failures
+        note = changed_links()
         if failures:
             return ("Машинные проверки задачи упали. Их же погонит приёмка — почини:\n\n"
-                    + "\n\n".join(failures))
-        return None
+                    + "\n\n".join(failures) + (f"\n\n{note}" if note else ""))
+        return note
 
     # Строкой — только для системного промпта aider («the user prefers this test command»):
     # модель знает, какие проверки её ждут, и может запустить их сама командой.
@@ -503,7 +558,7 @@ def drive(config_path):
             coder.reflected_message = DONE_QUESTION
             return
         declared["done"] = True
-        if CONFIG["checks"] and checked["state"] != outputs_state():
+        if (CONFIG["checks"] or docs) and checked["state"] != outputs_state():
             coder.reflected_message = run_checks()
 
     coder.send_message = send_then_check
@@ -523,7 +578,7 @@ def drive(config_path):
                                 "изменил, какие команды и проверки гонял и с каким итогом. "
                                 "Если выполнить нельзя — начни с «НЕ МОГУ: <причина>»."),
                   preproc=False)
-    if CONFIG["checks"] and checked["state"] != outputs_state():
+    if (CONFIG["checks"] or docs) and checked["state"] != outputs_state():
         # Итог проверок нужен приёмщику и тогда, когда модель работу сделанной не объявила
         # (НЕ МОГУ, потолок ходов) или объявила до последней правки: отчитываемся о тех
         # файлах, что уходят ядру, а не о прошлом прогоне.

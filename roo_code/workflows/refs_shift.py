@@ -35,6 +35,23 @@ PATH_ONLY = re.compile(PATH_PATTERN)
 HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+\d+(?:,(\d+))? @@")
 
 
+#: Резолвер ссылок контракта по одному документу: команда из `frontend_vue` и её итог.
+#: Одно место для ядра (счёт «до/после» задачи) и драйвера автора (тот же счёт до сдачи):
+#: разойдись они — автор сдавал бы то, что ядро бракует.
+RESOLVER_SPEC = "src/services/contractRefs.spec.ts"
+BROKEN = re.compile(r"\[ссылки\][^\n]*битых (\d+)")
+
+
+def link_check_argv(doc):
+    return ["env", f"CONTRACT_REFS={doc}", "./node_modules/.bin/vitest", "run", RESOLVER_SPEC]
+
+
+def broken_links(report):
+    """Число битых ссылок из вывода резолвера; None — отчёта в выводе нет."""
+    found = BROKEN.findall(report)
+    return int(found[-1]) if found else None
+
+
 def git_text(root, *args):
     # `core.quotePath=false` — не косметика: с умолчанием git ЭКРАНИРУЕТ кириллицу в
     # заголовках `+++ b/...`, имя перестаёт совпадать с тем, что отдаёт `ls-files -z`,
@@ -59,6 +76,30 @@ def shifts(root, base):
                 if removed != added:
                     result[current].append((int(match.group(1)), added - removed))
     return {name: hunks for name, hunks in result.items() if hunks}
+
+
+NEW_SIDE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+
+
+def authored_lines(root, base):
+    """Строки, которые автор написал или изменил: номера в НОВОЙ версии файла.
+
+    Номер ссылки на такой строке написан под новый код, а не под старый — сдвиг
+    поверх него двигает ссылку второй раз. Ночь 2026-09-27-0224: автор верно
+    переписал `deficit.spec.ts:205` на `:207`, контроллер прочёл 207 как старый
+    номер и сдвинул ещё на 2 — в пустую строку, и задачу забраковали.
+    """
+    diff = git_text(root, "diff", "--unified=0", base).stdout
+    result, current = {}, None
+    for line in diff.splitlines():
+        if line.startswith("+++ "):
+            current = line[6:] if line.startswith("+++ b/") else None
+        elif line.startswith("@@") and current:
+            match = NEW_SIDE.match(line)
+            if match:
+                start, count = int(match.group(1)), int(match.group(2) or 1)
+                result.setdefault(current, set()).update(range(start, start + count))
+    return result
 
 
 def moved_to(line, hunks):
@@ -171,7 +212,7 @@ def frozen(doc, root):
     return any(part in relative for part in FROZEN)
 
 
-def scan_line(root, base, doc, number, text, moved, files, cache):
+def scan_line(root, base, doc, number, text, moved, files, cache, authored=False):
     """Ссылки одной строки — полные и короткие.
 
     Короткая ссылка (`:NNN`, хвост `,NNN`) берёт файл из последнего пути ЛЕВЕЕ себя
@@ -181,6 +222,7 @@ def scan_line(root, base, doc, number, text, moved, files, cache):
     только попадают в «требуют глаз». Повтор одного и того же пути строкой с двумя
     разными не считается.
     """
+    # authored — строку написал автор: её номера уже под новый код (см. authored_lines).
     paths = {match.group(0) for match in PATH_ONLY.finditer(text)}
     single = len(paths) == 1
     safe, unsafe = [], []
@@ -210,6 +252,9 @@ def scan_line(root, base, doc, number, text, moved, files, cache):
                 "было": match.group(0),
                 "стало": (":" if short else f"{path}:") + format_numbers(new_pairs),
                 "_start": match.start(), "_end": match.end()}
+        if authored:
+            unsafe.append(item)  # номер написан под новый код — второй сдвиг его сломает
+            continue
         if not single and (short or tail):
             unsafe.append(item)  # несколько разных путей на строке — контекст неоднозначен
             continue
@@ -226,6 +271,8 @@ def collect(root, base="HEAD", docs="roo_code"):
         return [], []
     cache, safe, unsafe = {}, [], []
     files = tracked_files(root)
+    tracked = set(files)
+    authored = authored_lines(root, base)
     for doc in sorted((root / docs).rglob("*.md")):
         if frozen(doc, root):
             continue
@@ -233,9 +280,12 @@ def collect(root, base="HEAD", docs="roo_code"):
             lines = doc.read_text(errors="replace").splitlines()
         except OSError:
             continue
+        name = str(doc.relative_to(root))
+        # Новый документ целиком написан под новый код.
+        written = authored.get(name, set()) if name in tracked else set(range(1, len(lines) + 1))
         for number, text in enumerate(lines, 1):
             found_safe, found_unsafe = scan_line(root, base, doc, number, text,
-                                                 moved, files, cache)
+                                                 moved, files, cache, number in written)
             safe.extend(found_safe)
             unsafe.extend(found_unsafe)
     return safe, unsafe
