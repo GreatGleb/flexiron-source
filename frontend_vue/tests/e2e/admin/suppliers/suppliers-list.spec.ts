@@ -239,7 +239,9 @@ test.describe('suppliers-list › search', () => {
     await expect(page.locator('[data-test="suppliers-empty-state"]')).toBeVisible({
       timeout: DATA_READY_TIMEOUT,
     })
-    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('clearing the search restores all rows', async ({ page }) => {
@@ -413,14 +415,16 @@ test.describe('suppliers-list › view switch', () => {
     await expect
       .soft(page.locator('[data-test="suppliers-kanban-view"]'))
       .toBeVisible({ timeout: DATA_READY_TIMEOUT })
-    await expect.soft(page.locator('[data-test="suppliers-table-view"]')).toBeHidden()
+    await expect.soft(page.locator('[data-test="suppliers-table-view"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('clicking the kanban tab marks it active and un-marks the table tab', async ({ page }) => {
     const tabs = page.locator('[data-test="suppliers-view-tabs"] button')
     await tabs.nth(1).click()
     await expect.soft(tabs.nth(1)).toHaveClass(/\bactive\b/, { timeout: DATA_READY_TIMEOUT })
-    await expect.soft(tabs.nth(0)).not.toHaveClass(/\bactive\b/)
+    await expect.soft(tabs.nth(0)).not.toHaveClass(/\bactive\b/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('clicking the table tab after kanban restores the table view', async ({ page }) => {
@@ -433,7 +437,9 @@ test.describe('suppliers-list › view switch', () => {
     await expect
       .soft(page.locator('[data-test="suppliers-table-view"]'))
       .toBeVisible({ timeout: DATA_READY_TIMEOUT })
-    await expect.soft(page.locator('[data-test="suppliers-kanban-view"]')).toBeHidden()
+    await expect.soft(page.locator('[data-test="suppliers-kanban-view"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -454,13 +460,15 @@ test.describe('suppliers-list › kanban view', () => {
     for (const status of ['active', 'preferred', 'new', 'under_review', 'suspended', 'blocked']) {
       await expect
         .soft(page.locator(`[data-test="suppliers-kanban-column-${status}"]`))
-        .toBeVisible()
+        .toBeVisible({ timeout: DATA_READY_TIMEOUT })
     }
   })
 
   test('active column holds 3 cards', async ({ page }) => {
     const col = page.locator('[data-test="suppliers-kanban-column-active"]')
-    await expect(col.locator('[data-test="suppliers-kanban-card"]')).toHaveCount(3)
+    await expect(col.locator('[data-test="suppliers-kanban-card"]')).toHaveCount(3, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('preferred/new/under_review columns hold exactly 1 card each', async ({ page }) => {
@@ -470,21 +478,21 @@ test.describe('suppliers-list › kanban view', () => {
           .locator('[data-test="suppliers-kanban-column-preferred"]')
           .locator('[data-test="suppliers-kanban-card"]'),
       )
-      .toHaveCount(1)
+      .toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
     await expect
       .soft(
         page
           .locator('[data-test="suppliers-kanban-column-new"]')
           .locator('[data-test="suppliers-kanban-card"]'),
       )
-      .toHaveCount(1)
+      .toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
     await expect
       .soft(
         page
           .locator('[data-test="suppliers-kanban-column-under_review"]')
           .locator('[data-test="suppliers-kanban-card"]'),
       )
-      .toHaveCount(1)
+      .toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('suspended and blocked columns are empty', async ({ page }) => {
@@ -494,14 +502,14 @@ test.describe('suppliers-list › kanban view', () => {
           .locator('[data-test="suppliers-kanban-column-suspended"]')
           .locator('[data-test="suppliers-kanban-card"]'),
       )
-      .toHaveCount(0)
+      .toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
     await expect
       .soft(
         page
           .locator('[data-test="suppliers-kanban-column-blocked"]')
           .locator('[data-test="suppliers-kanban-card"]'),
       )
-      .toHaveCount(0)
+      .toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('column header badge shows the card count', async ({ page }) => {
@@ -509,12 +517,12 @@ test.describe('suppliers-list › kanban view', () => {
     const activeBadge = page.locator(
       '[data-test="suppliers-kanban-column-active"] .panel-badge span',
     )
-    await expect(activeBadge).toHaveText('3')
+    await expect(activeBadge).toHaveText('3', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('kanban cards are draggable', async ({ page }) => {
     const card = page.locator('[data-test="suppliers-kanban-card"]').first()
-    await expect(card).toHaveAttribute('draggable', 'true')
+    await expect(card).toHaveAttribute('draggable', 'true', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('kanban card title links to the supplier card page', async ({ page }) => {
@@ -522,7 +530,9 @@ test.describe('suppliers-list › kanban view', () => {
       .locator('[data-test="suppliers-kanban-card"]')
       .first()
       .locator('.kanban-card-title')
-    await expect(link).toHaveAttribute('href', /\/admin\/suppliers\/\w+$/)
+    await expect(link).toHaveAttribute('href', /\/admin\/suppliers\/\w+$/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -565,7 +575,9 @@ test.describe('suppliers-list › pagination', () => {
     await page.locator('[data-test="suppliers-page-size"] .custom-select-trigger').click()
     const list = page.locator('[data-test="suppliers-page-size"] .custom-select-list.open')
     await expect.soft(list).toHaveClass(/\bopen-up\b/, { timeout: DATA_READY_TIMEOUT })
-    await expect.soft(list.locator('.custom-select-option')).toHaveCount(3)
+    await expect.soft(list.locator('.custom-select-option')).toHaveCount(3, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -618,7 +630,9 @@ test.describe('suppliers-list › save view', () => {
     await expect(page.locator('[data-test="suppliers-kanban-view"]')).toBeVisible({
       timeout: DATA_READY_TIMEOUT,
     })
-    await expect(page.locator('[data-test="suppliers-table-view"]')).toBeHidden()
+    await expect(page.locator('[data-test="suppliers-table-view"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
