@@ -149,8 +149,8 @@ Statements 100 % · Branches 96.75 % · Functions 100 % · Lines 100 %   ← п�
 ```
 $ npx playwright test tests/e2e/admin/clients --reporter=line --workers=3
 exit=1 — 2 failed, 73 passed
-  clients.spec.ts:836 › create page general panel   ← базлайн снимка
-  clients.spec.ts:873 › card general panel          ← базлайн снимка
+  clients.spec.ts:854 › create page general panel   ← базлайн снимка
+  clients.spec.ts:891 › card general panel          ← базлайн снимка
 ```
 
 Оба падения — питфолл #22: в панель «Основная информация» добавилось поле. Базлайны

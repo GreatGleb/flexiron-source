@@ -176,7 +176,9 @@ test.describe('clients-list › search', () => {
   test('non-matching query yields the empty state instead of rows', async ({ page }) => {
     const searchInput = page.locator('[data-test="clients-search-input"] input')
     await searchInput.fill('zzz-no-match')
-    await expect(page.locator('[data-test="clients-empty-state"]')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-test="clients-empty-state"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="clients-row"]')).toHaveCount(0, {
       timeout: DATA_READY_TIMEOUT,
     })
@@ -219,7 +221,9 @@ test.describe('clients-list › status filter', () => {
     )
     await options.nth(1).click()
     // Wait for the filter + reload
-    await expect(page.locator('[data-test="clients-row"]').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-test="clients-row"]').first()).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     const afterCount = await page.locator('[data-test="clients-row"]').count()
     // After filtering by active, count should differ (some rows filtered out or same if all are active)
     expect(afterCount).toBeGreaterThan(0)
@@ -304,7 +308,7 @@ test.describe('clients-list › pagination', () => {
     // повторяется само, пока страница не перерисуется.
     await expect(
       page.locator('[data-test="clients-row"]').first().locator('td').first(),
-    ).not.toHaveText(beforeText ?? '')
+    ).not.toHaveText(beforeText ?? '', { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -319,7 +323,9 @@ test.describe('clients-list › delete modal', () => {
 
   test('clicking delete opens the confirmation modal', async ({ page }) => {
     await page.locator('[data-test="clients-delete-btn"]').first().click()
-    await expect(page.locator('[data-test="clients-delete-modal"]')).toBeVisible()
+    await expect(page.locator('[data-test="clients-delete-modal"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('cancelling the modal closes it', async ({ page }) => {
@@ -327,16 +333,22 @@ test.describe('clients-list › delete modal', () => {
     // test used to do existed because the footer changed shape depending on whether
     // the client had orders, which is an answer that arrives a moment later.
     await page.locator('[data-test="clients-delete-btn"]').first().click()
-    await expect(page.locator('[data-test="clients-delete-modal"]')).toBeVisible()
+    await expect(page.locator('[data-test="clients-delete-modal"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.locator('[data-test="clients-delete-cancel"]').click()
-    await expect(page.locator('[data-test="clients-delete-modal"]')).toBeHidden()
+    await expect(page.locator('[data-test="clients-delete-modal"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a client with orders is not offered for deletion', async ({ page }) => {
     // Every seeded client has real orders, so the destructive button must be gone —
     // and it must not flash into view before the answer arrives either.
     await page.locator('[data-test="clients-delete-btn"]').first().click()
-    await expect(page.locator('[data-test="clients-delete-modal"]')).toBeVisible()
+    await expect(page.locator('[data-test="clients-delete-modal"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="clients-delete-confirm"]')).toHaveCount(0, {
       timeout: DATA_READY_TIMEOUT,
     })
@@ -352,7 +364,9 @@ test.describe('clients-list › empty state', () => {
     await page.setViewportSize(DESKTOP)
     await openClientsList(page)
     await page.locator('[data-test="clients-search-input"] input').fill('zzz-no-match')
-    await expect(page.locator('[data-test="clients-empty-state"]')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-test="clients-empty-state"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // The empty state has a "Create" button linking to /admin/clients/new
     await expect(page.locator('[data-test="clients-empty-state"] a.btn-primary')).toHaveAttribute(
       'href',
@@ -399,7 +413,7 @@ test.describe('client-create › structure & validation', () => {
     // The field-error span should appear for name
     await expect(
       page.locator('[data-test="field-name"]').locator('..').locator('.field-error'),
-    ).toBeVisible()
+    ).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 
   /**
@@ -539,8 +553,8 @@ test.describe('client-card › fields & save flow', () => {
     // Edit the name field
     await page.locator('[data-test="field-name"]').fill('UAB Metalica — edited')
     // Save should become enabled (dirty state)
-    await expect(saveBtn).toBeEnabled()
-    await expect(saveBtn).toHaveClass(/\bdirty\b/)
+    await expect(saveBtn).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
+    await expect(saveBtn).toHaveClass(/\bdirty\b/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('discard resets the form', async ({ page }) => {
@@ -559,10 +573,10 @@ test.describe('client-card › fields & save flow', () => {
     const saveBtn = page.locator('[data-test="client-card-save-bar"]').locator('button.btn-save')
     const newName = 'UAB Metalica — saved'
     await page.locator('[data-test="field-name"]').fill(newName)
-    await expect(saveBtn).toBeEnabled()
+    await expect(saveBtn).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
     await saveBtn.click()
     // After save, dirty should clear and save should be disabled again
-    await expect(saveBtn).toBeDisabled({ timeout: 5000 })
+    await expect(saveBtn).toBeDisabled({ timeout: DATA_READY_TIMEOUT })
     await expect(saveBtn).not.toHaveClass(/\bdirty\b/)
     // Value persists
     await expect(page.locator('[data-test="field-name"]')).toHaveValue(newName, {
@@ -619,7 +633,9 @@ test.describe('client-card › audit log', () => {
   test('delete entry shows toast notification', async ({ page }) => {
     await page.locator('[data-test="client-card-audit-delete-btn"]').first().click()
     await page.click('[data-test="client-card-audit-modal-confirm"]')
-    await expect(page.locator('.toast-container .toast.show')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('.toast-container .toast.show')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -720,7 +736,7 @@ test.describe('client-card › issued invoices', () => {
     await page.locator('[data-test="clients-search-input"] input').fill(clientName)
     // Признак применённого фильтра — изменившееся число строк: дождаться просто
     // «строк» значит дождаться нефильтрованных, они на месте с самого начала.
-    await expect(clientRows).not.toHaveCount(unfiltered, { timeout: 5000 })
+    await expect(clientRows).not.toHaveCount(unfiltered, { timeout: DATA_READY_TIMEOUT })
     await clientRows
       .filter({ has: page.getByRole('link', { name: clientName, exact: true }) })
       .first()
@@ -794,7 +810,9 @@ test.describe('client-card › interaction history', () => {
     await page
       .locator('[data-test="field-interaction-summary-inline"]')
       .fill('Test interaction note')
-    await expect(page.locator('[data-test="client-card-add-interaction-btn"]')).toBeEnabled()
+    await expect(page.locator('[data-test="client-card-add-interaction-btn"]')).toBeEnabled({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('adding an interaction appends a row to the table', async ({ page }) => {
@@ -802,7 +820,7 @@ test.describe('client-card › interaction history', () => {
       .locator('[data-test="field-interaction-summary-inline"]')
       .fill('E2E test interaction')
     const interactionRows = page.locator('[data-test="client-card-interaction-row"]')
-    await expect(interactionRows.first()).toBeVisible()
+    await expect(interactionRows.first()).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     const rowsBefore = await interactionRows.count()
     await page.locator('[data-test="client-card-add-interaction-btn"]').click()
     // Признак вместо 300 мс по часам: строк стало на одну больше. Само ожидание и есть
