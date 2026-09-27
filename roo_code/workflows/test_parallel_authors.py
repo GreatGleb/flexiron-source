@@ -344,6 +344,33 @@ class ParallelRunTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertLess(self.spans()["delta"]["start"], self.task_done_at("alpha"))
 
+    def test_author_done_during_a_review_gets_a_task_before_it_ends(self):
+        # Приёмка — 1–4 мин (ночи 27.09). Слот, освободившийся во время неё, не ждёт её конца:
+        # замер по тем ночам — 7.1 мин простоя авторов на 18 задач.
+        self.three_tasks()
+        queue = json.loads(self.queue.read_text())
+        queue["tasks"].append({"id": "delta", "sources": ["plan3.md"], "outputs": ["delta.md"], "task": "четвёртая"})
+        self.queue.write_text(json.dumps(queue))
+        self.env.update(NIGHT_TEST_REVIEW_SLEEP="3")
+        result = self.invoke(parallel=2, max_tasks=4,
+                             sleeps={"alpha": 0.2, "beta": 1, "gamma": 8, "delta": 0.2})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertLess(self.spans()["delta"]["start"], self.task_done_at("alpha"))
+
+    def test_stop_during_a_review_does_not_wait_for_it(self):
+        self.env.update(NIGHT_TEST_REVIEW_SLEEP="60")
+        core_proc = subprocess.Popen(self.command(2), env=self.environment(sleeps={"alpha": 0.2, "beta": 60}),
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.addCleanup(lambda: core_proc.poll() is None and core_proc.kill())
+        deadline = time.monotonic() + 30
+        while not (self.logs / "alpha-review.prompt.txt").exists():
+            self.assertLess(time.monotonic(), deadline, "приёмка alpha не началась")
+            time.sleep(0.1)
+        time.sleep(0.5)
+        core_proc.send_signal(signal.SIGTERM)
+        self.assertEqual(core_proc.wait(timeout=20), 1)
+        self.assertEqual(self.state()["status"], "stopped")
+
     def test_pickup_during_checks_never_exceeds_the_slots(self):
         # alpha на проверках, оба слота заняты долгими beta и gamma: подхват посреди
         # проверок обязан ничего не запускать — третий автор на 8 ядрах даёт ложные красные.

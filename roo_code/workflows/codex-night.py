@@ -179,6 +179,8 @@ def disjoint_batch(candidates, size, owned=()):
 # 5173 (там dev-сервер человека); занятая пара пропускается по той же причине — занятый
 # порт playwright подхватил бы, чей бы сервер на нём ни стоял.
 AUTHOR_PORT_BASE = int(os.environ.get("NIGHT_PW_PORT_BASE", "5400"))
+# Как часто главный поток, ожидая приёмку, смотрит на авторов конвейера.
+REVIEW_POLL = 2.0
 
 
 def port_free(port):
@@ -833,6 +835,29 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 state["current"] = None
             return bool(missing)
 
+        def while_waiting(call, between):
+            """Приёмка идёт минуты (1–4, ночи 27.09), а главному потоку в это время есть дело:
+            подхватывать слоты авторов. Вторая приёмка одновременно общего времени не
+            сокращает — узкое место авторы (замер: 140 мин и так и так), — а простой слотов
+            во время приёмки стоил 7.1 мин на 18 задач. Приёмщик только читает, подхват
+            трогает лишь `.git/worktrees`; проверка «приёмщик не менял checkout» — как прежде.
+            """
+            if between is None:
+                return call()
+            between()
+            reviewer = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            try:
+                future = reviewer.submit(call)
+                while True:
+                    try:
+                        return future.result(timeout=REVIEW_POLL)
+                    except concurrent.futures.TimeoutError:
+                        between()
+            finally:
+                # Не ждать: при остановке процесс приёмщика гасит stop_live, а ожидание
+                # здесь держало бы остановку до конца приёмки.
+                reviewer.shutdown(wait=False)
+
         def accept(task, work, expected_git, links_before, patch=None, between=None):
             """После автора: применить, проверить, отдать приёмщику, закоммитить или забраковать."""
             if patch is not None and work["status"] != "blocked":
@@ -912,11 +937,9 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 databases.release(task["id"])
                 state["current"] = None
                 return
-            if between:
-                between()   # приёмка идёт минуты — слот освободившегося автора не простаивает
             try:
-                review = ask_agent(root, backends, task, "review", run_dir, deadline,
-                                   databases.env_for(task["id"]))
+                review = while_waiting(lambda: ask_agent(root, backends, task, "review", run_dir, deadline,
+                                                         databases.env_for(task["id"])), between)
             except CommandFailed:
                 raise
             except (RuntimeError, ValueError) as error:
