@@ -369,7 +369,7 @@ header/query/form tenant_id игнорируются; загрузка акти�
 7. **Домен не покрыт ни одной юнит-спекой** — ни во фронте, ни на бэкенде. Единственная проверка
    поведения — e2e карты склада
    (`frontend_vue/tests/e2e/admin/warehouse/warehouse-map.spec.ts:23-24` — хелпер `uploadMap`;
-   отказ по типу проверяет тест `tests/e2e/admin/warehouse/warehouse-map.spec.ts:186-195`), и она гоняется против мока, то
+   отказ по типу проверяет тест `tests/e2e/admin/warehouse/warehouse-map.spec.ts:197-206`), и она гоняется против мока, то
    есть проверяет мок, а не сервер.
 8. **Написанные и никем не вызываемые функции сервиса.** `get_file_by_id`
    (`core/uploads/service.py:39-48`) и `delete_file` (`:51-57`) существуют, но вызывающего вне файла

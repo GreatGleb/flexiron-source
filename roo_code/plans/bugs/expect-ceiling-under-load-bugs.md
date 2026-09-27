@@ -50,7 +50,7 @@
 
 ## БАГ-02 — ОСТАЁТСЯ ОТКРЫТЫМ — `cutting.spec.ts` «the weight cell says where the weight comes from»: падение повторено 2026-09-26, причина не найдена
 
-**File:** `tests/e2e/admin/warehouse/cutting.spec.ts:483`
+**File:** `tests/e2e/admin/warehouse/cutting.spec.ts:511`
 **Severity:** Low — падение под нагрузкой, причина не установлена.
 **Источник:** полный прогон 2026-09-25; перепроверка под нагрузкой 2026-09-26.
 

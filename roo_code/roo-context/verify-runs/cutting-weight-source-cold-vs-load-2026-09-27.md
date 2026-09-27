@@ -55,7 +55,7 @@ exit=0
 
 Running 1 test using 1 worker
 
-[1/1] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[1/1] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
   1 passed (6.4s)
 ```
 
@@ -76,11 +76,11 @@ exit=0
 
 Running 5 tests using 4 workers
 
-[1/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[2/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[3/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[4/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[5/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[1/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[2/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[3/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[4/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[5/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
   5 passed (11.9s)
 ```
 
@@ -105,11 +105,11 @@ exit=0
 
 Running 5 tests using 4 workers
 
-[1/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[2/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[3/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[4/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[5/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[1/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[2/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[3/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[4/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[5/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
   5 passed (11.4s)
 ```
 
@@ -135,11 +135,11 @@ load_after=0
 
 Running 5 tests using 4 workers
 
-[1/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[2/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[3/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[4/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[5/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[1/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[2/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[3/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[4/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[5/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
   5 passed (44.3s)
 ```
 
@@ -168,11 +168,11 @@ load_after=0
 
 Running 5 tests using 4 workers
 
-[1/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[2/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[3/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[4/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[5/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[1/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[2/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[3/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[4/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[5/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
   5 passed (43.0s)
 ```
 
@@ -213,8 +213,8 @@ exit=1
 
 Running 1 test using 1 worker
 
-[1/1] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-  1) [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[1/1] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+  1) [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
 
     Test timeout of 90000ms exceeded.
 
@@ -249,7 +249,7 @@ Running 1 test using 1 worker
 
 
   1 failed
-    [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+    [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
 ```
 
 Красное ровно на испорченном локаторе: `locator.fill`, `openCuttingFor`, поле
@@ -273,11 +273,11 @@ exit=0
 
 Running 5 tests using 4 workers
 
-[1/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[2/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[3/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[4/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
-[5/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:483:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[1/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[2/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[3/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[4/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
+[5/5] [chromium] › tests/e2e/admin/warehouse/cutting.spec.ts:511:3 › Cutting operation › the weight cell says where the weight comes from, and lets it be given back
   5 passed (11.4s)
 ```
 

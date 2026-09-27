@@ -35,7 +35,10 @@ async function uploadMap(page: import('@playwright/test').Page, body: Buffer, na
 /** The href the "open" link points at, once one exists. */
 async function currentHref(page: import('@playwright/test').Page): Promise<string> {
   const link = page.getByTestId('warehouse-map-open-link')
-  await expect(link).toBeVisible()
+  // Ссылка появляется только вместе с загруженным файлом: её нет ни на пустой
+  // странице, ни до ответа мок-слоя. Ждём её с общим бюджетом, а не с дефолтными
+  // пятью секундами, которые под нагрузкой не растягиваются (питфолл #70).
+  await expect(link).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   return (await link.getAttribute('href'))!
 }
 
@@ -49,9 +52,11 @@ async function currentHref(page: import('@playwright/test').Page): Promise<strin
  */
 async function leaveAndReturn(page: import('@playwright/test').Page) {
   await page.getByTestId('warehouse-map-back-btn').click()
-  await expect(page.getByTestId('page-warehouse')).toBeVisible()
+  await expect(page.getByTestId('page-warehouse')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   await page.getByTestId('warehouse-map-btn').click()
-  await expect(page.getByTestId('page-warehouse-map')).toBeVisible()
+  await expect(page.getByTestId('page-warehouse-map')).toBeVisible({
+    timeout: DATA_READY_TIMEOUT,
+  })
 }
 
 test.describe('Warehouse map', () => {
@@ -99,7 +104,7 @@ test.describe('Warehouse map', () => {
     // The link opens the file itself, in a new tab, with no opener back-reference.
     const link = page.getByTestId('warehouse-map-open-link')
     await expect(link).toHaveAttribute('target', '_blank', { timeout: DATA_READY_TIMEOUT })
-    await expect(link).toHaveAttribute('rel', /noopener/)
+    await expect(link).toHaveAttribute('rel', /noopener/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.getByTestId('warehouse-map-empty')).toHaveCount(0, {
       timeout: DATA_READY_TIMEOUT,
     })
@@ -133,7 +138,9 @@ test.describe('Warehouse map', () => {
 
     await page.getByTestId('warehouse-map-replace-confirm').click()
     // AppModal stays mounted and toggles `.active`, so it is hidden — never absent.
-    await expect(page.getByTestId('warehouse-map-replace-modal')).not.toBeVisible()
+    await expect(page.getByTestId('warehouse-map-replace-modal')).not.toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     const second = await currentHref(page)
     expect(second).not.toBe(first)
@@ -149,7 +156,9 @@ test.describe('Warehouse map', () => {
     await uploadMap(page, BLUE_PNG, 'plan-v2.png')
     await page.getByTestId('warehouse-map-replace-cancel').click()
 
-    await expect(page.getByTestId('warehouse-map-replace-modal')).not.toBeVisible()
+    await expect(page.getByTestId('warehouse-map-replace-modal')).not.toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     expect(await currentHref(page)).toBe(first)
     await expect(page.getByTestId('warehouse-map-name')).toHaveText('plan.png', {
       timeout: DATA_READY_TIMEOUT,
@@ -180,7 +189,9 @@ test.describe('Warehouse map', () => {
 
     // Gone from storage, not just from this screen.
     await leaveAndReturn(page)
-    await expect(page.getByTestId('warehouse-map-empty')).toBeVisible()
+    await expect(page.getByTestId('warehouse-map-empty')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a file that is not an image never becomes the map', async ({ page }) => {

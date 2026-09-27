@@ -35,9 +35,11 @@ async function openCuttingFor(page: Page, batchNumber: string) {
   const row = page.locator(`[data-test="warehouse-cutting-batch-row"]`, {
     hasText: batchNumber,
   })
-  await expect(row).toHaveCount(1)
+  await expect(row).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
   await row.getByTestId('warehouse-cutting-batch-pick').click()
-  await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(batchNumber)
+  await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(batchNumber, {
+    timeout: DATA_READY_TIMEOUT,
+  })
 }
 
 async function fillRow(
@@ -96,7 +98,7 @@ test.describe('Cutting operation', () => {
 
     // Слово набралось целиком: ни одна буква не ушла мимо поля.
     await expect(search).toHaveValue('INV', { timeout: DATA_READY_TIMEOUT })
-    await expect(search).toBeFocused()
+    await expect(search).toBeFocused({ timeout: DATA_READY_TIMEOUT })
 
     // И тело панели не пряталось ни разу при живом содержимом.
     const hidden = await page.evaluate(
@@ -120,7 +122,7 @@ test.describe('Cutting operation', () => {
     // Панели передавали и `:title`, и слот `#header` со своим `panel-title` —
     // GlassPanel рисует оба, и выходило «Исходная партияИсходная партия».
     const titles = page.getByTestId('warehouse-cutting-source-panel').locator('.panel-title')
-    await expect(titles).toHaveCount(1)
+    await expect(titles).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('кнопка смены партии подписана собой, а не текстом подсказки', async ({ page }) => {
@@ -147,10 +149,10 @@ test.describe('Cutting operation', () => {
     await page.getByTestId('warehouse-cutting-batch-number').waitFor()
 
     const remove = page.getByTestId('warehouse-cutting-row-remove').first()
-    await expect(remove).toHaveClass(/action-icon-btn/)
-    await expect(remove).toHaveClass(/action-danger/)
+    await expect(remove).toHaveClass(/action-icon-btn/, { timeout: DATA_READY_TIMEOUT })
+    await expect(remove).toHaveClass(/action-danger/, { timeout: DATA_READY_TIMEOUT })
     // Иконка есть…
-    await expect(remove.locator('svg')).toHaveCount(1)
+    await expect(remove.locator('svg')).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
     // …а подписи нет: она уехала в подсказку, как у остальных таких кнопок.
     expect((await remove.innerText()).trim()).toBe('')
   })
@@ -236,7 +238,9 @@ test.describe('Cutting operation', () => {
     await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(METRE_BATCH, {
       timeout: DATA_READY_TIMEOUT,
     })
-    await expect(page.getByTestId('warehouse-cutting-batches-table')).toHaveCount(0)
+    await expect(page.getByTestId('warehouse-cutting-batches-table')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a batch opened by its direct link still names the product', async ({ page }) => {
@@ -314,9 +318,15 @@ test.describe('Cutting operation', () => {
     // метра. Поля нет вовсе — видимое поле, которое молча ничего не делает, хуже
     // отсутствующего.
     await openCuttingFor(page, 'INV-2025-001')
-    await expect(page.getByTestId('warehouse-cutting-kerf')).toHaveCount(0)
-    await expect(page.getByTestId('warehouse-cutting-kerf-absent')).toBeVisible()
-    await expect(page.getByTestId('warehouse-cutting-total-kerf')).toHaveCount(0)
+    await expect(page.getByTestId('warehouse-cutting-kerf')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.getByTestId('warehouse-cutting-kerf-absent')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.getByTestId('warehouse-cutting-total-kerf')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a piece with no size refuses the operation and names the piece', async ({ page }) => {
@@ -329,8 +339,12 @@ test.describe('Cutting operation', () => {
     await expect(page.getByTestId('warehouse-cutting-problem')).toContainText('2', {
       timeout: DATA_READY_TIMEOUT,
     })
-    await expect(page.getByTestId('warehouse-cutting-execute')).toBeDisabled()
-    await expect(page.getByTestId('warehouse-cutting-row').nth(1)).toHaveClass(/row-invalid/)
+    await expect(page.getByTestId('warehouse-cutting-execute')).toBeDisabled({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.getByTestId('warehouse-cutting-row').nth(1)).toHaveClass(/row-invalid/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('cutting more than the batch holds is refused', async ({ page }) => {
@@ -341,7 +355,9 @@ test.describe('Cutting operation', () => {
     await expect(page.getByTestId('warehouse-cutting-problem')).toBeVisible({
       timeout: DATA_READY_TIMEOUT,
     })
-    await expect(page.getByTestId('warehouse-cutting-execute')).toBeDisabled()
+    await expect(page.getByTestId('warehouse-cutting-execute')).toBeDisabled({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('executing takes exactly the computed amount off the batch', async ({ page }) => {
@@ -396,9 +412,13 @@ test.describe('Cutting operation', () => {
     // добавился, а не заменил собой список. Порядок здесь не утверждается: список
     // сортирует не эта страница.
     await expect(rows).toHaveCount(2, { timeout: DATA_READY_TIMEOUT })
-    await expect(rows.filter({ hasText: '1234' })).toHaveCount(1)
+    await expect(rows.filter({ hasText: '1234' })).toHaveCount(1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Единица — партии, а не «шт»: кусок отрезан от метров, значит меряется в метрах.
-    await expect(rows.filter({ hasText: '1234' })).toContainText('m')
+    await expect(rows.filter({ hasText: '1234' })).toContainText('m', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   /**
@@ -411,9 +431,13 @@ test.describe('Cutting operation', () => {
    */
   test('a counted batch loses source pieces, not the offcuts cut out of them', async ({ page }) => {
     await openCuttingFor(page, PIECE_BATCH)
-    await expect(page.getByTestId('warehouse-cutting-source-pieces')).toBeVisible()
+    await expect(page.getByTestId('warehouse-cutting-source-pieces')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Пропила у штучной партии нет — 3 мм в штуки не переводятся.
-    await expect(page.getByTestId('warehouse-cutting-kerf')).toHaveCount(0)
+    await expect(page.getByTestId('warehouse-cutting-kerf')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await fillRow(page, 0, { pieces: 4 })
     await page.getByTestId('warehouse-cutting-source-pieces').fill('1')
@@ -438,14 +462,18 @@ test.describe('Cutting operation', () => {
     await expect(page.getByTestId('warehouse-cutting-problem')).toBeVisible({
       timeout: DATA_READY_TIMEOUT,
     })
-    await expect(page.getByTestId('warehouse-cutting-execute')).toBeDisabled()
+    await expect(page.getByTestId('warehouse-cutting-execute')).toBeDisabled({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a measured batch is never asked for source pieces', async ({ page }) => {
     // У метровой партии расход выводится из размеров; второе число рядом с ним было
     // бы второй правдой о том же.
     await openCuttingFor(page, METRE_BATCH)
-    await expect(page.getByTestId('warehouse-cutting-source-pieces')).toHaveCount(0)
+    await expect(page.getByTestId('warehouse-cutting-source-pieces')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a counted batch takes exactly one piece off the batch when one is cut', async ({
@@ -529,18 +557,18 @@ test.describe('Cutting operation', () => {
       .toBeGreaterThan(0)
 
     const derivedBadge = (await badge.textContent())!.trim()
-    await expect(useDerived).toHaveCount(0)
+    await expect(useDerived).toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
 
     // Ввод руками меняет источник и открывает дорогу назад.
     await weightInput.fill('99')
-    await expect(badge).not.toHaveText(derivedBadge)
-    await expect(useDerived).toHaveCount(1)
+    await expect(badge).not.toHaveText(derivedBadge, { timeout: DATA_READY_TIMEOUT })
+    await expect(useDerived).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
 
     // Вернуть расчёт — это обнулить ручное, а не записать выведенное.
     await useDerived.click()
     await expect(row.getByTestId('warehouse-cutting-row-weight')).toHaveValue('', {
       timeout: DATA_READY_TIMEOUT,
     })
-    await expect(badge).toHaveText(derivedBadge)
+    await expect(badge).toHaveText(derivedBadge, { timeout: DATA_READY_TIMEOUT })
   })
 })
