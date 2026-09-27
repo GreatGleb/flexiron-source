@@ -83,6 +83,10 @@ class DisjointBatchTest(unittest.TestCase):
         tasks = [{"id": x, "outputs": [f"{x}.ts"]} for x in "abcd"]
         self.assertEqual(self.batch(tasks, 2), ["a", "b"])
 
+    def test_no_free_slots_give_no_batch(self):
+        tasks = [{"id": "a", "outputs": ["one.ts"]}]
+        self.assertEqual(core.disjoint_batch(tasks, 0), [])
+
     def test_files_of_running_authors_count_as_taken(self):
         tasks = [{"id": "a", "outputs": ["one.ts"]}, {"id": "b", "outputs": ["two.ts"]}]
         self.assertEqual([t["id"] for t in core.disjoint_batch(tasks, 5, owned={"one.ts"})], ["b"])
@@ -339,6 +343,23 @@ class ParallelRunTest(unittest.TestCase):
                              sleeps={"alpha": 0.2, "beta": 0.6, "gamma": 6, "delta": 0.2})
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertLess(self.spans()["delta"]["start"], self.task_done_at("alpha"))
+
+    def test_pickup_during_checks_never_exceeds_the_slots(self):
+        # alpha на проверках, оба слота заняты долгими beta и gamma: подхват посреди
+        # проверок обязан ничего не запускать — третий автор на 8 ядрах даёт ложные красные.
+        self.three_tasks()
+        queue = json.loads(self.queue.read_text())
+        queue["tasks"].append({"id": "delta", "sources": ["plan3.md"], "outputs": ["delta.md"], "task": "четвёртая"})
+        self.queue.write_text(json.dumps(queue))
+        self.env.update(NIGHT_TEST_VERIFY_SLEEP="1")
+        result = self.invoke(parallel=2, max_tasks=4,
+                             sleeps={"alpha": 0.2, "beta": 4, "gamma": 4, "delta": 0.2})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        # Назначение — не запуск: пул потоков сам придержал бы третьего, но worktree,
+        # порт и попытка ему уже выданы, а писать он начал бы на устаревшем HEAD.
+        scheduled = [json.loads(x) for x in (self.logs / "journal.jsonl").read_text().splitlines()
+                     if json.loads(x)["event"] == "batch" and "delta" in json.loads(x)["batch"]]
+        self.assertGreaterEqual(scheduled[0]["time"], self.spans()["beta"]["end"])
 
     def test_finished_author_frees_its_worktree_at_once(self):
         # Копия node_modules — 230 МБ на worktree; держать их до конца прогона — гигабайты.

@@ -158,6 +158,8 @@ def disjoint_batch(candidates, size, owned=()):
     себе выглядит законной.
     """
     batch, owned = [], set(owned)
+    if size <= 0:
+        return batch   # свободных слотов нет — назначать некому
     for task in candidates:
         files = set(task["outputs"])
         if files & owned:
