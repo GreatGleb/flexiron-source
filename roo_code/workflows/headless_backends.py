@@ -254,30 +254,33 @@ BACKENDS = {backend.name: backend for backend in (CodexBackend, ClaudeBackend, Z
 
 
 def extract_json_object(text):
-    """Достать объект результата из текста модели: она любит обрамить его разметкой."""
-    stripped = re.sub(r"^\s*```(?:json)?|```\s*$", "", text.strip(), flags=re.MULTILINE).strip()
-    start, depth, in_string, escaped = stripped.find("{"), 0, False, False
-    if start < 0:
+    """Достать объект результата из текста модели: она любит обрамить его разметкой.
+
+    Берётся ПОСЛЕДНИЙ объект, который разбирается как JSON и несёт `status`, а не первая
+    фигурная скобка: ночь 2026-09-27-0224 умерла в 05:27, потому что приёмщик процитировал
+    код `{ timeout: DATA_READY_TIMEOUT }` раньше своего результата. Результат — последний
+    вывод по инструкции, значит и искать его с конца.
+    """
+    decoder = json.JSONDecoder()
+    found = parsed = None
+    index = text.find("{")
+    if index < 0:
         raise RuntimeError(f"В ответе нет JSON-объекта: {text[:400]}")
-    for index in range(start, len(stripped)):
-        char = stripped[index]
-        if in_string:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == '"':
-                in_string = False
+    while index >= 0:
+        try:
+            value, end = decoder.raw_decode(text, index)
+        except ValueError:
+            index = text.find("{", index + 1)
             continue
-        if char == '"':
-            in_string = True
-        elif char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-            if depth == 0:
-                return stripped[start:index + 1]
-    raise RuntimeError(f"JSON-объект в ответе не закрыт: {text[:400]}")
+        if isinstance(value, dict):
+            parsed = text[index:end]
+            if "status" in value:
+                found = parsed
+        index = text.find("{", end)
+    found = found or parsed
+    if found is None:
+        raise RuntimeError(f"В ответе нет JSON-объекта результата: {text[:400]}")
+    return found
 
 
 def load_routing(path, codex_binary=None):

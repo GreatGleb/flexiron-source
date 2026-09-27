@@ -882,8 +882,19 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 databases.release(task["id"])
                 state["current"] = None
                 continue
-            review = ask_agent(root, backends, task, "review", run_dir, deadline,
-                               databases.env_for(task["id"]))
+            try:
+                review = ask_agent(root, backends, task, "review", run_dir, deadline,
+                                   databases.env_for(task["id"]))
+            except CommandFailed:
+                raise
+            except (RuntimeError, ValueError) as error:
+                # Ответ приёмщика, которым нельзя пользоваться (не JSON, не по схеме), —
+                # брак ОДНОЙ задачи, как у автора: ночь 2026-09-27-0224 простояла с 05:27
+                # до утра из-за одного такого ответа. Изменённый приёмщиком checkout
+                # по-прежнему останавливает прогон — проверка ниже.
+                review = {"status": "blocked",
+                          "summary": f"Ответ приёмщика непригоден: {error}"[:500],
+                          "evidence": [str(run_dir / f'{task["id"]}-review.stdout.log')]}
             if (git_state(root) != expected_git or git(root, "diff", "HEAD") != before_review
                     or file_snapshot(root) != files_before):
                 raise RuntimeError("Проверяющий изменил checkout")
