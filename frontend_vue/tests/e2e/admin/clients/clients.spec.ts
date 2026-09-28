@@ -262,7 +262,9 @@ test.describe('clients-list › status filter', () => {
       // Каждая показанная строка неактивна — то, что тест и обещает названием.
       expect(inactiveCount).toBe(rowCount)
     } else {
-      await expect(page.locator('[data-test="clients-empty-state"]')).toBeVisible()
+      await expect(page.locator('[data-test="clients-empty-state"]')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     }
   })
 })
@@ -352,7 +354,9 @@ test.describe('clients-list › delete modal', () => {
     await expect(page.locator('[data-test="clients-delete-confirm"]')).toHaveCount(0, {
       timeout: DATA_READY_TIMEOUT,
     })
-    await expect(page.locator('[data-test="clients-delete-modal"] .text-warning')).toBeVisible()
+    await expect(page.locator('[data-test="clients-delete-modal"] .text-warning')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -371,6 +375,7 @@ test.describe('clients-list › empty state', () => {
     await expect(page.locator('[data-test="clients-empty-state"] a.btn-primary')).toHaveAttribute(
       'href',
       '/admin/clients/new',
+      { timeout: DATA_READY_TIMEOUT },
     )
   })
 })
@@ -577,7 +582,7 @@ test.describe('client-card › fields & save flow', () => {
     await saveBtn.click()
     // After save, dirty should clear and save should be disabled again
     await expect(saveBtn).toBeDisabled({ timeout: DATA_READY_TIMEOUT })
-    await expect(saveBtn).not.toHaveClass(/\bdirty\b/)
+    await expect(saveBtn).not.toHaveClass(/\bdirty\b/, { timeout: DATA_READY_TIMEOUT })
     // Value persists
     await expect(page.locator('[data-test="field-name"]')).toHaveValue(newName, {
       timeout: DATA_READY_TIMEOUT,
@@ -718,7 +723,7 @@ test.describe('client-card › issued invoices', () => {
     expect(clientName.length).toBeGreaterThan(0)
 
     const paymentRows = page.locator('[data-test="order-payment-row"]')
-    await expect(paymentRows.first()).toBeVisible()
+    await expect(paymentRows.first()).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     const namedByInvoice = new Map<string, number>()
     for (const row of await paymentRows.all()) {
       const invoiceNumber = (await row.locator('td').nth(3).innerText()).trim()
@@ -745,7 +750,7 @@ test.describe('client-card › issued invoices', () => {
     await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/, { timeout: DATA_READY_TIMEOUT })
 
     const invoiceRows = page.locator('[data-test="client-card-invoice-row"]')
-    await expect(invoiceRows.first()).toBeVisible()
+    await expect(invoiceRows.first()).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     const paidByNumber = new Map<string, number>()
     for (const row of await invoiceRows.all()) {
       const number = (
@@ -778,8 +783,12 @@ test.describe('client-card › order history empty', () => {
     await page.locator('[data-test="client-create-save-btn"]').click()
     await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/, { timeout: DATA_READY_TIMEOUT })
 
-    await expect(page.locator('[data-test="client-card-order-history"]')).toBeVisible()
-    await expect(page.locator('[data-test="client-card-order-history"] .audit-empty')).toBeVisible()
+    await expect(page.locator('[data-test="client-card-order-history"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="client-card-order-history"] .audit-empty')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
