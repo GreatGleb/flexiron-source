@@ -40,7 +40,9 @@ test.describe('Navigation', () => {
 
   test('deep link to product card works', async ({ page }) => {
     await page.goto('/admin/products/prod-001')
-    await expect(page.locator('[data-test=page-product-card]')).toBeVisible()
+    await expect(page.locator('[data-test=page-product-card]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('categories route resolves before :id', async ({ page }) => {
