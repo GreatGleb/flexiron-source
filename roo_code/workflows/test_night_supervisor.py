@@ -69,7 +69,7 @@ class SupervisorTest(unittest.TestCase):
     git = _pilot.PilotTest.git
 
     def run_supervisor(self, queues, batches=3, budget=10_000_000, mode="", parallel=1,
-                       idle_limit=None):
+                       idle_limit=None, finish=None):
         self.queues.write_text(json.dumps(queues))
         command = [sys.executable, str(SUPERVISOR), "--workspace", str(self.root),
                    "--routing", str(self.routing), "--operator-prompt", str(self.prompt),
@@ -78,6 +78,8 @@ class SupervisorTest(unittest.TestCase):
                    "--parallel", str(parallel), "--max-batches", str(batches)]
         if idle_limit is not None:
             command += ["--idle-limit", str(idle_limit)]
+        if finish is not None:
+            command += ["--finish-minutes", str(finish)]
         return subprocess.run(command, env={**self.env, "NIGHT_TEST_QUEUES": str(self.queues),
                                             "NIGHT_TEST_MODE": mode},
                               capture_output=True, text=True, timeout=120)
@@ -102,6 +104,13 @@ class SupervisorTest(unittest.TestCase):
         journal = (self.out / "run-1" / "journal.jsonl").read_text().splitlines()
         batches = [json.loads(x)["batch"] for x in journal if json.loads(x)["event"] == "batch"]
         self.assertEqual(batches, [["alpha"]])
+
+    def test_finish_margin_is_kept_for_the_night_and_accepted_by_the_core(self):
+        # Сторож поднимает ночь по night.json: запас, не записанный туда, терялся бы на подъёме.
+        result = self.run_supervisor([queue_json("alpha")], batches=1, finish=120)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads((self.out / "night.json").read_text())["finish_minutes"], 120)
+        self.assertEqual(self.report()["batches"][0]["tasks"], ["alpha"])
 
     def test_without_parallel_the_core_forms_no_batches(self):
         self.run_supervisor([queue_json("alpha")], batches=1, parallel=1)
