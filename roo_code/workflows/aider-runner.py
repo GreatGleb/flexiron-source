@@ -25,10 +25,12 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import deepseek_tariff as tariff  # noqa: E402
 import headless_backends as backends  # noqa: E402  (нужен HERE в sys.path)
 
 MARKER = "\nЗадание (JSON):\n"
@@ -41,6 +43,29 @@ def git_status(root):
         return set(filter(None, out.split("\0")))
     return (names("diff", "--name-only", "-z", "HEAD")
             | names("ls-files", "--others", "--exclude-standard", "-z"))
+
+
+def paused_seconds(path):
+    try:
+        return float(json.loads(path.read_text()).get("paused_seconds", 0))
+    except (OSError, ValueError, AttributeError):
+        return 0.0
+
+
+def wait_counting_pause(driver, timeout, pause):
+    """Ждать драйвер `timeout` секунд работы: пауза на пик DeepSeek в лимит не входит.
+
+    Драйвер пишет набранную паузу в свой файл каждый обход, поэтому лимит растёт вместе
+    с паузой, а не после неё: трёхчасовой пик иначе убил бы задачу по таймауту."""
+    started = time.monotonic()
+    while True:
+        left = started + timeout + paused_seconds(pause) - time.monotonic()
+        if left <= 0:
+            raise subprocess.TimeoutExpired(driver.args, timeout)
+        try:
+            return driver.wait(timeout=min(left, 30))
+        except subprocess.TimeoutExpired:
+            continue
 
 
 def cost_text(cost):
@@ -113,6 +138,10 @@ def main():
     chat, log, stats_path = (stem.with_suffix(s) for s in (".aider.chat.md", ".aider.log", ".aider.stats.json"))
     config = stem.with_suffix(".aider.config.json")
     guard = stem.with_suffix(".aider.git-guard")
+    pause = stem.with_suffix(".aider.pause.json")
+    # Режим пика — файл ночи: каталог прогона — это run-N ночи или сам каталог одиночного прогона.
+    peak_mode = next((d / tariff.MODE_FILE for d in (result_path.parent, result_path.parent.parent)
+                      if (d / tariff.MODE_FILE).is_file()), result_path.parent.parent / tariff.MODE_FILE)
     config.write_text(json.dumps({
         "root": str(root), "model": args.model, "message": str(message), "outputs": outputs,
         "sources": sources, "checks": task.get("checks", []), "edit_format": args.edit_format or "diff",
@@ -121,7 +150,8 @@ def main():
         "stats": str(stats_path), "guard_dir": str(guard), "max_reflections": args.max_reflections,
         "command_timeout": args.command_timeout, "check_timeout": args.check_timeout,
         "output_limit": args.output_limit, "max_read_files": args.max_read_files,
-        "read_file_limit": args.read_file_limit, "history_tokens": args.history_tokens}, ensure_ascii=False, indent=2))
+        "read_file_limit": args.read_file_limit, "history_tokens": args.history_tokens,
+        "peak_mode": str(peak_mode), "pause": str(pause)}, ensure_ascii=False, indent=2))
     missing = {name for name in outputs if not (root / name).exists()}
     caches_before = set(root.glob(".aider.tags.cache.v*"))
     before = snapshot(root, outputs)
@@ -143,7 +173,7 @@ def main():
 
         signal.signal(signal.SIGTERM, forward)
         try:
-            code = driver.wait(timeout=args.timeout)
+            code = wait_counting_pause(driver, args.timeout, pause)
         except subprocess.TimeoutExpired:
             driver.terminate()
             try:
@@ -172,7 +202,9 @@ def main():
                         f"команд {len(stats.get('commands', []))}, отклонено {len(stats.get('refused', []))}; "
                         f"токенов {stats.get('tokens_sent', 0)}+{stats.get('tokens_received', 0)}, "
                         f"${stats.get('cost', 0)} по счёту aider, "
-                        f"по тарифу провайдера {cost_text(stats.get('cost_real'))}")
+                        f"по тарифу провайдера {cost_text(stats.get('cost_real'))}"
+                        + (f"; пауза на пик DeepSeek {stats['paused_seconds'] / 60:.0f} мин"
+                           if stats.get("paused_seconds") else ""))
         # Прогоны автора — приёмщику: без них «мутация не подтверждена» бракует верную работу.
         evidence += [f"команда автора: {line}"[:400] for line in stats.get("command_log", [])[-15:]]
         if stats.get("final_reply"):
@@ -203,7 +235,9 @@ def main():
     if fatal:
         return finish("blocked", f"{backends.PROVIDER_REFUSAL_PREFIX}: {fatal[:300]}", evidence)
     if code is None:
-        return finish("blocked", f"aider не уложился в {args.timeout} с{why}", evidence)
+        waited = paused_seconds(pause)
+        extra = f" работы (и {waited / 60:.0f} мин паузы на пик)" if waited else ""
+        return finish("blocked", f"aider не уложился в {args.timeout} с{extra}{why}", evidence)
     if code:
         return finish("blocked", f"драйвер aider завершился с кодом {code}{why}", evidence)
     if stats.get("cannot"):

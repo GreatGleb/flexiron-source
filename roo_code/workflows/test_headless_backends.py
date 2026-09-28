@@ -8,14 +8,17 @@
 import importlib.util
 import json
 import os
+import shutil
 import signal
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest import mock
+from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import headless_backends as backends  # noqa: E402
@@ -822,6 +825,7 @@ class AiderRoutingTest(unittest.TestCase):
             backends.AiderBackend({"binary": sys.executable}).check()
 
 
+import deepseek_tariff as tariff  # noqa: E402
 _agent_spec = importlib.util.spec_from_file_location("aider_agent", Path(__file__).with_name("aider-agent.py"))
 aider_agent = importlib.util.module_from_spec(_agent_spec)
 _agent_spec.loader.exec_module(aider_agent)
@@ -903,7 +907,7 @@ class DeepseekCostTest(unittest.TestCase):
 
     # 2026-09-28 — понедельник, 2026-10-03 — суббота.
     def test_peak_is_weekday_01_04_and_06_10_utc(self):
-        peak = lambda at: aider_agent.deepseek_peak(aider_agent.datetime.fromisoformat(at))
+        peak = lambda at: tariff.peak(datetime.fromisoformat(at))
         for at in ("2026-09-28T01:00:00+00:00", "2026-09-28T03:59:59+00:00", "2026-09-28T06:00:00+00:00",
                    "2026-09-28T09:59:59+00:00"):
             self.assertTrue(peak(at), at)
@@ -913,13 +917,29 @@ class DeepseekCostTest(unittest.TestCase):
 
     def test_cost_splits_hit_miss_and_output_and_halves_off_peak(self):
         call = [1_000_000, 500_000, 100_000]   # отправлено, из них из кэша, выход
-        day = aider_agent.deepseek_cost("deepseek/deepseek-v4-flash", [["2026-09-28T07:00:00+00:00", *call]])
-        night = aider_agent.deepseek_cost("deepseek/deepseek-v4-flash", [["2026-09-28T17:00:00+00:00", *call]])
+        day = tariff.cost("deepseek/deepseek-v4-flash", [["2026-09-28T07:00:00+00:00", *call]])
+        night = tariff.cost("deepseek/deepseek-v4-flash", [["2026-09-28T17:00:00+00:00", *call]])
         self.assertEqual(day, round(0.5 * 0.006 + 0.5 * 0.30 + 0.1 * 1.20, 6))
         self.assertEqual(night, round(day / 2, 6))
 
     def test_model_outside_the_table_has_no_invented_price(self):
-        self.assertIsNone(aider_agent.deepseek_cost("deepseek/deepseek-chat", [["2026-09-28T07:00:00+00:00", 1, 0, 1]]))
+        self.assertIsNone(tariff.cost("deepseek/deepseek-chat", [["2026-09-28T07:00:00+00:00", 1, 0, 1]]))
+
+    def test_next_change_crosses_the_gap_and_the_weekend(self):
+        at = lambda text: datetime.fromisoformat(text)
+        self.assertEqual(tariff.next_change(at("2026-09-28T02:30:00+00:00")), at("2026-09-28T04:00:00+00:00"))
+        self.assertEqual(tariff.next_change(at("2026-09-28T04:10:00+00:00")), at("2026-09-28T06:00:00+00:00"))
+        # Пятница после пика — следующий пик в понедельник.
+        self.assertEqual(tariff.next_change(at("2026-10-02T11:00:00+00:00")), at("2026-10-05T01:00:00+00:00"))
+
+    def test_mode_file_missing_means_no_night_and_garbage_means_pause(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / tariff.MODE_FILE
+            self.assertEqual(tariff.read_mode(path), "ignore")
+            path.write_text("ignore\n")
+            self.assertEqual(tariff.read_mode(path), "ignore")
+            path.write_text("игнор")
+            self.assertEqual(tariff.read_mode(path), "pause")
 
 AIDER_PYTHON = Path.home() / ".local/share/uv/tools/aider-chat/bin/python"
 AIDER_RUNNER = Path(__file__).with_name("aider-runner.py").resolve()
@@ -945,6 +965,14 @@ litellm.completion = fake
 spec = importlib.util.spec_from_file_location('agent', sys.argv[1])
 agent = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(agent)
+# Часы тарифа: первые AIDER_TEST_PEAK_SECONDS секунд — пик понедельника, дальше вечер.
+if os.environ.get('AIDER_TEST_PEAK_SECONDS'):
+    import datetime, time
+    start, span = time.monotonic(), float(os.environ['AIDER_TEST_PEAK_SECONDS'])
+    peak = datetime.datetime(2026, 9, 28, 7, 0, tzinfo=datetime.timezone.utc)
+    evening = datetime.datetime(2026, 9, 28, 17, 0, tzinfo=datetime.timezone.utc)
+    agent.tariff.utc_now = lambda: peak if time.monotonic() - start < span else evening
+    agent.PAUSE_POLL = 0.2
 sys.exit(agent.main(sys.argv[2]))
 """
 
@@ -980,7 +1008,7 @@ class AiderDriverTest(unittest.TestCase):
     def git(self, *args):
         return subprocess.check_output(["git", "-C", str(self.root), *args], text=True).strip()
 
-    def drive(self, script, outputs, checks=(), sources=(), text="Задача.", **options):
+    def drive(self, script, outputs, checks=(), sources=(), text="Задача.", extra_env=None, **options):
         (self.base / "script.json").write_text(json.dumps(script, ensure_ascii=False))
         task = {"id": "t", "outputs": list(outputs), "sources": list(sources), "checks": list(checks),
                 "task": "по сценарию"}
@@ -994,7 +1022,7 @@ class AiderDriverTest(unittest.TestCase):
                        text=True, cwd=self.root, timeout=150, check=True,
                        env={**os.environ, "AIDER_TEST_SCRIPT": str(self.base / "script.json"),
                             "AIDER_TEST_LLM_LOG": str(self.base / "llm.jsonl"),
-                            "DEEPSEEK_API_KEY": "test"})
+                            "DEEPSEEK_API_KEY": "test", **(extra_env or {})})
         self.elapsed = time.monotonic() - started
         result = json.loads((self.run_dir / "t-work.json").read_text())
         stats_path = self.run_dir / "t-work.aider.stats.json"
@@ -1416,6 +1444,50 @@ class AiderDriverTest(unittest.TestCase):
         result, stats = self.drive([edit("notes.md", "Число: ?", "Число: 42"), "Готово."], ["notes.md"])
         self.assertIsNone(stats["cost_real"])   # deepseek-chat — вне таблицы
         self.assertTrue(any("по тарифу провайдера нет замера" in e for e in result["evidence"]), result["evidence"])
+
+    PEAK = {"model": "deepseek/deepseek-v4-flash"}
+
+    def test_peak_holds_requests_and_the_pause_is_not_billed_to_the_timeout(self):
+        """Пик 10 с, лимит задачи 7 с: без паузы вне лимита задачу убил бы таймаут."""
+        (self.run_dir / "deepseek-peak").write_text("pause\n")
+        result, stats = self.drive([edit("notes.md", "Число: ?", "Число: 42"), "Готово."], ["notes.md"],
+                                   extra_env={"AIDER_TEST_PEAK_SECONDS": "10"}, timeout=7, **self.PEAK)
+        self.assertEqual(result["status"], "done", result)
+        self.assertGreater(stats["paused_seconds"], 3)
+        # Ни одного запроса в пик: у всех вызовов вечернее время.
+        self.assertTrue(stats["calls"] and all(call[0].startswith("2026-09-28T17") for call in stats["calls"]),
+                        stats["calls"])
+        self.assertIsNone(json.loads((self.run_dir / "t-work.aider.pause.json").read_text())["until_utc"])
+        self.assertTrue(any("пауза на пик DeepSeek" in e for e in result["evidence"]), result["evidence"])
+
+    def test_ignore_mode_and_manual_runs_do_not_wait_for_the_peak(self):
+        for mode in ("ignore", None):
+            with self.subTest(mode=mode):
+                (self.run_dir / "deepseek-peak").unlink(missing_ok=True)
+                (self.run_dir / "llm.jsonl").unlink(missing_ok=True)
+                if mode:
+                    (self.run_dir / "deepseek-peak").write_text(mode)
+                for leftover in self.run_dir.glob("t-work*"):
+                    shutil.rmtree(leftover) if leftover.is_dir() else leftover.unlink()
+                (self.base / "llm.jsonl").unlink(missing_ok=True)
+                (self.root / "notes.md").write_text("Число: ?\n")
+                result, stats = self.drive([edit("notes.md", "Число: ?", "Число: 42"), "Готово."], ["notes.md"],
+                                           extra_env={"AIDER_TEST_PEAK_SECONDS": "1000"}, **self.PEAK)
+                self.assertEqual(result["status"], "done", result)
+                self.assertEqual(stats["paused_seconds"], 0)
+                self.assertTrue(all(call[0].startswith("2026-09-28T07") for call in stats["calls"]))
+
+    def test_switching_to_ignore_releases_a_waiting_task(self):
+        mode = self.run_dir / "deepseek-peak"
+        mode.write_text("pause")
+        switch = threading.Timer(5, lambda: mode.write_text("ignore"))
+        switch.start()
+        self.addCleanup(switch.cancel)
+        result, stats = self.drive([edit("notes.md", "Число: ?", "Число: 42"), "Готово."], ["notes.md"],
+                                   extra_env={"AIDER_TEST_PEAK_SECONDS": "1000"}, **self.PEAK)
+        self.assertEqual(result["status"], "done", result)
+        self.assertGreater(stats["paused_seconds"], 0.5)
+        self.assertLess(self.elapsed, 60)
 
     def test_repo_map_does_not_follow_the_words_of_each_turn(self):
         """Карта в режиме auto строится по словам текущих ходов, а в агентском цикле они

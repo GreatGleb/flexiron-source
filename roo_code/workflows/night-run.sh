@@ -40,6 +40,13 @@ stamp="$(date +%F-%H%M)"
 out="$state_root/night-$stamp"
 
 test -f "$routing" || { echo "Нет файла маршрутизации: $routing" >&2; exit 2; }
+# Пик DeepSeek (будни 01–04 и 06–10 UTC) вдвое дороже: по умолчанию авторы в пик ждут.
+# FLEXIRON_PEAK=ignore — работать и в пик. На ходу — night-peak.py ignore|pause.
+peak="${FLEXIRON_PEAK:-pause}"
+case "$peak" in
+    pause|ignore) ;;
+    *) echo "FLEXIRON_PEAK — pause или ignore, а не «$peak»" >&2; exit 2 ;;
+esac
 test -d "$repo/.git" || { echo "Не репозиторий: $repo" >&2; exit 2; }
 
 if [ -n "$(git -C "$repo" status --porcelain)" ]; then
@@ -49,6 +56,7 @@ fi
 
 git -C "$repo" switch -c "auto/night-$stamp"
 mkdir -p "$out"
+echo "$peak" > "$out/deepseek-peak"
 
 status=0
 python3 "$repo/roo_code/workflows/night-supervisor.py" \

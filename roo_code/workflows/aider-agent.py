@@ -42,36 +42,16 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import deepseek_tariff as tariff  # noqa: E402  (только stdlib)
 import refs_shift  # noqa: E402  (только stdlib — годится и для питона aider)
 
-# Тариф DeepSeek, $ за 1M токенов днём: (из кэша, мимо кэша, выход); в остальные часы — половина.
-# api-docs.deepseek.com/quick_start/pricing, сверено 2026-09-28. aider берёт дневной всегда и
-# завышал счёт ночи: проба 2026-09-28 в дешёвые часы — aider $0.294, баланс −$0.15, отсюда
-# прежний «×0.73» к суммам aider. Китайские праздники тариф считает дешёвыми, здесь они дневные:
-# ошибка только вверх. Модели нет в таблице — цены нет, а не угаданная.
-DEEPSEEK_PRICES = {"deepseek-v4-flash": (0.006, 0.30, 1.20), "deepseek-v4-pro": (0.044, 1.32, 3.96)}
-DEEPSEEK_PEAK_UTC = ((1, 4), (6, 10))   # будни
-
-
-def deepseek_peak(moment):
-    return moment.weekday() < 5 and any(start <= moment.hour < end for start, end in DEEPSEEK_PEAK_UTC)
-
-
-def deepseek_cost(model, calls):
-    """Деньги по вызовам `[время UTC, отправлено, из кэша, выход]`; None — посчитать нечем."""
-    prices = DEEPSEEK_PRICES.get(model.split("/")[-1])
-    if prices is None:
-        return None
-    hit_price, miss_price, out_price = prices
-    total = 0.0
-    for at, sent, hit, out in calls:
-        share = 1.0 if deepseek_peak(datetime.fromisoformat(at)) else 0.5
-        total += share * (hit * hit_price + (sent - hit) * miss_price + out * out_price) / 1e6
-    return round(total, 6)
+# Как часто пауза на пик перечитывает режим ночи и отмечается в своём файле: команда
+# `night-peak.py ignore` действует не позже чем через минуту, а сторож, для которого
+# тишина — 45 минут без изменений в каталоге ночи, видит живую задачу.
+PAUSE_POLL = 60
 
 CONFIG, ROOT, OUTPUTS = {}, None, []
 GIT_READ_ONLY = {"status", "diff", "log", "show", "grep", "ls-files", "blame", "rev-parse", "cat-file",
@@ -389,7 +369,7 @@ def drive(config_path):
 
     stats = {"commands": [], "refused": [], "read_added": [], "checks_runs": 0, "checks_green": None,
              "command_log": [], "final_reply": "", "cannot": "", "aider_errors": [],
-             "calls": [], "calls_unmetered": 0}
+             "calls": [], "calls_unmetered": 0, "paused_seconds": 0.0}
 
     def run_model_command(command, verbose=False, error_print=None, cwd=None):
         code, out = run_limited(command, cwd or ROOT, CONFIG["command_timeout"], shell=True, env=guarded_env())
@@ -544,12 +524,49 @@ def drive(config_path):
         if usage is None:
             stats["calls_unmetered"] += 1   # aider дальше посчитает сам, прикидкой — не замер
         else:
-            stats["calls"].append([datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            stats["calls"].append([tariff.utc_now().isoformat(timespec="seconds"),
                                    usage.prompt_tokens or 0, getattr(usage, "prompt_cache_hit_tokens", 0) or 0,
                                    usage.completion_tokens or 0])
         return show_cost(messages, completion)
 
     coder.calculate_and_show_tokens_and_cost = count_call
+
+    mode_file = Path(CONFIG["peak_mode"]) if CONFIG.get("peak_mode") and tariff.is_deepseek(CONFIG["model"]) else None
+    pause_file = Path(CONFIG["pause"]) if CONFIG.get("pause") else None
+
+    def wait_off_peak():
+        """В пик DeepSeek вдвое дороже: при режиме ночи pause запрос ждёт конца пика.
+
+        Режим перечитывается каждый обход — `night-peak.py ignore` отпускает задачу на
+        ходу. Набранная пауза пишется в свой файл: обёртка продлевает на неё лимит задачи,
+        иначе трёхчасовой пик убил бы задачу по таймауту."""
+        started = None
+        while tariff.read_mode(mode_file) == "pause" and tariff.peak(tariff.utc_now()):
+            now = tariff.utc_now()
+            if started is None:
+                started = time.monotonic()
+                io.tool_output(f"[ночь] пик DeepSeek — пауза до {tariff.next_change(now):%H:%M} UTC")
+            record_pause(stats["paused_seconds"] + time.monotonic() - started, tariff.next_change(now))
+            time.sleep(PAUSE_POLL)
+        if started is not None:
+            stats["paused_seconds"] += time.monotonic() - started
+            record_pause(stats["paused_seconds"], None)
+            io.tool_output("[ночь] пик DeepSeek кончился — работа продолжается")
+
+    def record_pause(seconds, until):
+        if pause_file:
+            pause_file.write_text(json.dumps({"paused_seconds": round(seconds, 1),
+                                              "until_utc": until.isoformat() if until else None}))
+
+    if mode_file:
+        import litellm
+        completion = litellm.completion
+
+        def completion_off_peak(*args, **kwargs):
+            wait_off_peak()
+            return completion(*args, **kwargs)
+
+        litellm.completion = completion_off_peak
 
     def mentions(content):
         added, refused, texts = [], [], []
@@ -684,7 +701,7 @@ def drive(config_path):
                  cost=round(coder.total_cost, 4), reflections=coder.num_reflections)
     # `cost` — прикидка aider по дневному тарифу, `cost_real` — по тарифу провайдера и часу вызова.
     sent = sum(call[1] for call in stats["calls"])
-    stats["cost_real"] = None if stats["calls_unmetered"] else deepseek_cost(CONFIG["model"], stats["calls"])
+    stats["cost_real"] = None if stats["calls_unmetered"] else tariff.cost(CONFIG["model"], stats["calls"])
     stats["cache_share"] = round(sum(call[2] for call in stats["calls"]) / sent, 3) if sent else None
     Path(CONFIG["stats"]).write_text(json.dumps(stats, ensure_ascii=False, indent=2))
     return 0
