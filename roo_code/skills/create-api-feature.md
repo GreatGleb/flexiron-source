@@ -23,7 +23,7 @@ backend/
 │   ├── _alembic_imports.py               # Model registry (add new models here)
 │   └── versions/                         # Migration files
 ├── app/
-│   ├── main.py                           # Entry point — register feature routers
+│   ├── main.py                           # Entry point — walks app/**/action.py, registers routers
 │   ├── core/                             # 🧊 STERILE — infrastructure only
 │   │   ├── base.py                       # Base, UUIDMixin, TimestampMixin
 │   │   ├── config.py                     # Settings (pydantic-settings)
@@ -124,7 +124,7 @@ If business logic is complex, **DECOMPOSE** into additional files and subfolders
 3. **Стопы — по режиму.** Интерактивно: стоп после каждого файла и ожидание подтверждения. Автономно: стопов нет, после каждого файла — импорт-проверка, в конце слайса — линзы Б1–Б5.
 4. **Импорт-проверка после каждого файла** — `python -c "from app.modules.[module].features.[feature].<файл> import ..."`. Это не typecheck: статического анализатора в `backend/` нет вовсе (ни mypy, ни pyright, ни ruff), и называть импорт проверкой типов — врать себе. Что бэкенд проверяет по-настоящему и чего он не проверяет — раздел «Бэкенд: приёмка и линзы Б1–Б5» в [`verify.md`](verify.md)
 5. **ALWAYS create `__init__.py`** in any new package directory with proper `__all__` exports
-6. **Register router** in [`app/main.py`](backend/app/main.py) — import and `app.include_router()`
+6. **Роутер регистрируется сам** — [`app/main.py`](backend/app/main.py) обходит `app/**/action.py` (`discover_feature_routers()`) и подключает каждый найденный модульный `router`; новый слайс этот файл не трогает. Условие, по которому слайс находится, — module-level `router: APIRouter` в `action.py`.
 
 ---
 
@@ -239,7 +239,7 @@ Affected files:
 - app/modules/[module]/features/[feature]/domain.py
 - app/modules/[module]/features/[feature]/repository.py
 - app/modules/[module]/features/[feature]/schemas.py
-- app/main.py (register router)
+- роутер находится автоматически (обход `app/**/action.py` в [`app/main.py`](backend/app/main.py)) — файл не правится
 - [Optional: alembic/_alembic_imports.py, internal_api/interface.py]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
@@ -975,6 +975,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.schemas import ApiResponse
 from app.core.exceptions import ValidationError, NotFoundError, ConflictError
+from app.modules.auth.internal_api.interface import CurrentUser, get_current_user
 from .schemas import (
     [FeatureName]Input,
     [FeatureName]Response,
@@ -990,14 +991,10 @@ router = APIRouter(prefix="/api/[domain]", tags=["[module]"])
 async def create_[entity](
     input_data: [FeatureName]Input,
     db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
-    """Create a new [entity].
-
-    NOTE: tenant_id is hardcoded as a placeholder until auth middleware
-    provides the current tenant context.
-    """
-    import uuid
-    tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")  # placeholder
+    """Create a new [entity]."""
+    tenant_id = current_user.tenant_id
 
     try:
         result = await [feature_function_alias](db, tenant_id, input_data)
@@ -1026,6 +1023,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.schemas import ApiResponse
 from app.core.exceptions import NotFoundError
+from app.modules.auth.internal_api.interface import CurrentUser, get_current_user
 from .domain import (
     get_[entity]_detail as get_[entity]_detail_usecase,
 )
@@ -1037,14 +1035,10 @@ router = APIRouter(prefix="/api/[domain]", tags=["[module]"])
 async def get_[entity]_detail(
     entity_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
-    """Get detailed info about a [entity] by its ID.
-
-    NOTE: tenant_id is hardcoded as a placeholder until auth middleware
-    provides the current tenant context.
-    """
-    import uuid
-    tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")  # placeholder
+    """Get detailed info about a [entity] by its ID."""
+    tenant_id = current_user.tenant_id
 
     try:
         result = await get_[entity]_detail_usecase(db, tenant_id, entity_id)
@@ -1071,6 +1065,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.schemas import ApiResponse
+from app.modules.auth.internal_api.interface import CurrentUser, get_current_user
 from .domain import (
     list_[entities] as list_[entities]_usecase,
 )
@@ -1086,10 +1081,10 @@ async def list_[entities](
     # Add domain-specific filters as Query params
     # status: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """List [entities] with pagination and filters."""
-    import uuid
-    tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")  # placeholder
+    tenant_id = current_user.tenant_id
 
     result = await list_[entities]_usecase(
         db=db,
@@ -1115,6 +1110,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.schemas import ApiResponse
 from app.core.exceptions import NotFoundError, ValidationError
+from app.modules.auth.internal_api.interface import CurrentUser, get_current_user
 from .schemas import (
     [Entity]PatchInput,
 )
@@ -1130,10 +1126,10 @@ async def patch_[entity](
     entity_id: UUID,
     input_data: [Entity]PatchInput,
     db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Partially update a [entity] (PATCH — dirty-only fields, merge semantics)."""
-    import uuid
-    tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")  # placeholder
+    tenant_id = current_user.tenant_id
 
     try:
         result = await patch_[entity]_usecase(db, tenant_id, entity_id, input_data)
@@ -1166,6 +1162,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.schemas import ApiResponse
 from app.core.exceptions import NotFoundError
+from app.modules.auth.internal_api.interface import CurrentUser, get_current_user
 from .domain import (
     delete_[entity] as delete_[entity]_usecase,
 )
@@ -1177,10 +1174,10 @@ router = APIRouter(prefix="/api/[domain]", tags=["[module]"])
 async def delete_[entity](
     entity_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Delete a [entity] by ID."""
-    import uuid
-    tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")  # placeholder
+    tenant_id = current_user.tenant_id
 
     try:
         await delete_[entity]_usecase(db, tenant_id, entity_id)
@@ -1192,17 +1189,21 @@ async def delete_[entity](
         )
 ```
 
-### Register Router in `app/main.py`
+### Регистрация автоматическая — `app/main.py` не правится
+
+[`app/main.py`](backend/app/main.py) обходит `app/**/action.py` (`discover_feature_routers()`),
+импортирует каждый модуль и регистрирует его атрибут `router`, если тот — `APIRouter`. Новый слайс
+подхватывается самим обходом: `app/main.py` не редактируется, рукописного импорта и списка
+подключений нет.
+
+Единственное условие — **module-level `router`** в `action.py` слайса:
 
 ```python
-# In the route imports section:
-from app.modules.[module].features.[feature].action import (
-    router as [module]_[feature]_router,
-)
-
-# In the include_router section:
-app.include_router([module]_[feature]_router)
+router = APIRouter(prefix="/api/[domain]", tags=["[module]"])
 ```
+
+Порядок подключения тоже решает обход, а не автор: роутеры без `{param}` в путях идут первыми,
+чтобы литеральный `/list` не перехватил соседний `/{id}`.
 
 ### Checkpoint 4
 
@@ -1212,7 +1213,7 @@ cd backend && python -c "from app.modules.[module].features.[feature].action imp
 
 ```
 ⏸ STOP — Step 4: Action Layer
-Done: feature action created, registered in main.py ✅
+Done: feature action created, router picked up by the walk ✅
 Next: Step 5 — Verification
 Continue?
 ```
@@ -1295,9 +1296,16 @@ kill %1
 модель ↔ миграция ↔ контракт, мультиарендность (`tenant_id` в каждом запросе), транзакции и N+1,
 контракт наружу. Плюс **Л3**, **Л5**, **Л10** оттуда же.
 
-Тестов в `backend/` нет ни одного, поэтому здесь нет и того, что на фронтенде даёт зелёный прогон:
-единственная приёмка бэкенд-фичи — эти линзы и импорт. Утверждение «фича работает» без пройденных
-линз ничем не подкреплено.
+Тесты в `backend/` есть, и вердикт по слайсу обязан опираться на них. Прогон —
+`cd backend && python3 -m pytest tests -q`. Раскладка — файл на поведение внутри
+`backend/tests/modules/<модуль>/` (например `backend/tests/modules/products/`), а сторожа
+уровня набора лежат прямо в `backend/tests/`: `test_slice_layers.py` (слои слайса — HTTP только
+в `action.py`, SQL не в `action.py`, нет заглушки арендатора, `app/core/` ходит в модули только
+через `internal_api/interface.py`), `test_module_boundaries.py` (границы между модулями),
+`test_router_registry.py` (роуты на диске совпадают с зарегистрированными), `test_route_auth.py`
+(аутентификация), `test_tenant_scope.py` (арендатор). Неверно сложенный слайс бракуют именно они.
+Свой тест нового слайса кладётся рядом с ними — `backend/tests/modules/<модуль>/test_<фича>.py`.
+Линзы и импорт не заменяют прогон: утверждение «фича работает» без него ничем не подкреплено.
 
 ```
 ⏸ STOP — Step 5: Verification
@@ -1381,7 +1389,7 @@ Files created:
 - [Optional] validators.py / helpers.py / subfolders
 
 Modified:
-- app/main.py (router registered)
+- роутер находится обходом `app/**/action.py` — `app/main.py` не правится
 - alembic/_alembic_imports.py (if new model added)
 - [module]/internal_api/interface.py (if cross-module function added)
 

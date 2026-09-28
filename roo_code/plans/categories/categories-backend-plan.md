@@ -917,7 +917,7 @@ grep -c "audit" src/i18n/admin/categories.ts   # было 0, ожидание: �
 | M1–M4 | `cd backend && alembic upgrade head && alembic downgrade -1 && alembic upgrade head` | без ошибок |
 | M2 | `grep -c "product_count" backend/app/modules/products/shared/models.py` | `0` |
 | S1–S7 | импорт-проверка четырёх слоёв слайса | `layers ok` |
-| S1–S7 | `uvicorn` + `curl` по своему пути (`create-api-feature.md:1273-1274`) | конверт `ApiResponse` |
+| S1–S7 | `uvicorn` + `curl` по своему пути (`create-api-feature.md:1274-1275`) | конверт `ApiResponse` |
 | S1, S3–S7 | строка `Бэкенд:` раздела больше не «не реализован» | `grep -cE "Бэкенд: (\*\*)?не реализован" roo_code/roo-context/api/categories.md` убывает на 1 за слайс, с `6` до `0` — **шесть** слайсов на шесть сегодняшних разделов |
 | S2 | раздела `GET /api/categories/list` в контракте нет вовсе — S2 его заводит, и строки «не реализован» у него нет с рождения: она пишется сразу ссылкой на слайс. Поэтому S2 счёт выше не уменьшает, а увеличивает число разделов | `grep -c "^### " roo_code/roo-context/api/categories.md` → `7` (было `6`); `grep -c "GET /api/categories/list" roo_code/roo-context/api/categories.md` → не меньше `1` |
 | S8 | таблица «эндпоинт → элемент и действие» покрывает все семь роутов, каждый ровно раз (§6 сводки) | число строк таблицы = `7`; при `rights-contract-conformance.spec.ts` (дорожка `rights`) — зелено |
