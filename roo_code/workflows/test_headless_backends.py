@@ -41,6 +41,10 @@ with pathlib.Path(os.environ['NIGHT_TEST_CALLS']).open('a') as calls:
 mode = os.environ.get('NIGHT_TEST_MODE', '')
 if role == 'review' and mode == 'review-silent':
     raise SystemExit(0)   # вышел с нулём, не напечатав ничего: ни результата, ни учёта
+if role == 'review' and mode == 'review-silent-once':
+    reviews = pathlib.Path(os.environ['NIGHT_TEST_CALLS']).read_text().count(f"{task['id']}:review:")
+    if reviews == 1:
+        raise SystemExit(0)   # первая приёмка молчит, повтор отвечает как обычно
 if role == 'review' and mode in ('review-quotes-code', 'review-no-json'):
     body = {'review-quotes-code': 'Ожидание `{ timeout: DATA_READY_TIMEOUT }` верно.\n```json\n'
                                   + json.dumps({'status': 'done', 'summary': 'ок', 'evidence': ['дифф']}) + '\n```',
@@ -518,12 +522,29 @@ class ReviewOnClaudeTest(unittest.TestCase):
         state = self.state()
         self.assertNotEqual(state["status"], "stopped", state)
         self.assertEqual([x["task"] for x in state["blocked"]], ["alpha"])
-        self.assertIn("Ответ приёмщика непригоден", state["blocked"][0]["reason"])
+        # Молчание — сбой среды: одна повторная приёмка, и только потом брак.
+        self.assertIn("Сервис проверки недоступен после двух попыток: empty_output", state["blocked"][0]["reason"])
+        self.assertEqual(len((self.logs / "service-retries.jsonl").read_text().splitlines()), 2)
         # Единственный вызов в счёт потолка — та самая приёмка; её лог не измерить,
         # и в счёт она не пошла, а не уронила прогон.
         self.assertEqual(state["tokens"], 0)
         self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
         self.assertFalse(self.git("status", "--porcelain"))
+
+
+    def test_reviewer_silent_once_is_asked_again_and_work_is_accepted(self):
+        # Ночь 2026-09-28-0022: приёмщик Opus умер за секунду с пустыми stdout и stderr,
+        # вызовы оператора до и после прошли — готовая работа ушла в брак без повтора.
+        result = self.invoke("review-silent-once")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.state()
+        self.assertIn("alpha", [x["task"] for x in state["completed"]])
+        self.assertEqual(state["blocked"], [])
+        # Молчит первая приёмка КАЖДОЙ задачи — ровно один повтор на задачу, не больше.
+        retries = [json.loads(x) for x in (self.logs / "service-retries.jsonl").read_text().splitlines()]
+        self.assertEqual(sorted(r["task"] for r in retries), sorted(x["task"] for x in state["completed"]))
+        self.assertEqual({(r["attempt"], r["error"]) for r in retries}, {(1, "empty_output")})
+        self.assertTrue((self.logs / "alpha-review-retry-2.stdout.log").exists())
 
 
 class MixedRunTest(unittest.TestCase):

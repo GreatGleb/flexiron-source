@@ -680,11 +680,21 @@ def ask_agent(root, backends, task, role, run_dir, deadline, env=None):
                 shutil.copyfile(run_dir / f'{task["id"]}-{role}-retry-2.json',
                                 first_result)
             return result
-        except CommandFailed:
+        except (CommandFailed, ValueError) as error:
             suffix = "" if attempt == 1 else "-retry-2"
             prefix = run_dir / f'{task["id"]}-{role}{suffix}'
-            kind = (service_error_kind(prefix.with_suffix(".stdout.log"))
-                    if backends[role].supports_service_retry else None)
+            if isinstance(error, CommandFailed):
+                kind = (service_error_kind(prefix.with_suffix(".stdout.log"))
+                        if backends[role].supports_service_retry else None)
+            else:
+                # Вышел с кодом 0 и не напечатал НИЧЕГО — это не суждение приёмщика, а
+                # сбой среды, у любого бэкенда. Ночь 2026-09-28-0022: приёмщик Opus по
+                # `expect-budget-after-action-warehouse-specs` умер за секунду с пустыми
+                # stdout и stderr, и готовая работа ушла в брак без второй попытки, хотя
+                # вызовы оператора до и после прошли. Непустой негодный ответ — по-прежнему
+                # брак задачи: его ловит приёмка ядра.
+                log = prefix.with_suffix(".stdout.log")
+                kind = "empty_output" if log.is_file() and not log.read_text(errors="replace").strip() else None
             if role != "review" or not kind:
                 raise
             if git_state(root) != before_git or file_snapshot(root) != before_files:
