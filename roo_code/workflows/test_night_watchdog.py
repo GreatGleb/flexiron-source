@@ -458,6 +458,17 @@ class ResumeTest(NightFixture):
         (self.out / "night.json").write_text(json.dumps({**night, **changes}))
         return night
 
+    def test_night_started_before_the_finish_margin_still_resumes(self):
+        result = self.run_supervisor([sup.queue_json("alpha"), sup.queue_json("beta", ["plan2.md"])], batches=1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        night = self.set_night(max_batches=2)
+        del night["finish_minutes"]   # так выглядит night.json ночи, начатой до параметра
+        (self.out / "night.json").write_text(json.dumps({**night, "max_batches": 2}))
+        result = self.resume()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([b["tasks"] for b in self.report()["batches"]], [["alpha"], ["beta"]])
+        self.assertEqual(json.loads((self.out / "night.json").read_text())["finish_minutes"], 0)
+
     def test_resume_continues_the_same_night(self):
         result = self.run_supervisor([sup.queue_json("alpha"), sup.queue_json("beta", ["plan2.md"])], batches=1)
         self.assertEqual(result.returncode, 0, result.stderr)

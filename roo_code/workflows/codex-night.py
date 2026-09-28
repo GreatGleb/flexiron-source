@@ -719,7 +719,7 @@ def ask_agent(root, backends, task, role, run_dir, deadline, env=None):
 
 
 def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous=None,
-        token_budget=None, parallel=1, databases=None):
+        token_budget=None, parallel=1, databases=None, finish_minutes=0):
     if run_dir.is_relative_to(root):
         raise ValueError("Каталог результатов должен находиться вне checkout")
     # Never reuse a directory: even a stopped run remains intact.
@@ -809,7 +809,23 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             raise RuntimeError("Не удалось изолировать заблокированную задачу; продолжение небезопасно")
         save("task-blocked")
 
-    deadline = time.monotonic() + minutes * 60
+    # Два срока. `minutes` — до какого момента НАЧИНАТЬ задачи; `finish_minutes` сверх
+    # него — запас начатым на доделку. Один срок на всё убивал автора на полуслове:
+    # задача, взятая за пять минут до конца ночи, гибла вместе с прогоном, а её работа
+    # пропадала, потому что патч снимается только с законченного автора.
+    start_deadline = time.monotonic() + minutes * 60
+    deadline = start_deadline + finish_minutes * 60
+    late = [False]
+
+    def may_start():
+        if time.monotonic() < start_deadline:
+            return True
+        if not late[0]:
+            late[0] = True
+            state["reason"] = "Время начинать задачи вышло; начатые доделаны"
+            save("time-limit")
+        return False
+
     pools = [None]
     save("start")
     try:
@@ -1035,7 +1051,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                     continue
                 if attempts >= max_tasks:
                     continue
-                if not budget_allows():
+                if not may_start() or not budget_allows():
                     break
                 attempts += 1
                 expected_git, links_before = begin(task)
@@ -1091,7 +1107,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                     candidates.append(task)
                 started = []
                 for task in disjoint_batch(candidates, parallel - len(running), busy):
-                    if exhausted or attempts >= max_tasks or not budget_allows():
+                    if exhausted or attempts >= max_tasks or not may_start() or not budget_allows():
                         break
                     if any(not (root / name).is_file() for name in task["sources"]):
                         # Брак по источникам прячет checkout в stash — посреди чужой
@@ -1154,6 +1170,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
         state["tokens"] = spent_tokens(backends, run_dir)
         resolved_count = sum(len(state[key]) for key in ("completed", "blocked", "waiting"))
         state["status"] = ("token-budget" if exhausted else
+                           "time-limit" if late[0] and resolved_count < len(tasks) else
                            "task-limit" if resolved_count < len(tasks) else
                            "completed-with-blockers" if state["blocked"] else "completed")
         drop_worktrees(root, run_dir)
@@ -1195,7 +1212,9 @@ def main():
                              "самой механики; в прогоне не использовать")
     parser.add_argument("--run", action="store_true", help="Без флага — только preflight, без вызова модели")
     parser.add_argument("--run-dir", type=Path)
-    parser.add_argument("--minutes", type=float)
+    parser.add_argument("--minutes", type=float, help="До какого момента начинать задачи, минут от старта")
+    parser.add_argument("--finish-minutes", type=float, default=0,
+                        help="Запас сверх --minutes начатым задачам на доделку; 0 — обрыв на сроке")
     parser.add_argument("--max-tasks", type=int)
     parser.add_argument("--retry-review", type=Path, help="Каталог остановленного прогона: повторить проверки и приёмку сохранённой работы")
     args = parser.parse_args()
@@ -1210,6 +1229,8 @@ def main():
     if args.run and (args.run_dir is None or args.minutes is None or not math.isfinite(args.minutes)
                      or args.minutes <= 0 or args.max_tasks is None or args.max_tasks <= 0):
         parser.error("Для --run обязательны --run-dir, положительные --minutes и --max-tasks")
+    if not math.isfinite(args.finish_minutes) or args.finish_minutes < 0:
+        parser.error("--finish-minutes — неотрицательное число")
     # Shared git directory lock prevents two controllers using the same repository.
     common = Path(git(root, "rev-parse", "--git-common-dir").strip())
     common = (root / common).resolve()
@@ -1229,7 +1250,7 @@ def main():
         retry = retry_checkpoint(root, queue, previous) if previous else None
         preflight(root, queue, backends, retry)
         return run(root, queue, backends, args.run_dir.resolve(), args.minutes, args.max_tasks,
-                   retry, previous, args.token_budget, args.parallel, databases)
+                   retry, previous, args.token_budget, args.parallel, databases, args.finish_minutes)
 
 
 if __name__ == "__main__":
