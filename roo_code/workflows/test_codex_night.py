@@ -12,6 +12,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+from unittest import mock
 
 
 RUNNER = Path(__file__).with_name("codex-night.py").resolve()
@@ -167,8 +168,33 @@ class PilotTest(unittest.TestCase):
 
     # --- БАГ-05: общий изменяемый ресурс изолируется вместе с файлами ---
 
+    def own_namespace(self):
+        """Своё пространство имён баз — и в этом процессе, и у запускаемого ядра.
+
+        С боевым `nightdb_` набор и живая ночь делят одно пространство: `prepare`
+        ядра-под-тестом сметает в нём ВСЁ как мусор прошлых прогонов, а уборка теста
+        добивает шаблон. Ночь узнаёт об этом минут через десять, когда не сможет
+        клонировать шаблон под следующую задачу, и умирает. Так погибли две ночи:
+        2026-09-27-2225 в 00:03 и 2026-09-28-0719 в 07:56 — вторая уже после того, как
+        свой префикс получил `test_night_db.py`, но не этот файл. Префикс той же
+        длины: `SLUG_LIMIT` считается от него при импорте, и имена баз обязаны
+        совпасть с тем, что построит ядро в подпроцессе.
+        """
+        patcher = mock.patch.multiple(night_db, PREFIX="nightts_", TEMPLATE="nightts_template")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.env["NIGHT_DB_PREFIX"] = "nightts_"
+
+    def production_databases(self):
+        """Перепись БОЕВОГО пространства имён — имя здесь дословное и не патчится."""
+        rows = night_db.asyncpg_sql(night_db.url_for_database(LIVE_DB_URL, "postgres"), [],
+                                    ["SELECT datname FROM pg_database WHERE datname LIKE $1",
+                                     "nightdb_%"])
+        return sorted(row[0] for row in rows)
+
     def with_backend(self, checks):
         """Дерево с бэкендом и очередь, чья проверка записывает свой DATABASE_URL."""
+        self.own_namespace()
         (self.root / "backend").mkdir()
         (self.root / "backend/.env").write_text(f"DATABASE_URL={LIVE_DB_URL}\n")
         self.git("add", "backend/.env")
@@ -206,6 +232,26 @@ class PilotTest(unittest.TestCase):
         self.assertNotIn("/flexiron", seen["plan:work"])
         # Задача кончилась — базы не стало; остаётся только шаблон.
         self.assertEqual(pool.existing(), [night_db.TEMPLATE])
+
+    @unittest.skipUnless(postgres_available(),
+                         f"нет Postgres на {LIVE_DB_URL}: изоляцию баз проверять не на чем")
+    def test_run_under_test_leaves_the_production_namespace_untouched(self):
+        """Набор гоняют когда угодно — в том числе при идущей ночи.
+
+        Проверяется не «другой префикс», а сам след: перепись боевого пространства
+        имён до и после прогона обязана совпасть. Ровно это не совпало 2026-09-28 в
+        07:47, когда набор снёс `nightdb_template` работавшей ночи.
+        """
+        self.with_backend([])
+        # Шаблон переживает прогон по замыслу — за собой его убирает тот, кто звал.
+        pool = night_db.TaskDatabases(LIVE_DB_URL)
+        self.addCleanup(lambda: [pool._admin(*pool._drop(name)) for name in pool.existing()])
+        before = self.production_databases()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.production_databases(), before)
+        # И при этом прогон базы действительно заводил — в своём пространстве.
+        self.assertTrue(self.seen_urls()["plan:work"].endswith(night_db.database_name("plan")))
 
     @unittest.skipUnless(postgres_available(),
                          f"нет Postgres на {LIVE_DB_URL}: изоляцию баз проверять не на чем")

@@ -1,7 +1,10 @@
 """Базы на задачу: порядок операторов — без Postgres, жизненный цикл — на живом сервере."""
 
 import importlib.util
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -42,6 +45,31 @@ class Recorder:
         return [statement for _, group in [(c[0], c[1]) for c in self.calls] for statement in group]
 
 
+class Namespace(Recorder):
+    """Протоколист, который отвечает на два разных вопроса: кто владелец и что есть.
+
+    Один `rows` на все запросы тут не годится: владение и перепись баз читаются
+    разными запросами, а проверяется именно их сочетание.
+    """
+
+    def __init__(self, owner=None, names=()):
+        super().__init__()
+        self.owner, self.names = owner, list(names)
+
+    def __call__(self, url, statements, query=None):
+        self.calls.append((url, list(statements), query))
+        if not query:
+            return []
+        return [[self.owner]] if "shobj_description" in query[0] else [[name] for name in self.names]
+
+
+def live_process():
+    """Живой чужой процесс и его подпись — настоящие, а не выдуманные."""
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"],
+                             stdin=subprocess.DEVNULL)
+    return child, night_db.process_signature(child.pid)
+
+
 class NamingTest(unittest.TestCase):
     def test_name_is_deterministic_readable_and_within_the_identifier_limit(self):
         name = night_db.database_name("suppliers-schema-t2")
@@ -80,6 +108,95 @@ class NamingTest(unittest.TestCase):
             (root / "backend").mkdir()
             (root / "backend/.env").write_text("SECRET_KEY=x\nDATABASE_URL=postgresql://a:b@h:1/db\n")
             self.assertEqual(night_db.read_database_url(root), "postgresql://a:b@h:1/db")
+
+
+class SignatureTest(unittest.TestCase):
+    """Подпись процесса: по ней решают, жив ли владелец пространства имён."""
+
+    def test_signature_matches_start_time_and_not_only_the_pid(self):
+        mine = night_db.process_signature()
+        self.assertTrue(night_db.process_alive(mine))
+        # Тот же номер, другой момент старта — это ДРУГОЙ процесс: номера
+        # переиспользуются, и по одному номеру владельцем оказался бы кто угодно.
+        self.assertFalse(night_db.process_alive(f"{os.getpid()} 0"))
+        self.assertFalse(night_db.process_alive(""))
+        self.assertFalse(night_db.process_alive("не-число 1"))
+
+    def test_signature_of_a_finished_process_is_not_alive(self):
+        child, signature = live_process()
+        self.assertTrue(night_db.process_alive(signature))
+        child.kill()
+        child.wait()
+        self.assertFalse(night_db.process_alive(signature))
+
+    def test_namespace_comes_from_the_environment(self):
+        """Чужому процессу на том же сервере нужно СВОЁ пространство имён."""
+        with mock.patch.dict(os.environ, {"NIGHT_DB_PREFIX": "nightts_"}):
+            other = _load("night_db")
+        self.assertEqual(other.PREFIX, "nightts_")
+        self.assertEqual(other.TEMPLATE, "nightts_template")
+        self.assertTrue(other.database_name("plan").startswith("nightts_plan_"))
+        # Умолчание боевое: ночь запускается без переменной и обязана попасть в nightdb_.
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(_load("night_db").PREFIX, "nightdb_")
+
+
+class OwnershipTest(unittest.TestCase):
+    """Уборка чужого живого пространства имён — то, чем убили две ночи."""
+
+    def setUp(self):
+        self.executor = Namespace(names=["nightdb_stale_abcdef12", night_db.TEMPLATE])
+        self.pool = night_db.TaskDatabases(LIVE_URL, self.executor)
+
+    def prepare(self):
+        with tempfile.TemporaryDirectory() as temp:
+            self.pool.prepare(Path(temp), lambda url: None)
+
+    def test_prepare_refuses_to_sweep_a_namespace_held_by_a_live_process(self):
+        child, signature = live_process()
+        self.addCleanup(child.wait)
+        self.addCleanup(child.kill)
+        self.executor.owner = f"{night_db.OWNER_TAG} {signature}"
+        with self.assertRaises(RuntimeError) as caught:
+            self.prepare()
+        self.assertIn(signature, str(caught.exception))
+        self.assertIn("NIGHT_DB_PREFIX", str(caught.exception))
+        # Ни одного удаления: чужие рабочие базы обязаны пережить отказ целиком.
+        self.assertFalse([s for s in self.executor.statements() if "DROP DATABASE" in s])
+
+    def test_prepare_sweeps_a_namespace_whose_owner_is_gone(self):
+        child, signature = live_process()
+        child.kill()
+        child.wait()
+        self.executor.owner = f"{night_db.OWNER_TAG} {signature}"
+        self.prepare()
+        self.assertIn('DROP DATABASE IF EXISTS "nightdb_stale_abcdef12"',
+                      self.executor.statements())
+
+    def test_prepare_sweeps_what_this_very_process_owns(self):
+        """Свой же след — не чужой прогон: иначе повторный prepare запретил бы сам себя."""
+        self.executor.owner = f"{night_db.OWNER_TAG} {night_db.process_signature()}"
+        self.prepare()
+        self.assertIn('DROP DATABASE IF EXISTS "nightdb_stale_abcdef12"',
+                      self.executor.statements())
+
+    def test_prepare_marks_the_template_with_its_own_signature(self):
+        self.prepare()
+        mark = f"""COMMENT ON DATABASE "{night_db.TEMPLATE}" IS '{night_db.OWNER_TAG} """
+        marks = [s for s in self.executor.statements() if s.startswith(mark)]
+        self.assertEqual(len(marks), 1, self.executor.statements())
+        self.assertIn(night_db.process_signature(), marks[0])
+        # Метка — до миграций: пространство занято с первой секунды, а не с последней.
+        statements = self.executor.statements()
+        self.assertGreater(statements.index(marks[0]),
+                           statements.index(f'CREATE DATABASE "{night_db.TEMPLATE}"'))
+
+    def test_a_foreign_mark_is_read_only_when_it_is_ours_by_tag(self):
+        """Чужой комментарий к базе шаблона владением не считается."""
+        self.executor.owner = "какой-то текст"
+        self.assertIsNone(self.pool.owner())
+        self.executor.owner = None
+        self.assertIsNone(self.pool.owner())
 
 
 class LifecycleTest(unittest.TestCase):
