@@ -316,7 +316,7 @@ it('agrees with counting the orders by hand', () => {
 ## БАГ-06 — спека `salesMtd` и `newClientsThisMonth` дословно повторяет выражение продакшена, а e2e утверждает два числа из четырёх
 
 **File:** `frontend_vue/src/services/mocks/orders.spec.ts:3008-3024`,
-`frontend_vue/tests/e2e/admin/sales-crm/sales-crm.spec.ts:49-52`
+`frontend_vue/tests/e2e/admin/sales-crm/sales-crm.spec.ts:51-54`
 **Severity:** Medium — два из четырёх чисел домена не проверены ничем, что сломалось бы от
 неверного правила.
 **Источник:** К3/К4
@@ -350,7 +350,7 @@ newClientsThisMonth: mockGetClients().filter((c) => new Date(c.createdAt) >= mon
 UTC), присутствуют в спеке ровно в том же виде, поэтому она их не видит **по построению**.
 
 E2E прикрывает только другую половину: он утверждает `active-orders` и `pending-orders`
-(`frontend_vue/tests/e2e/admin/sales-crm/sales-crm.spec.ts:49-52`), а `salesMtd` и
+(`frontend_vue/tests/e2e/admin/sales-crm/sales-crm.spec.ts:51-54`), а `salesMtd` и
 `newClientsThisMonth` не читает вовсе — единственный созданный им заказ пуст, то есть оборот и не
 должен двигаться.
 

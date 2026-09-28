@@ -29,11 +29,17 @@ import { describe, expect, it } from 'vitest'
 
 const ROOT = resolve(__dirname, '..', '..')
 
-/** Ровно свои файлы: три спека этой задачи. */
+/** Ровно свои файлы: три спека прежней задачи и шесть, добавленных этой. */
 const SPECS = [
   'tests/e2e/navigation.spec.ts',
   'tests/e2e/feature-flags-matrix.spec.ts',
   'tests/e2e/admin/settings/settings.spec.ts',
+  'tests/e2e/admin/notifications/notifications.spec.ts',
+  'tests/e2e/admin/sales-crm/sales-crm.spec.ts',
+  'tests/e2e/admin/followups-list1.spec.ts',
+  'tests/e2e/admin/clients/clients.spec.ts',
+  'tests/e2e/admin/layout.spec.ts',
+  'tests/e2e/admin/products/categories.spec.ts',
 ]
 
 /**
@@ -46,13 +52,27 @@ const BUDGETS_FLOOR: Record<string, number> = {
   'tests/e2e/navigation.spec.ts': 14,
   'tests/e2e/feature-flags-matrix.spec.ts': 19,
   'tests/e2e/admin/settings/settings.spec.ts': 34,
+  'tests/e2e/admin/notifications/notifications.spec.ts': 20,
+  'tests/e2e/admin/sales-crm/sales-crm.spec.ts': 4,
+  'tests/e2e/admin/followups-list1.spec.ts': 37,
+  'tests/e2e/admin/clients/clients.spec.ts': 50,
+  'tests/e2e/admin/layout.spec.ts': 44,
+  'tests/e2e/admin/products/categories.spec.ts': 37,
 }
 
 /** Голый переход — без ожидалки готовности он сам полом не является. */
 const GOTO = 'await page.goto('
 
-/** Ожидалки готовности: у них пол уже есть, и бюджета они не требуют. */
-const READY = /waitForDataReady|openAdminPage|openAdminCard|navigateToAdmin/
+/**
+ * Ожидалки готовности: у них пол уже есть, и бюджета они не требуют.
+ *
+ * `stabilizeForSnapshot` — потому что внутри он зовёт `waitForDataReady`
+ * (`tests/e2e/helpers/visual.ts`) и пол даёт именно им. Визуальный тест открывается
+ * им, а не голым переходом, и первое утверждение после такого открытия — снимок:
+ * у снимка свой бюджет в `SNAPSHOT_OPTIONS`, и второго поверх него не надо (это
+ * отдельно стережёт `snapshotBudget.spec.ts`).
+ */
+const READY = /waitForDataReady|openAdminPage|openAdminCard|navigateToAdmin|stabilizeForSnapshot/
 
 const CALL = 'await expect'
 const POLL = /^await expect[ \t\r\n]*\.poll\(/
@@ -128,12 +148,17 @@ function budgetCount(rel: string): number {
 }
 
 describe('бюджет ожидания у утверждений после голого page.goto', () => {
-  it('разбор читает все три спека и находит утверждения после перехода', () => {
-    expect(each).toHaveLength(3)
+  it('разбор читает все девять спеков и находит утверждения после перехода', () => {
+    expect(each).toHaveLength(9)
     // Пустой разбор выглядел бы как чистота: ноль утверждений — ноль нарушителей.
+    // Порог у каждого файла свой, а не десять: в `sales-crm` переход в спеке один,
+    // и десятка утверждений после него взяться неоткуда. Непустоту держит порог
+    // на файл, масштаб разбора — общая сумма.
     for (const { rel, found } of each) {
-      expect(found.length, `${rel}: разбор пуст`).toBeGreaterThanOrEqual(10)
+      expect(found.length, `${rel}: разбор пуст`).toBeGreaterThan(0)
     }
+    const total = each.reduce((sum, { found }) => sum + found.length, 0)
+    expect(total).toBeGreaterThanOrEqual(100)
   })
 
   it('класс «сразу после перехода» не пуст — иначе правило не проверялось бы', () => {

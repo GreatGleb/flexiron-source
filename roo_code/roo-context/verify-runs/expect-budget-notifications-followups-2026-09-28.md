@@ -158,7 +158,7 @@ AssertionError: expected [ Array(1) ] to deeply equal []
 + Received
 - []
 + [
-+   "tests/e2e/admin/followups-list1.spec.ts:132",
++   "tests/e2e/admin/followups-list1.spec.ts:137",
 + ]
  Test Files  1 failed (1)
       Tests  1 failed | 6 passed (7)
@@ -168,7 +168,7 @@ exit=1
 ```
 
 Красное и назван файл — сторож настоящий (Л9, приёмка инверсии #71: хоть один тест покраснел).
-Названная строка — `tests/e2e/admin/followups-list1.spec.ts:132`, отрицательное утверждение
+Названная строка — `tests/e2e/admin/followups-list1.spec.ts:137`, отрицательное утверждение
 `not.toContainText` с бюджетом `DATA_READY_TIMEOUT`; снятие второго аргумента у неё и есть мутация A.
 
 **B. Бюджет заменён числом `5000` и снят импорт в `sales-crm.spec.ts`**:
@@ -254,7 +254,7 @@ exit=0
 ## Ссылки
 
 Ссылка вида `файл:строка` в журнале одна — на строку, которую эта задача изменила:
-`tests/e2e/admin/followups-list1.spec.ts:132` в разделе про мутацию A, и в том же предложении
+`tests/e2e/admin/followups-list1.spec.ts:137` в разделе про мутацию A, и в том же предложении
 стоит токен `DATA_READY_TIMEOUT` с самой этой строки. Остальные места в коде названы токенами
 в бэктиках (`not.toContainText`, `toBeVisible`, имена селекторов) без номеров, а номера строк
 внутри блоков кода — это вывод репортера, который резолвер пропускает. Правка текста вокруг

@@ -452,7 +452,7 @@ AssertionError: expected [ Array(1) ] to deeply equal []
 +   "tests/e2e/admin/settings/settings.spec.ts:21",
 + ]
 
-  ❯ src/services/expectBudgetGoto.spec.ts:148:23
+  ❯ src/services/expectBudgetGoto.spec.ts:173:23
    146|       .filter((a) => !a.text.includes('timeout:'))
    147|       .map((a) => `${a.rel}:${a.line}`)
    148|     expect(offenders).toEqual([])
@@ -461,7 +461,7 @@ AssertionError: expected [ Array(1) ] to deeply equal []
 
  FAIL  src/services/expectBudgetGoto.spec.ts > бюджет ожидания у утверждений после голого page.goto > бюджеты не сняты — в каждом файле их не меньше замеренного числа
 AssertionError: tests/e2e/admin/settings/settings.spec.ts: бюджетов стало меньше замеренного: expected 33 to be greater than or equal to 34
-  ❯ src/services/expectBudgetGoto.spec.ts:176:77
+  ❯ src/services/expectBudgetGoto.spec.ts:201:77
    174|   it('бюджеты не сняты — в каждом файле их не меньше замеренного числа…
    175|     for (const [rel, floor] of Object.entries(BUDGETS_FLOOR)) {
    176|       expect(budgetCount(rel), `${rel}: бюджетов стало меньше замеренн…
@@ -3513,7 +3513,7 @@ roo_code/plans/bugs/contract-sync-products-bugs.md: ссылок 94, битых 
 roo_code/plans/bugs/contract-sync-sales-crm-bugs.md: ссылок 64, битых 4, глазами 0, без токена 50
   roo_code/plans/bugs/contract-sync-sales-crm-bugs.md:78 → frontend_vue/src/services/mocks/orders.ts:3809-3815 — нет токена в диапазоне: в 3809-3815 нет ни одного из: «salesMtd»
   roo_code/plans/bugs/contract-sync-sales-crm-bugs.md:287 → frontend_vue/src/domain/orderStatus.ts:103-105 — нет токена в диапазоне: в 103-105 нет ни одного из: «completed»
-  roo_code/plans/bugs/contract-sync-sales-crm-bugs.md:353 → frontend_vue/tests/e2e/admin/sales-crm/sales-crm.spec.ts:49-52 — нет токена в диапазоне: в 49-52 нет ни одного из: «salesMtd»
+  roo_code/plans/bugs/contract-sync-sales-crm-bugs.md:353 → frontend_vue/tests/e2e/admin/sales-crm/sales-crm.spec.ts:51-54 — нет токена в диапазоне: в 49-52 нет ни одного из: «salesMtd»
   roo_code/plans/bugs/contract-sync-sales-crm-bugs.md:405 → frontend_vue/src/composables/useOrderCard.ts:409-412 — нет токена в диапазоне: в 409-412 нет ни одного из: «ERROR_KEYS»
 roo_code/plans/bugs/contract-sync-services-bugs.md: ссылок 51, битых 5, глазами 2, без токена 35
   roo_code/plans/bugs/contract-sync-services-bugs.md:80 → backend/app/modules/settings/features/crud/repository.py:188-204 — нет токена в диапазоне: в 188-204 нет ни одного из: «get_uom_by_code»
