@@ -894,6 +894,33 @@ class GitFilterTest(unittest.TestCase):
         for args in (["--no-pager", "diff"], ["-C", "/x", "status"], ["-c", "core.pager=cat", "log", "-1"], ["--version"]):
             self.assertIsNone(aider_agent.guard_refusal(args), args)
 
+
+class DeepseekCostTest(unittest.TestCase):
+    """Цена вызова по тарифу DeepSeek: днём полная, в остальные часы и в выходные — половина.
+
+    aider считает по дневному всегда: проба 2026-09-28 в дешёвые часы — aider $0.294,
+    баланс −$0.15."""
+
+    # 2026-09-28 — понедельник, 2026-10-03 — суббота.
+    def test_peak_is_weekday_01_04_and_06_10_utc(self):
+        peak = lambda at: aider_agent.deepseek_peak(aider_agent.datetime.fromisoformat(at))
+        for at in ("2026-09-28T01:00:00+00:00", "2026-09-28T03:59:59+00:00", "2026-09-28T06:00:00+00:00",
+                   "2026-09-28T09:59:59+00:00"):
+            self.assertTrue(peak(at), at)
+        for at in ("2026-09-28T00:59:59+00:00", "2026-09-28T04:00:00+00:00", "2026-09-28T05:30:00+00:00",
+                   "2026-09-28T10:00:00+00:00", "2026-10-03T07:00:00+00:00"):
+            self.assertFalse(peak(at), at)
+
+    def test_cost_splits_hit_miss_and_output_and_halves_off_peak(self):
+        call = [1_000_000, 500_000, 100_000]   # отправлено, из них из кэша, выход
+        day = aider_agent.deepseek_cost("deepseek/deepseek-v4-flash", [["2026-09-28T07:00:00+00:00", *call]])
+        night = aider_agent.deepseek_cost("deepseek/deepseek-v4-flash", [["2026-09-28T17:00:00+00:00", *call]])
+        self.assertEqual(day, round(0.5 * 0.006 + 0.5 * 0.30 + 0.1 * 1.20, 6))
+        self.assertEqual(night, round(day / 2, 6))
+
+    def test_model_outside_the_table_has_no_invented_price(self):
+        self.assertIsNone(aider_agent.deepseek_cost("deepseek/deepseek-chat", [["2026-09-28T07:00:00+00:00", 1, 0, 1]]))
+
 AIDER_PYTHON = Path.home() / ".local/share/uv/tools/aider-chat/bin/python"
 AIDER_RUNNER = Path(__file__).with_name("aider-runner.py").resolve()
 # Питон aider с подменённой моделью: ответы берутся по порядку из AIDER_TEST_SCRIPT,
@@ -1225,7 +1252,9 @@ class AiderDriverTest(unittest.TestCase):
             time.sleep(0.2)
         guard = Path(where.read_text().strip()).parent
         self.assertEqual(guard, self.run_dir / "t-work.aider.git-guard")
-        driver = subprocess.run(["pgrep", "-f", "aider-agent[.]py .*t-work[.]aider[.]config[.]json"],
+        # Свой каталог прогона в шаблоне: по одному имени файла находились драйверы соседних
+        # прогонов набора (вторая сессия, живая проба) — и тест краснел не от своего кода.
+        driver = subprocess.run(["pgrep", "-f", f"aider-agent[.]py {self.run_dir}/t-work[.]aider[.]config[.]json"],
                                 capture_output=True, text=True).stdout.split()
         self.assertEqual(len(driver), 1, driver)
         os.kill(int(driver[0]), signal.SIGKILL)   # уборка драйвера не успевает ничего
@@ -1354,6 +1383,56 @@ class AiderDriverTest(unittest.TestCase):
         self.assertIn("НЕ открыл (потолок 1 файлов", self.prompts()[1])
         self.assertIn("other.py", self.prompts()[1].split("НЕ открыл", 1)[1])
         self.assertNotIn("VALUE = 1", self.prompts()[1])
+
+    def test_prompt_start_stays_the_same_from_turn_to_turn(self):
+        """Кэш DeepSeek — по совпадающему началу запроса, а aider ставит историю ПОСЛЕ
+        файлов для чтения и карты репозитория. Ночи 27–28.09: из кэша 52% входа против 97%
+        у Zoo, промах — две трети счёта. Карта пересобиралась по словам каждого хода,
+        открытый по упоминанию файл вставал в начало — и всю историю задачи оплачивали
+        заново. Меняться вправе только файлы задачи и то, что после них."""
+        self.drive(["```bash\necho one\n```\n", "Мне нужен helper.py.",
+                    edit("calc.py", "    return a - b", "    return a + b"), "Готово."],
+                   ["calc.py"], sources=["other.py"])
+        prompts = [json.loads(line) for line in (self.base / "llm.jsonl").read_text().splitlines()]
+        self.assertEqual(len(prompts), 4)   # команда, упоминание, правка, отчёт
+        for turn, (before, after) in enumerate(zip(prompts, prompts[1:]), 1):
+            files = next(n for n, m in enumerate(before) if m["role"] == "user" and "return a" in str(m["content"]))
+            self.assertEqual(after[:files], before[:files], f"ход {turn}: начало запроса изменилось")
+        self.assertIn("MAGIC_NUMBER = 42", json.dumps(prompts[2], ensure_ascii=False))
+
+    def test_every_call_is_counted_and_priced_by_the_provider_tariff(self):
+        """Счёт aider — по дневному тарифу; здесь токены каждого вызова со временем и цена по часу."""
+        result, stats = self.drive(["```bash\necho one\n```\n", edit("notes.md", "Число: ?", "Число: 42"), "Готово."],
+                                   ["notes.md"], model="deepseek/deepseek-v4-flash")
+        self.assertEqual(len(stats["calls"]), len(self.prompts()))
+        self.assertEqual(stats["calls_unmetered"], 0)
+        self.assertTrue(all(sent > 0 and out > 0 for _, sent, _, out in stats["calls"]), stats["calls"])
+        self.assertEqual(sum(call[1] for call in stats["calls"]), stats["tokens_sent"])
+        self.assertGreater(stats["cost_real"], 0)
+        self.assertLessEqual(stats["cost_real"], stats["cost"])   # дневной тариф — потолок
+        self.assertTrue(any("по тарифу провайдера $" in e for e in result["evidence"]), result["evidence"])
+
+    def test_model_without_a_tariff_is_reported_unmeasured(self):
+        result, stats = self.drive([edit("notes.md", "Число: ?", "Число: 42"), "Готово."], ["notes.md"])
+        self.assertIsNone(stats["cost_real"])   # deepseek-chat — вне таблицы
+        self.assertTrue(any("по тарифу провайдера нет замера" in e for e in result["evidence"]), result["evidence"])
+
+    def test_repo_map_does_not_follow_the_words_of_each_turn(self):
+        """Карта в режиме auto строится по словам текущих ходов, а в агентском цикле они
+        растут каждый ход: карта менялась почти на каждом, а стоит она перед историей.
+        Репозиторий больше бюджета карты — иначе карта одна при любых словах."""
+        for n in range(2000):
+            (self.root / f"mod_{n}.py").write_text(f"def func_{n}(value):\n    return value + {n}\n")
+        self.git("add", ".")
+        self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "mods")
+        self.head, self.index = self.git("rev-parse", "HEAD"), self.git("write-tree")
+        self.drive(["Смотрю func_7.\n```bash\necho one\n```\n", "Теперь func_1777 и func_1999.\n```bash\necho two\n```\n",
+                    edit("calc.py", "    return a - b", "    return a + b"), "Готово."], ["calc.py"])
+        prompts = [json.loads(line) for line in (self.base / "llm.jsonl").read_text().splitlines()]
+        self.assertEqual(len(prompts), 4)
+        for turn, (before, after) in enumerate(zip(prompts, prompts[1:]), 1):
+            files = next(n for n, m in enumerate(before) if m["role"] == "user" and "return a" in str(m["content"]))
+            self.assertEqual(after[:files], before[:files], f"ход {turn}: начало запроса изменилось")
 
     def test_prompt_mentions_are_not_pulled_into_the_chat(self):
         # Промпт ядра упоминает десятки документов; подтянуть их все — лишние токены.

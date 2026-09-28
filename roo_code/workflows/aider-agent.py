@@ -42,10 +42,36 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import refs_shift  # noqa: E402  (только stdlib — годится и для питона aider)
+
+# Тариф DeepSeek, $ за 1M токенов днём: (из кэша, мимо кэша, выход); в остальные часы — половина.
+# api-docs.deepseek.com/quick_start/pricing, сверено 2026-09-28. aider берёт дневной всегда и
+# завышал счёт ночи: проба 2026-09-28 в дешёвые часы — aider $0.294, баланс −$0.15, отсюда
+# прежний «×0.73» к суммам aider. Китайские праздники тариф считает дешёвыми, здесь они дневные:
+# ошибка только вверх. Модели нет в таблице — цены нет, а не угаданная.
+DEEPSEEK_PRICES = {"deepseek-v4-flash": (0.006, 0.30, 1.20), "deepseek-v4-pro": (0.044, 1.32, 3.96)}
+DEEPSEEK_PEAK_UTC = ((1, 4), (6, 10))   # будни
+
+
+def deepseek_peak(moment):
+    return moment.weekday() < 5 and any(start <= moment.hour < end for start, end in DEEPSEEK_PEAK_UTC)
+
+
+def deepseek_cost(model, calls):
+    """Деньги по вызовам `[время UTC, отправлено, из кэша, выход]`; None — посчитать нечем."""
+    prices = DEEPSEEK_PRICES.get(model.split("/")[-1])
+    if prices is None:
+        return None
+    hit_price, miss_price, out_price = prices
+    total = 0.0
+    for at, sent, hit, out in calls:
+        share = 1.0 if deepseek_peak(datetime.fromisoformat(at)) else 0.5
+        total += share * (hit * hit_price + (sent - hit) * miss_price + out * out_price) / 1e6
+    return round(total, 6)
 
 CONFIG, ROOT, OUTPUTS = {}, None, []
 GIT_READ_ONLY = {"status", "diff", "log", "show", "grep", "ls-files", "blame", "rev-parse", "cat-file",
@@ -362,7 +388,8 @@ def drive(config_path):
     from aider.repo import GitRepo
 
     stats = {"commands": [], "refused": [], "read_added": [], "checks_runs": 0, "checks_green": None,
-             "command_log": [], "final_reply": "", "cannot": "", "aider_errors": []}
+             "command_log": [], "final_reply": "", "cannot": "", "aider_errors": [],
+             "calls": [], "calls_unmetered": 0}
 
     def run_model_command(command, verbose=False, error_print=None, cwd=None):
         code, out = run_limited(command, cwd or ROOT, CONFIG["command_timeout"], shell=True, env=guarded_env())
@@ -493,7 +520,11 @@ def drive(config_path):
     coder = Coder.create(
         main_model=model, edit_format=CONFIG["edit_format"], io=io, repo=repo,
         fnames=OUTPUTS, read_only_fnames=CONFIG["sources"], auto_commits=False, dirty_commits=False,
-        map_tokens=model.get_repo_map_tokens(), stream=False, auto_lint=False,
+        # Карта строится один раз. В режиме auto она следует словам текущих ходов, а в
+        # агентском цикле они растут каждый ход: карта менялась почти на каждом, а стоит она
+        # перед историей — промах кэша DeepSeek на всю историю задачи. Нужное сверх карты
+        # модель находит командами и упоминанием файла.
+        map_tokens=model.get_repo_map_tokens(), map_refresh="manual", stream=False, auto_lint=False,
         auto_test=False, test_cmd=checks or None,
         # aider сжимает историю уже после 8192 токенов — это его потолок, а не модели (1M у
         # deepseek-flash). В агентском цикле это два-три вывода команд: старые ходы ушли бы
@@ -505,9 +536,23 @@ def drive(config_path):
         # отчёты Zoo-автора — русские.
         chat_language="Russian")
     coder.max_reflections = CONFIG["max_reflections"]
+    show_cost = coder.calculate_and_show_tokens_and_cost
+
+    def count_call(messages, completion=None):
+        """Токены вызова — из ответа провайдера, со временем: цена DeepSeek зависит от часа."""
+        usage = getattr(completion, "usage", None)
+        if usage is None:
+            stats["calls_unmetered"] += 1   # aider дальше посчитает сам, прикидкой — не замер
+        else:
+            stats["calls"].append([datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                                   usage.prompt_tokens or 0, getattr(usage, "prompt_cache_hit_tokens", 0) or 0,
+                                   usage.completion_tokens or 0])
+        return show_cost(messages, completion)
+
+    coder.calculate_and_show_tokens_and_cost = count_call
 
     def mentions(content):
-        added, refused = [], []
+        added, refused, texts = [], [], []
         for rel in sorted(coder.get_file_mentions(content) - coder.ignore_mentions):
             coder.ignore_mentions.add(rel)
             path = Path(coder.abs_root_path(rel))
@@ -517,13 +562,17 @@ def drive(config_path):
                     or path.stat().st_size > CONFIG["read_file_limit"]):
                 refused.append(rel)
                 continue
-            coder.abs_read_only_fnames.add(str(path))
+            # Содержимым в сообщение, а не в abs_read_only_fnames: блок файлов для чтения aider
+            # ставит в начало запроса, перед историей, да ещё из множества — новый файл
+            # перетасовывает весь блок. Это промах кэша DeepSeek на всю историю задачи (19%
+            # промахов ночей 27–28.09). В сообщении файл ложится в конец.
+            texts.append(f"{rel}\n{coder.fence[0]}\n{io.read_text(str(path)) or ''}{coder.fence[1]}\n")
             added.append(rel)
             stats["read_added"].append(rel)
         notes = []
         if added:
             notes.append(f"Добавил в чат ТОЛЬКО ДЛЯ ЧТЕНИЯ: {', '.join(added)}. "
-                         f"Править можно только: {', '.join(OUTPUTS)}.")
+                         f"Править можно только: {', '.join(OUTPUTS)}.\n\n" + "\n".join(texts))
         if refused:
             # Молча пропустить нельзя: модель просила файл и ждала его. Потолок (45 —
             # над максимумом Zoo-автора, 44) достижим, а молчание стоило бы задачи.
@@ -633,6 +682,10 @@ def drive(config_path):
     stats["cannot"] = cannot.group(1).strip()[:400] if cannot else ""
     stats.update(tokens_sent=coder.total_tokens_sent, tokens_received=coder.total_tokens_received,
                  cost=round(coder.total_cost, 4), reflections=coder.num_reflections)
+    # `cost` — прикидка aider по дневному тарифу, `cost_real` — по тарифу провайдера и часу вызова.
+    sent = sum(call[1] for call in stats["calls"])
+    stats["cost_real"] = None if stats["calls_unmetered"] else deepseek_cost(CONFIG["model"], stats["calls"])
+    stats["cache_share"] = round(sum(call[2] for call in stats["calls"]) / sent, 3) if sent else None
     Path(CONFIG["stats"]).write_text(json.dumps(stats, ensure_ascii=False, indent=2))
     return 0
 

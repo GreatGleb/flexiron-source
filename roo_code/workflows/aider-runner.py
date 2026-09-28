@@ -43,6 +43,10 @@ def git_status(root):
             | names("ls-files", "--others", "--exclude-standard", "-z"))
 
 
+def cost_text(cost):
+    return "нет замера" if cost is None else f"${cost}"
+
+
 def snapshot(root, names):
     result = {}
     for name in names:
@@ -167,7 +171,8 @@ def main():
         evidence.append(f"проверки задачи у автора: {green} (прогонов {stats.get('checks_runs', 0)}); "
                         f"команд {len(stats.get('commands', []))}, отклонено {len(stats.get('refused', []))}; "
                         f"токенов {stats.get('tokens_sent', 0)}+{stats.get('tokens_received', 0)}, "
-                        f"${stats.get('cost', 0)}")
+                        f"${stats.get('cost', 0)} по счёту aider, "
+                        f"по тарифу провайдера {cost_text(stats.get('cost_real'))}")
         # Прогоны автора — приёмщику: без них «мутация не подтверждена» бракует верную работу.
         evidence += [f"команда автора: {line}"[:400] for line in stats.get("command_log", [])[-15:]]
         if stats.get("final_reply"):
