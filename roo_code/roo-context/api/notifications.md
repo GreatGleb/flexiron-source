@@ -117,7 +117,7 @@ Save-режим: **чтение**, формы нет.
 
 Умолчания назначает **не клиент**, а состояние композабла —
 `{ type: 'all', isRead: null, search: '', sortBy: 'createdAt', sortDir: 'desc' }`
-(`useNotifications.ts:12-18`) плюс `usePagination(25)` (`:19`); мок держит **второй экземпляр** тех
+(`useNotifications.ts:12-18`) плюс `usePagination(25)` (`:21`); мок держит **второй экземпляр** тех
 же умолчаний на случай отсутствия ключа (`mocks/index.ts:366-370`, `:373-374`). Сервер обязан
 держать те же: `search=''`, `type='all'`, `isRead` отсутствует → все, `sortBy='createdAt'`,
 `sortDir='desc'`, `page=1`, `pageSize=25`.
@@ -499,7 +499,7 @@ markAllAsRead()` и затем `await loadDropdownItems()` (`NotificationDropdow
 `grep -rn "Idempotency" frontend_vue/src/services/notificationsService.ts frontend_vue/src/composables/useNotifications.ts`
 пусто. Обе мутации идемпотентны **по построению, а не по проверке**: `mockMarkAsRead` ставит
 `isRead = true` без разбора прежнего значения и молча уходит, если записи нет
-(`mocks/notifications.ts:436-441`); `mockMarkAllAsRead` переписывает весь массив (`:443-445`).
+(`mocks/notifications.ts:436-441`); `mockMarkAllAsRead` переписывает весь массив (`:476-478`).
 Внутри мока обе операции синхронны и однооперационны, то есть атомарны. **Атомарность между
 доменами не выражена нигде, и это главное наблюдение графы:** уведомление пишется в том же вызове,
 что и породившее его изменение (`mocks/orders.ts:1840`, `services/mocks/warehouse.ts:789`,
@@ -517,7 +517,7 @@ markAllAsRead()` и затем `await loadDropdownItems()` (`NotificationDropdow
 типе (`types/notifications.ts:25`), клиент подставляет его в `router.push` без всякого маппинга
 (`NotificationsPage.vue:93`, `NotificationDropdown.vue:65`), а колонки под него на схеме нет
 (`models.py:31-32`). Значение выводимо из `entityType` однозначно — пять типов, пять имён роутов:
-`admin-order-card` (`router/index.ts:160`), `admin-client-card` (`:180`), `admin-supplier-card`
+`admin-order-card` (`router/index.ts:160`), `admin-client-card` (`:181`), `admin-supplier-card`
 (`:212`), `admin-product-card` (`:224`), `admin-warehouse-batch` (`:262`); мок именно так их и
 расставляет. Хранит сервер или выводит при чтении — строка владельцу.
 (5) Относительное время («2 часа назад») считается на клиенте из `createdAt`
