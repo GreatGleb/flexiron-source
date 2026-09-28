@@ -13,9 +13,9 @@
  * а глобальный `expect.timeout` в конфиге задел бы ещё и `toBeVisible`.
  *
  * Число живёт в `DATA_READY_TIMEOUT` (`tests/e2e/helpers/ready.ts`) и берётся импортом:
- * копия числа разошлась бы с оригиналом молча. Это и сторожится — на трёх спеках
- * каталога товаров, потому что сторож зовут по каталогу: общий на весь `tests/e2e`
- * краснел бы на файлах чужих задач, а имена файлов задач этой порции не пересекаются.
+ * копия числа разошлась бы с оригиналом молча. Это и сторожится — на своих спеках,
+ * потому что сторож зовут по каталогу: общий на весь `tests/e2e` краснел бы на файлах
+ * чужих задач, а имена файлов задач этой порции не пересекаются.
  */
 
 import { readFileSync } from 'node:fs'
@@ -29,7 +29,19 @@ const SPECS = [
   'tests/e2e/admin/products/products.spec.ts',
   'tests/e2e/admin/products/services.spec.ts',
   'tests/e2e/admin/products/service-card.spec.ts',
+  'tests/e2e/admin/orders/orders.spec.ts',
 ]
+
+/** Спек заказов — отдельно: у него проверяется ещё и счёт бюджетов. */
+const ORDERS = 'tests/e2e/admin/orders/orders.spec.ts'
+
+/**
+ * Сколько бюджетов несёт спек заказов. Число — факт замера 2026-09-28, сразу после
+ * правки: 294 при прежних 140 и семи числовых потолках. Живёт здесь затем, чтобы
+ * снятие хотя бы одного `{ timeout: DATA_READY_TIMEOUT }` было видно счётом, а не
+ * только глазами.
+ */
+const ORDERS_BUDGETS_FLOOR = 294
 
 /** Нарушители — файлом и номером строки, чтобы в отчёте было видно, кого чинить. */
 function offences(pattern: RegExp): string[] {
@@ -44,11 +56,17 @@ function offences(pattern: RegExp): string[] {
   return found
 }
 
-describe('бюджет ожидания у утверждений каталога товаров', () => {
+/** Сколько раз в файле стоит бюджет `timeout: DATA_READY_TIMEOUT`. */
+function budgetCount(rel: string): number {
+  return (readFileSync(join(ROOT, rel), 'utf8').match(/timeout:\s*DATA_READY_TIMEOUT/g) ?? [])
+    .length
+}
+
+describe('бюджет ожидания у утверждений после действия', () => {
   const files = SPECS.map((rel) => ({ rel, text: readFileSync(join(ROOT, rel), 'utf8') }))
 
-  it('разбор читает все три спека и находит в них сами утверждения', () => {
-    expect(files).toHaveLength(3)
+  it('разбор читает все четыре спека и находит в них сами утверждения', () => {
+    expect(files).toHaveLength(4)
     const calls = files.reduce(
       (total, { text }) => total + (text.match(/await expect\(/g) ?? []).length,
       0,
@@ -59,7 +77,7 @@ describe('бюджет ожидания у утверждений каталог
 
   it('числового потолка в этих спеках не осталось', () => {
     // `timeout: 5000` и любое другое число — тот же бюджет, записанный копией:
-    // разошёлся бы с `DATA_READY_TIMEOUT` молча.
+    // разошёлся бы с `DATA_READY_TIMEOUT` молча, и назван он файлом и строкой.
     expect(offences(/timeout:\s*\d/)).toEqual([])
   })
 
@@ -69,5 +87,12 @@ describe('бюджет ожидания у утверждений каталог
         /import\s*\{[^}]*DATA_READY_TIMEOUT[^}]*\}\s*from\s*'[^']*helpers\/ready'/,
       )
     }
+  })
+
+  it('бюджеты в спеке заказов не сняты — их не меньше замеренного числа', () => {
+    // Снятие одного `{ timeout: DATA_READY_TIMEOUT }` — ровно то, что этот счёт обязан
+    // поймать: утверждение возвращается к дефолтным пяти секундам, которых под нагрузкой
+    // не хватает (питфолл #70), а глазами такая потеря не видна.
+    expect(budgetCount(ORDERS)).toBeGreaterThanOrEqual(ORDERS_BUDGETS_FLOOR)
   })
 })

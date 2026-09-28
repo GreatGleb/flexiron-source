@@ -12,7 +12,7 @@
 
 ## БАГ-01 — Десять фиксированных ожиданий в e2e
 
-**File:** `tests/e2e/admin/clients/clients.spec.ts:278,498`, `tests/e2e/admin/notifications/notifications.spec.ts:80,94,123,167`, `tests/e2e/admin/orders/orders.spec.ts:1943,2027,2045`, `tests/e2e/ready-exits.spec.ts:181`
+**File:** `tests/e2e/admin/clients/clients.spec.ts:278,498`, `tests/e2e/admin/notifications/notifications.spec.ts:80,94,123,167`, `tests/e2e/admin/orders/orders.spec.ts` (мест с `waitForTimeout` в нём не осталось: счёт даёт 0 — три адреса, стоявшие здесь, сняты коммитом 1230316), `tests/e2e/ready-exits.spec.ts:181`
 **Severity:** Medium — `waitForTimeout` это зависимость от времени, которого тест не контролирует, то есть будущий флейк на медленной машине.
 **Источник:** Л9 / `sonarjs/no-fixed-wait-in-tests`
 
@@ -329,7 +329,9 @@ return area == null ? '—' : `${area} m²`
 ## БАГ-09 — Тесты навигируются и сразу кликают, без ожидания готовности
 
 **File:** `tests/e2e/admin/orders/orders.spec.ts` (116 переходов, ни одного с ожиданием),
-падало на `:1951`, `:1957`; `tests/e2e/admin/products/categories.spec.ts:167,186`
+падало на тестах «delete button opens confirmation modal» и «cancel closes deletion modal»,
+оба жмут `order-card-delete-btn`;
+`tests/e2e/admin/products/categories.spec.ts:167,186`
 **Severity:** High — это не «иногда красный прогон», это невозможность отличить регрессию от шума.
 **Источник:** машинная приёмка, уровень 1
 
@@ -431,8 +433,9 @@ Trace теперь снимается локально (см. выше). Раз�
 | ожидание готовности | 2 | нет |
 | **действие: click / fill / press** | **12** | **да** |
 
-Опасны были двенадцать — и среди них ровно те два, что падали (`:1952`, `:1958`,
-`order-card-delete-btn`). В них вставлено `await waitForDataReady(page)`. Сыпать ожидание во все
+Опасны были двенадцать — и среди них ровно те два, что падали: тесты «delete button opens
+confirmation modal» и «cancel closes deletion modal» (кнопка `order-card-delete-btn`).
+В них вставлено `await waitForDataReady(page)`. Сыпать ожидание во все
 116 было бы той же болезнью с другой стороны: плата временем без причины.
 
 По всему набору тот же счёт дал ещё **21** такое место — `layout.spec.ts` (12),
