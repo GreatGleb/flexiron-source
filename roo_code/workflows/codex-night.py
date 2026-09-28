@@ -30,7 +30,8 @@ HERE = Path(__file__).resolve().parent
 DIFF_LIMIT = 120_000
 LOG_TAIL_LIMIT = 2_000
 sys.path.insert(0, str(HERE))
-from headless_backends import ROLES, UnreadableCallLog, load_routing  # noqa: E402  (нужен HERE в sys.path)
+from headless_backends import (PROVIDER_REFUSAL_PREFIX, ROLES, UnreadableCallLog,  # noqa: E402
+                               load_routing)  # (нужен HERE в sys.path)
 import night_db  # noqa: E402
 import refs_shift  # noqa: E402
 
@@ -654,6 +655,14 @@ def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1, env
             or (result["status"] == "done" and not result["evidence"])
             or not all(isinstance(item, str) and item.strip() for item in result["evidence"])):
         raise RuntimeError(f"{task['id']} / {role}: нет подтверждения выполнения: {result}")
+    if result["status"] == "blocked" and result["summary"].startswith(PROVIDER_REFUSAL_PREFIX):
+        # Провайдер исполнителя отказал деньгами, ключом или квотой. Это не брак ОДНОЙ
+        # задачи, а отказ среды — тот же, что упавший CLI: следующая задача получит тот
+        # же ответ. Без остановки ночь 2026-09-28-0022 гнала пустые порции, и каждая
+        # уносила по четыре задачи в blocked НАВСЕГДА: супервизор считает заблокированную
+        # решённой и больше не предлагает её оператору. Строку ставит обёртка исполнителя
+        # по своему списку ошибок, а не модель: подделать её ответом нельзя.
+        raise CommandFailed(f'{result["summary"]} (задача {task["id"]}, роль {role})')
     return result
 
 

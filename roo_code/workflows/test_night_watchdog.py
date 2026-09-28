@@ -130,6 +130,20 @@ class DecisionTest(unittest.TestCase):
         self.assertEqual(self.world.launched, [])
         self.assertEqual(self.journal(), [])
 
+    def test_exhausted_provider_is_not_raised_again(self):
+        """Счёт провайдера пуст — подъём упрётся в ту же стену и сожжёт оператора.
+
+        Записать один раз и ждать владельца: ни запуска, ни вызова Claude.
+        """
+        self.report("ядро остановилось: исполнитель без доступа к модели: litellm.BadRequestError: "
+                    "DeepseekException - Insufficient Balance (задача alpha, роль work)")
+        self.run_state(1, "stopped", "alpha", "исполнитель без доступа к модели: Insufficient Balance")
+        self.assertEqual(self.tick(), "ресурс исполнителя исчерпан")
+        self.assertEqual(self.tick(), "ресурс исполнителя исчерпан")
+        self.assertEqual(self.world.launched, [])
+        self.assertEqual(self.world.claude_calls, [])
+        self.assertEqual(sum(1 for e in self.journal() if "решение за владельцем" in e["сделал"]), 1)
+
     def test_stop_on_review_with_work_in_checkout_is_retried(self):
         self.report("ядро остановилось: Команда завершилась с кодом 1: alpha-review; см. логи")
         self.run_state(1, "completed")

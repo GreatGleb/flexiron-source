@@ -101,6 +101,17 @@ if mode == 'auth':
     print(error)
     pathlib.Path(config['stats']).write_text(json.dumps({'aider_errors': [error, 'The API provider is not able to authenticate you.']}))
     raise SystemExit(0)
+if mode in ('balance', 'overload'):
+    # Так 0.86.2 отвечает на пустой счёт DeepSeek (ночь 2026-09-28-0022) и на его же
+    # перегрузку: печатает ошибку и выходит с кодом 0. Первая — отказ всем вызовам,
+    # вторая лечится повтором.
+    error = ('litellm.BadRequestError: DeepseekException - {"error":{"message":"Insufficient Balance '
+             '(request_id: 631f0a60)","type":"unknown_error","param":null,"code":"invalid_request_error"}}'
+             if mode == 'balance' else
+             'litellm.InternalServerError: DeepseekException - Service Unavailable')
+    print(error)
+    pathlib.Path(config['stats']).write_text(json.dumps({'aider_errors': [error], 'final_reply': 'ничего не вышло'}))
+    raise SystemExit(0)
 if mode == 'crash':
     print('AssertionError: строка вывода тестов, процитированная раньше')
     print('Traceback (most recent call last):\n  File "aider-agent.py", line 1\nKeyError: \'guard_dir\'')
@@ -691,10 +702,34 @@ class AiderRunTest(unittest.TestCase):
         self.assertFalse(list(self.root.glob(".aider*")))
         self.assertFalse(self.git("status", "--porcelain"))
 
-    def test_model_error_with_exit_zero_is_named_in_the_reason(self):
+    def test_refused_key_stops_the_night_instead_of_burning_the_queue(self):
+        # Ключ не принят — откажут и следующей задаче. Раньше это была браковка одной
+        # задачи, и порции шли пустыми до утра, унося очередь в blocked навсегда.
         result = self.invoke("auth")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertEqual(self.state()["status"], "stopped")
+        self.assertTrue(self.state()["reason"].startswith(backends.PROVIDER_REFUSAL_PREFIX),
+                        self.state()["reason"])
+        self.assertIn("AuthenticationError", self.state()["reason"])
+        self.assertEqual(self.state()["blocked"], [])
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+        self.assertFalse(self.git("status", "--porcelain"))
+
+    def test_empty_provider_balance_stops_the_night(self):
+        result = self.invoke("balance")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertEqual(self.state()["status"], "stopped")
+        self.assertTrue(self.state()["reason"].startswith(backends.PROVIDER_REFUSAL_PREFIX),
+                        self.state()["reason"])
+        self.assertIn("Insufficient Balance", self.state()["reason"])
+
+    def test_temporary_provider_failure_still_blocks_only_the_task(self):
+        # Перегрузка провайдера лечится сама: ночь обязана идти дальше.
+        result = self.invoke("overload")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("AuthenticationError", self.state()["blocked"][0]["reason"])
+        self.assertEqual([b["task"] for b in self.state()["blocked"]], ["plan"])
+        self.assertIn("Service Unavailable", self.state()["blocked"][0]["reason"])
+        self.assertNotIn(backends.PROVIDER_REFUSAL_PREFIX, self.state()["blocked"][0]["reason"])
 
     def test_driver_crash_is_named_by_its_traceback(self):
         result = self.invoke("crash")
@@ -709,6 +744,36 @@ class AiderRunTest(unittest.TestCase):
         self.assertIn("вне задачи", self.state()["blocked"][0]["reason"])
         self.assertFalse((self.root / "unrelated.md").exists())
         self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+
+
+class ProviderRefusalTest(unittest.TestCase):
+    """Что считать отказом среды, а что — невезением одной задачи."""
+
+    def test_money_key_and_quota_are_refusals(self):
+        for error in ('litellm.BadRequestError: DeepseekException - {"error":{"message":"Insufficient Balance"}}',
+                      "litellm.AuthenticationError: AuthenticationError: DeepseekException - Authentication Fails",
+                      "litellm.RateLimitError: OpenAIException - insufficient_quota",
+                      "API Error: 400 {\"message\":\"Your credit balance is too low\"}",
+                      "litellm.PermissionDeniedError: invalid_api_key"):
+            with self.subTest(error=error):
+                self.assertEqual(backends.provider_refusal([error]), error)
+
+    def test_transient_failures_are_not_refusals(self):
+        for error in ("litellm.InternalServerError: DeepseekException - Service Unavailable",
+                      "litellm.APIConnectionError: Connection reset by peer",
+                      "litellm.RateLimitError: Too many requests, please retry",
+                      "litellm.ContextWindowExceededError: too many tokens",
+                      "KeyError: 'guard_dir'"):
+            with self.subTest(error=error):
+                self.assertIsNone(backends.provider_refusal([error]))
+
+    def test_refusal_is_found_behind_an_earlier_harmless_error(self):
+        self.assertEqual(backends.provider_refusal(["KeyError: 'x'", "litellm.AuthenticationError: nope"]),
+                         "litellm.AuthenticationError: nope")
+
+    def test_no_errors_at_all(self):
+        self.assertIsNone(backends.provider_refusal([]))
+        self.assertIsNone(backends.provider_refusal(None))
 
 
 class AiderRoutingTest(unittest.TestCase):
@@ -1308,9 +1373,15 @@ class AiderDriverTest(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
 
     def test_model_error_from_litellm_reaches_the_reason(self):
+        """Ключ не принят — причина названа отказом среды, а не «ничего не изменил».
+
+        Раньше причина звучала «aider сообщил: …» и оставалась браковкой одной задачи;
+        теперь начало строки опознаёт ядро и останавливает ночь (AiderRunTest).
+        """
         result, stats = self.drive(["!auth"], ["notes.md"])
         self.assertEqual(result["status"], "blocked")
-        self.assertIn("aider сообщил: litellm.AuthenticationError", result["summary"])
+        self.assertTrue(result["summary"].startswith(backends.PROVIDER_REFUSAL_PREFIX), result["summary"])
+        self.assertIn("litellm.AuthenticationError", result["summary"])
         self.assertIn("The API provider is not able to authenticate you. Check your API key.", stats["aider_errors"])
 
     def test_error_quoted_by_the_model_is_not_blamed_on_aider(self):
