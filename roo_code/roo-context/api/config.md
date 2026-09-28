@@ -179,7 +179,7 @@ Save-режим: clean-slate. Именно этот эндпоинт несёт 
 
 Ответ: `FieldDefinition` целиком (`configService.ts:21`). Мок собирает его сам
 (`mocks/config.ts:269-282`): `id: f-custom-${++fieldIdSeq}` (`:274`), `required: false` (`:277`),
-`usageCount: 0` (`:278`), `hidden` и `options` не выставляются, — то есть присланные клиентом
+`usageCount: 0` (`:309`), `hidden` и `options` не выставляются, — то есть присланные клиентом
 `required`/`options` были бы проигнорированы. **`id` выдаёт сервер**, клиент его не шлёт
 (`configService.ts:22-25`).
 
@@ -295,7 +295,7 @@ interface SectionField { fieldId: string; order: number; visible: boolean }   //
 
 Мок отдаёт клон пяти секций (`mocks/config.ts:250-252`, стор `:114-177`); у всех пяти
 `system: true` (`:121`, `:135`, `:147`, `:159`, `:171`), одно поле скрыто — `f-certified` с
-`visible: false` (`:174`).
+`visible: false` (`:194`).
 
 Ошибки: **ни одной**.
 
@@ -340,7 +340,7 @@ Save-режим: clean-slate, первый из трёх `PUT`-ов батча (
 Создать секцию. **Вызывающего нет** — `grep -rn "\bcreateSection\b" frontend_vue/src` даёт только
 объявление (`configService.ts:54`). UI создаёт секцию локально
 (`SupplierCardConfigPage.vue:460-481`), сам придумывая `id: sec-new-${++sectionIdSeq}` (`:458`) и явный
-`system: false` (`:463`), и уносит её батчем `PUT /api/config/sections` (`useCardConfig.ts:53`).
+`system: false` (`:472`), и уносит её батчем `PUT /api/config/sections` (`useCardConfig.ts:53`).
 Комментарий над функцией страницы обещает `POST` — «open modal → POST → scroll to it» (`:442`), —
 которого в теле нет (БАГ-13).
 
@@ -359,8 +359,8 @@ Save-режим: clean-slate, первый из трёх `PUT`-ов батча (
 `Idempotency-Key` не шлётся; ветка мока идёт мимо `withIdempotency` (`mocks/index.ts:318`).
 
 Ответ: `SectionConfig` целиком (`configService.ts:54`). Мок собирает:
-`id: sec-new-${++sectionIdSeq}` (`mocks/config.ts:312`), `order: MOCK_SECTIONS.length` (`:314`),
-`collapsed: false` (`:315`), `visible: true` (`:316`), `fields: []` (`:317`). Поле `system` **не
+`id: sec-new-${++sectionIdSeq}` (`mocks/config.ts:312`), `order: MOCK_SECTIONS.length` (`:351`),
+`collapsed: false` (`:315`), `visible: true` (`:316`), `fields: []` (`:354`). Поле `system` **не
 выставляется вовсе** — приходит `undefined`, и UI трактует это как «удалять можно»
 (`SupplierCardConfigPage.vue:343-350`; e2e проверяет ровно это —
 `tests/e2e/admin/suppliers/supplier-card-config.spec.ts:333-351`). Сервер обязан отдавать
@@ -488,7 +488,7 @@ interface PermissionItem {                                              // types
   `... | grep -oP "fieldId: '\K[^']+" | wc -l` → `12`. (Аудит в этом месте называет 11 полей и 16
   элементов — цифра поправлена по коду.)
 - **Роли — четыре, и они константа мока**: `PERMISSION_ROLES` (`mocks/config.ts:186`), он же
-  уезжает клиенту полем `roles` (`:224`). На сервере роли живут строками в `user_roles.role_name`
+  уезжает клиенту полем `roles` (`:244`). На сервере роли живут строками в `user_roles.role_name`
   (`backend/app/modules/auth/shared/models.py:120`) плюс устаревшее `users.role` с пометкой
   «DEPRECATED — kept as fallback until frontend migrates to multi-role» (`:60-61`). Какой источник
   главный — **решено (П3, П12)**: `user_roles.role_name`, регистр строчный, перечень редактируемый
