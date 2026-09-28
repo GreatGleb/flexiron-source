@@ -28,12 +28,14 @@
 
 ## Источник истины — мок и клиент, но схема уже зафиксирована
 
-Реализован один эндпоинт из шести — `GET /api/categories`, слайс `products.list_categories`
-(`backend/app/modules/products/features/list_categories/`: `schemas.py`, `repository.py`,
-`domain.py`, `action.py`); формы остальных пяти ниже сняты с клиента и мока
+Реализованы три эндпоинта из шести: `GET /api/categories` (слайс `products.list_categories`) и
+`GET`/`DELETE /api/categories/:id` (слайс `products.category_card`). Оба каталога —
+`backend/app/modules/products/features/list_categories/` и
+`backend/app/modules/products/features/category_card/` — устроены одинаково (`schemas.py`,
+`repository.py`, `domain.py`, `action.py`); формы остальных трёх ниже сняты с клиента и мока
 (`mocks/categories.ts`, 1514 строк). Модуля `categories` в `backend/app/modules/` нет вовсе —
 модулей там десять (`auth`, `bcc`, `billing`, `finance`, `notifications`, `products`, `services`,
-`settings`, `suppliers`, `warehouse`), и у `products` роутов два, оба про товар
+`settings`, `suppliers`, `warehouse`), и у `products` роуты категорий соседствуют с роутами товара
 (`backend/app/modules/products/features/get_product_detail/action.py:29`,
 `backend/app/modules/products/features/create_product/action.py:24`). А модели категории живут
 как раз в модуле `products`:
@@ -43,7 +45,7 @@
 | `categories` | `Category` — `backend/app/modules/products/shared/models.py:14-17` | `backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:27-41` |
 | `category_fields` | `CategoryField` — `models.py:88-91` | миграция `:42-56` |
 
-Отсюда два следствия для оставшихся пяти разделов ниже. Первое: строка `Бэкенд:` у них —
+Отсюда два следствия для оставшихся трёх разделов ниже. Первое: строка `Бэкенд:` у них —
 «не реализован», и метка `Статус: спроектировано` здесь была бы **неверна** (она про отсутствие
 кода вообще, а эндпоинты клиент уже зовёт). Второе: схема хранения расходится с формами фронта, и
 расхождения перечислены в «Правилах домена» — их разрешает бэкенд, а не фронт.
@@ -209,10 +211,17 @@ interface LinkedSupplier {
 `useCategoryCard.ts:81-101`); тот же `load()` — это кнопка Discard (`useCategoryCard.ts:127-129`) и
 перезагрузка после успешного Save (`:113`).
 
-Бэкенд: **не реализован**. Ни `inheritedFields`, ни `linkedSuppliers` на схеме хранить негде:
-первое сервер обязан собирать по цепочке `parent_id` при чтении, а таблицы связи «категория ↔
-поставщик» в модуле `products` нет ни одной (`grep -rln "category_suppliers\|supplier_categories\|linked_supplier" backend/`
-— пусто; осталось, строка 9).
+Бэкенд: **реализован** — слайс `products.category_card`
+(`backend/app/modules/products/features/category_card/`: `schemas.py`, `repository.py`,
+`domain.py`, `action.py`), роутер подхвачен автообходом `discover_feature_routers` в
+`backend/app/main.py` и `GET /api/categories` не перехватывает — пути разные.
+`inheritedFields` сервер собирает по цепочке `parent_id` при чтении: функция `_ancestor_chain`
+идёт от дальнего предка к ближнему с потолком глубины (`MAX_ANCESTOR_DEPTH`, та же защита от
+порванной цепочки, что у `get_category_level` в соседнем слайсе), и одноимённые поля предка и
+потомка остаются оба — они не схлопываются. `fieldCount` считается по собственным полям,
+`productCount` — счётом по товарам. `linkedSuppliers` отдаётся **пустым массивом**: таблицы
+связи «категория ↔ поставщик» в модуле `products` не существует, и чтение её не заводит.
+Категория несуществующая или чужого арендатора отвечает `CATEGORY_NOT_FOUND` (404).
 Реализация: `services/categoriesService.ts:getCategory` · мок `mocks/index.ts:421` →
 `mocks/categories.ts:mockGetCategory`
 
@@ -319,11 +328,11 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 подпись клиента `Promise<void>` (`services/categoriesService.ts:56`), мок отдаёт `undefined`
 (`mocks/index.ts:1494`), конверт снимает `unwrap` (`services/api.ts:128-139`).
 
-Ошибки — три кода каталога выше. Оба запрета уже выражены схемой: `categories.parent_id`
+Ошибки — три кода каталога выше. Оба запрета выражены и схемой: `categories.parent_id`
 (`backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:32`) и
-`products.category_id` (`:62`) объявлены `ondelete="RESTRICT"`, то есть у
-сервера они получатся сами — вопрос лишь в том, чтобы превратить отказ БД в код домена, а не в
-500.
+`products.category_id` (`:62`) объявлены `ondelete="RESTRICT"`, но сервер отвечает **до** базы:
+слайс считает товары и потомков запросом и отдаёт код домена, а отказ внешнего ключа остаётся
+последней линией обороны, а не путём ответа.
 
 Под моками проверка `CATEGORY_HAS_PRODUCTS` **врёт**: `productCount` — статическое число в сторе,
 разошедшееся с товарами (БАГ-02), и удаление категории с товарами проходит. Для сервера это
@@ -337,9 +346,16 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 категории, чьи поля заполнены у товаров, упрётся в отказ, которого каталог кодов не описывает
 (осталось, строка 7).
 
-Бэкенд: **не реализован**.
+Бэкенд: **реализован** — тот же слайс `products.category_card`. Отказ идёт в порядке мока, и
+все три кода уже названы каталогом выше: сперва `CATEGORY_NOT_FOUND` (404) — категории нет у
+этого арендатора; затем `CATEGORY_HAS_PRODUCTS` (409) — товары считаются запросом
+(`count_category_products`), а не хранимым числом, которого на схеме больше нет; затем
+`CATEGORY_HAS_CHILDREN` (409) — потомки считаются так же (`count_category_children`).
+Собственные поля категории (`category_fields`) уходят каскадом внешнего ключа, отдельного кода
+для этого нет.
 Реализация: `services/categoriesService.ts:deleteCategory` · мок `mocks/index.ts:1490` →
-`mocks/categories.ts:mockDeleteCategory`
+`mocks/categories.ts:mockDeleteCategory` · бэкенд
+`backend/app/modules/products/features/category_card/action.py` (`delete_category`)
 
 ---
 
