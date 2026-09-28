@@ -363,7 +363,7 @@ Save-режим: clean-slate, первый из трёх `PUT`-ов батча (
 `collapsed: false` (`:315`), `visible: true` (`:316`), `fields: []` (`:317`). Поле `system` **не
 выставляется вовсе** — приходит `undefined`, и UI трактует это как «удалять можно»
 (`SupplierCardConfigPage.vue:343-350`; e2e проверяет ровно это —
-`tests/e2e/admin/suppliers/supplier-card-config.spec.ts:331-349`). Сервер обязан отдавать
+`tests/e2e/admin/suppliers/supplier-card-config.spec.ts:333-351`). Сервер обязан отдавать
 `system: false` явно: `undefined` и `false` здесь означают одно и то же только по случайности.
 
 **Кто выдаёт `order` новой секции — сервер.** Мок ставит `MOCK_SECTIONS.length` (`:314`), схема
@@ -430,7 +430,7 @@ Save-режим: clean-slate, первый из трёх `PUT`-ов батча (
 закрыта). Системную секцию `mockDeleteSection` по-прежнему удаляет так же охотно, как любую: поле
 `system` он не смотрит вовсе, запрет живёт только в вёрстке — кнопка удаления
 системной секции задизейблена (e2e
-`tests/e2e/admin/suppliers/supplier-card-config.spec.ts:262-268`). БАГ-10 в этой части остаётся;
+`tests/e2e/admin/suppliers/supplier-card-config.spec.ts:264-270`). БАГ-10 в этой части остаётся;
 каким кодом сервер обязан отвергнуть удаление системной секции — строка владельцу.
 
 Бэкенд: **не реализован**.
@@ -581,7 +581,7 @@ Save-режим: clean-slate, третий запрос того же `Promise.a
 |---|---|---|
 | дубль имени поля внутри арендатора | `uq_field_definitions_tenant_name` (`backend/app/modules/suppliers/shared/models.py:265-267`) | `FIELD_NAME_TAKEN`, 409, имя поля в `fieldErrors` |
 | удаление или правка встроенного поля | `is_builtin` (`:256-258`), кнопка задизейблена в вёрстке | `FIELD_IS_BUILTIN`, 409 |
-| удаление системной секции | `SectionConfig.system` (`types/config.ts:24-25`), e2e `supplier-card-config.spec.ts:262-268` | `SECTION_IS_SYSTEM`, 409 |
+| удаление системной секции | `SectionConfig.system` (`types/config.ts:24-25`), e2e `supplier-card-config.spec.ts:264-270` | `SECTION_IS_SYSTEM`, 409 |
 
 **Три кода назначены контрактом 2026-09-10 по правилу §2** (отказ несёт код, а не текст; ни один
 код не является подстрокой другого) — они и стоят в таблице выше. Владельца это не спрашивало:

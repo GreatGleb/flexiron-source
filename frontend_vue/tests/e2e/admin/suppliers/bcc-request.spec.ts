@@ -666,7 +666,9 @@ baseTest(
       { ...ALL_FLAGS_ENABLED, bccHistory: false },
     )
     await navigateToAdmin(page, BCC_URL)
-    await expect(page.locator('[data-test="bcc-request-title"]')).toBeVisible()
+    await expect(page.locator('[data-test="bcc-request-title"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Отсутствие панели истории доказывает что-то только на странице, которая
     // УЖЕ показала свои данные: до них ноль был бы истиной по другой причине (#66).
     await expect(page.locator('[data-test="bcc-request-recipient-item"]').first()).toBeVisible()

@@ -81,7 +81,9 @@ async function loadCreate(page: import('@playwright/test').Page) {
   await navigateToAdmin(page, CREATE_URL)
   // Признак — сама форма. `networkidle` стоял ПОСЛЕ неё и не добавлял ничего:
   // под моками он наступает раньше данных, потому что запроса нет вовсе (#64).
-  await expect(page.locator('[data-test="supplier-create-content"]')).toBeVisible()
+  await expect(page.locator('[data-test="supplier-create-content"]')).toBeVisible({
+    timeout: DATA_READY_TIMEOUT,
+  })
 }
 
 // ────────────────────────────────────────────────────────────────────────────

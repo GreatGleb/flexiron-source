@@ -332,7 +332,7 @@ if (patch.name) {
 `mockDeleteField` — ни на какой признак встроенности. Во фронте встроенность определяется
 префиксом id (`SupplierCardConfigPage.vue:312-314`), и защита сводится к тому, что у системной
 секции кнопка удаления задизейблена (проверено e2e —
-`frontend_vue/tests/e2e/admin/suppliers/supplier-card-config.spec.ts:262-268`). Старый контракт
+`frontend_vue/tests/e2e/admin/suppliers/supplier-card-config.spec.ts:264-270`). Старый контракт
 обещает `403 IMMUTABLE` (`roo_code/roo-context/03-api-contract.md:644`, `:650`), но кода
 `IMMUTABLE` в проекте нет: `grep -rn "IMMUTABLE" frontend_vue/src backend/app` — пусто.
 

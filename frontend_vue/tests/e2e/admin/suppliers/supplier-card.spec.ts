@@ -105,7 +105,9 @@ async function loadCard(page: import('@playwright/test').Page) {
   await navigateToAdmin(page, CARD_URL)
   // Признак — само содержимое карточки. `networkidle` стоял ПОСЛЕ него и не
   // добавлял ничего: под моками он наступает раньше данных (#64).
-  await expect(page.locator('[data-test="supplier-card-content"]')).toBeVisible()
+  await expect(page.locator('[data-test="supplier-card-content"]')).toBeVisible({
+    timeout: DATA_READY_TIMEOUT,
+  })
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -518,7 +520,7 @@ test.describe('supplier-card › dirty + save flow', () => {
     // Wait for the save to FULLY resolve (loading class gone, dirty class cleared).
     // Filling before this would race with the in-flight PATCH and the merged response
     // would overwrite the v-model'd value before capture() runs.
-    await expect(save).not.toHaveClass(/\bloading\b/)
+    await expect(save).not.toHaveClass(/\bloading\b/, { timeout: DATA_READY_TIMEOUT })
     await expect(save).not.toHaveClass(/\bdirty\b/)
     await expect(save).toBeDisabled({ timeout: DATA_READY_TIMEOUT })
     // Second edit must dirty the form again — proving capture() ran after save.

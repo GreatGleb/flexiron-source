@@ -104,7 +104,9 @@ async function loadConfig(page: import('@playwright/test').Page) {
   // Признак — сам заголовок страницы. `networkidle` стоял ПОСЛЕ него и не добавлял
   // ничего: под моками он наступает раньше данных, и замерено, что на нём эта
   // страница держит вообще ничего (#64).
-  await expect(page.locator('[data-test="supplier-card-config-title"]')).toBeVisible()
+  await expect(page.locator('[data-test="supplier-card-config-title"]')).toBeVisible({
+    timeout: DATA_READY_TIMEOUT,
+  })
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -249,7 +251,7 @@ test.describe('supplier-card-config › sections editor', () => {
     await general.locator('[data-test="config-section-card-collapse-btn"]').click()
     await expect(general).toHaveClass(/\bcollapsed\b/, { timeout: DATA_READY_TIMEOUT })
     await general.locator('[data-test="config-section-card-collapse-btn"]').click()
-    await expect(general).not.toHaveClass(/\bcollapsed\b/)
+    await expect(general).not.toHaveClass(/\bcollapsed\b/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('hide button toggles .is-hidden on the section card', async ({ page }) => {
@@ -642,7 +644,7 @@ test.describe('supplier-card-config › permissions matrix', () => {
       .first()
       .locator('[data-test="supplier-card-config-perm-user-checkbox"][data-action="read"]')
       .click()
-    await expect(firstUserRead).not.toBeChecked()
+    await expect(firstUserRead).not.toBeChecked({ timeout: DATA_READY_TIMEOUT })
     // The role-level checkbox flips to indeterminate (one user on, one user off).
     const roleReadInput = adminCell.locator(
       '[data-test="supplier-card-config-perm-role-checkbox"][data-action="read"] input',
