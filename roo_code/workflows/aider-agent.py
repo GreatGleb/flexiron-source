@@ -45,7 +45,13 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import deepseek_tariff as tariff  # noqa: E402  (только stdlib)
 import refs_shift  # noqa: E402  (только stdlib — годится и для питона aider)
+
+# Как часто пауза на пик перечитывает режим ночи и отмечается в своём файле: команда
+# `night-peak.py ignore` действует не позже чем через минуту, а сторож, для которого
+# тишина — 45 минут без изменений в каталоге ночи, видит живую задачу.
+PAUSE_POLL = 60
 
 CONFIG, ROOT, OUTPUTS = {}, None, []
 GIT_READ_ONLY = {"status", "diff", "log", "show", "grep", "ls-files", "blame", "rev-parse", "cat-file",
@@ -362,7 +368,8 @@ def drive(config_path):
     from aider.repo import GitRepo
 
     stats = {"commands": [], "refused": [], "read_added": [], "checks_runs": 0, "checks_green": None,
-             "command_log": [], "final_reply": "", "cannot": "", "aider_errors": []}
+             "command_log": [], "final_reply": "", "cannot": "", "aider_errors": [],
+             "calls": [], "calls_unmetered": 0, "paused_seconds": 0.0}
 
     def run_model_command(command, verbose=False, error_print=None, cwd=None):
         code, out = run_limited(command, cwd or ROOT, CONFIG["command_timeout"], shell=True, env=guarded_env())
@@ -493,7 +500,11 @@ def drive(config_path):
     coder = Coder.create(
         main_model=model, edit_format=CONFIG["edit_format"], io=io, repo=repo,
         fnames=OUTPUTS, read_only_fnames=CONFIG["sources"], auto_commits=False, dirty_commits=False,
-        map_tokens=model.get_repo_map_tokens(), stream=False, auto_lint=False,
+        # Карта строится один раз. В режиме auto она следует словам текущих ходов, а в
+        # агентском цикле они растут каждый ход: карта менялась почти на каждом, а стоит она
+        # перед историей — промах кэша DeepSeek на всю историю задачи. Нужное сверх карты
+        # модель находит командами и упоминанием файла.
+        map_tokens=model.get_repo_map_tokens(), map_refresh="manual", stream=False, auto_lint=False,
         auto_test=False, test_cmd=checks or None,
         # aider сжимает историю уже после 8192 токенов — это его потолок, а не модели (1M у
         # deepseek-flash). В агентском цикле это два-три вывода команд: старые ходы ушли бы
@@ -505,9 +516,60 @@ def drive(config_path):
         # отчёты Zoo-автора — русские.
         chat_language="Russian")
     coder.max_reflections = CONFIG["max_reflections"]
+    show_cost = coder.calculate_and_show_tokens_and_cost
+
+    def count_call(messages, completion=None):
+        """Токены вызова — из ответа провайдера, со временем: цена DeepSeek зависит от часа."""
+        usage = getattr(completion, "usage", None)
+        if usage is None:
+            stats["calls_unmetered"] += 1   # aider дальше посчитает сам, прикидкой — не замер
+        else:
+            stats["calls"].append([tariff.utc_now().isoformat(timespec="seconds"),
+                                   usage.prompt_tokens or 0, getattr(usage, "prompt_cache_hit_tokens", 0) or 0,
+                                   usage.completion_tokens or 0])
+        return show_cost(messages, completion)
+
+    coder.calculate_and_show_tokens_and_cost = count_call
+
+    mode_file = Path(CONFIG["peak_mode"]) if CONFIG.get("peak_mode") and tariff.is_deepseek(CONFIG["model"]) else None
+    pause_file = Path(CONFIG["pause"]) if CONFIG.get("pause") else None
+
+    def wait_off_peak():
+        """В пик DeepSeek вдвое дороже: при режиме ночи pause запрос ждёт конца пика.
+
+        Режим перечитывается каждый обход — `night-peak.py ignore` отпускает задачу на
+        ходу. Набранная пауза пишется в свой файл: обёртка продлевает на неё лимит задачи,
+        иначе трёхчасовой пик убил бы задачу по таймауту."""
+        started = None
+        while tariff.read_mode(mode_file) == "pause" and tariff.peak(tariff.utc_now()):
+            now = tariff.utc_now()
+            if started is None:
+                started = time.monotonic()
+                io.tool_output(f"[ночь] пик DeepSeek — пауза до {tariff.next_change(now):%H:%M} UTC")
+            record_pause(stats["paused_seconds"] + time.monotonic() - started, tariff.next_change(now))
+            time.sleep(PAUSE_POLL)
+        if started is not None:
+            stats["paused_seconds"] += time.monotonic() - started
+            record_pause(stats["paused_seconds"], None)
+            io.tool_output("[ночь] пик DeepSeek кончился — работа продолжается")
+
+    def record_pause(seconds, until):
+        if pause_file:
+            pause_file.write_text(json.dumps({"paused_seconds": round(seconds, 1),
+                                              "until_utc": until.isoformat() if until else None}))
+
+    if mode_file:
+        import litellm
+        completion = litellm.completion
+
+        def completion_off_peak(*args, **kwargs):
+            wait_off_peak()
+            return completion(*args, **kwargs)
+
+        litellm.completion = completion_off_peak
 
     def mentions(content):
-        added, refused = [], []
+        added, refused, texts = [], [], []
         for rel in sorted(coder.get_file_mentions(content) - coder.ignore_mentions):
             coder.ignore_mentions.add(rel)
             path = Path(coder.abs_root_path(rel))
@@ -517,13 +579,17 @@ def drive(config_path):
                     or path.stat().st_size > CONFIG["read_file_limit"]):
                 refused.append(rel)
                 continue
-            coder.abs_read_only_fnames.add(str(path))
+            # Содержимым в сообщение, а не в abs_read_only_fnames: блок файлов для чтения aider
+            # ставит в начало запроса, перед историей, да ещё из множества — новый файл
+            # перетасовывает весь блок. Это промах кэша DeepSeek на всю историю задачи (19%
+            # промахов ночей 27–28.09). В сообщении файл ложится в конец.
+            texts.append(f"{rel}\n{coder.fence[0]}\n{io.read_text(str(path)) or ''}{coder.fence[1]}\n")
             added.append(rel)
             stats["read_added"].append(rel)
         notes = []
         if added:
             notes.append(f"Добавил в чат ТОЛЬКО ДЛЯ ЧТЕНИЯ: {', '.join(added)}. "
-                         f"Править можно только: {', '.join(OUTPUTS)}.")
+                         f"Править можно только: {', '.join(OUTPUTS)}.\n\n" + "\n".join(texts))
         if refused:
             # Молча пропустить нельзя: модель просила файл и ждала его. Потолок (45 —
             # над максимумом Zoo-автора, 44) достижим, а молчание стоило бы задачи.
@@ -633,6 +699,10 @@ def drive(config_path):
     stats["cannot"] = cannot.group(1).strip()[:400] if cannot else ""
     stats.update(tokens_sent=coder.total_tokens_sent, tokens_received=coder.total_tokens_received,
                  cost=round(coder.total_cost, 4), reflections=coder.num_reflections)
+    # `cost` — прикидка aider по дневному тарифу, `cost_real` — по тарифу провайдера и часу вызова.
+    sent = sum(call[1] for call in stats["calls"])
+    stats["cost_real"] = None if stats["calls_unmetered"] else tariff.cost(CONFIG["model"], stats["calls"])
+    stats["cache_share"] = round(sum(call[2] for call in stats["calls"]) / sent, 3) if sent else None
     Path(CONFIG["stats"]).write_text(json.dumps(stats, ensure_ascii=False, indent=2))
     return 0
 

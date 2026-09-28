@@ -17,6 +17,37 @@ def read(path, default=None):
         return default
 
 
+def run_money(run_dir):
+    """Деньги авторов на aider по тарифу провайдера: [$, задач без замера, отправлено, из кэша,
+    секунд паузы на пик].
+
+    Счёт aider (`cost`) здесь не складывается: он по дневному тарифу, а ночь дешевле вдвое."""
+    money = [0.0, 0, 0, 0, 0.0]
+    for path in sorted(run_dir.glob("*-work.aider.stats.json")):
+        stats = read(path, {})
+        if stats.get("cost_real") is None:
+            money[1] += 1
+        else:
+            money[0] += stats["cost_real"]
+        for call in stats.get("calls", []):
+            money[2] += call[1]
+            money[3] += call[2]
+        money[4] += stats.get("paused_seconds", 0)
+    return money
+
+
+def money_text(money):
+    cost, unmetered, sent, hit, paused = money
+    parts = [f"DeepSeek ${cost:.2f}"] if cost or sent else []
+    if sent:
+        parts.append(f"из кэша {hit / sent:.0%}")
+    if unmetered:
+        parts.append(f"задач без замера цены {unmetered}")
+    if paused:
+        parts.append(f"пауза на пик {paused / 60:.0f} мин")
+    return (", " + ", ".join(parts)) if parts else ""
+
+
 def run_lines(run_dir, repo):
     state = read(run_dir / "state.json")
     if state is None:
@@ -68,16 +99,19 @@ def main():
 
     print(f"# Сводка прогона — {args.out.name}\n")
     accepted = blocked = tokens = 0
+    total = [0.0, 0, 0, 0, 0.0]
     body = []
     for run_dir in runs:
         lines, ok, bad, spent = run_lines(run_dir, args.repo)
         accepted += ok
         blocked += bad
         tokens += spent
-        body.append(f"- **{run_dir.name}**: принято {ok}, забраковано {bad}, токенов {spent:,}")
+        money = run_money(run_dir)
+        total = [a + b for a, b in zip(total, money)]
+        body.append(f"- **{run_dir.name}**: принято {ok}, забраковано {bad}, токенов {spent:,}{money_text(money)}")
         body.extend(lines)
 
-    print(f"**Итого: принято {accepted}, забраковано {blocked}, токенов {tokens:,}**")
+    print(f"**Итого: принято {accepted}, забраковано {blocked}, токенов {tokens:,}{money_text(total)}**")
     if supervisor:
         print(f"**Порций оператора: {len(supervisor.get('batches', []))}. "
               f"Остановка: {supervisor.get('stopped')}**")

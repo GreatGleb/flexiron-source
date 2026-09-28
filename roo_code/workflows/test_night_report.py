@@ -45,6 +45,25 @@ class ReportTest(unittest.TestCase):
             + json.dumps({"event": "task-done"}) + "\n")
         self.assertIn("пачки авторов: a, b", self.run_report().stdout)
 
+    def test_money_is_by_the_provider_tariff_not_the_aider_estimate(self):
+        """Счёт aider — по дневному тарифу DeepSeek, а ночь вдвое дешевле: складывать его нельзя."""
+        self.write_state()
+        run = self.out / "run-1"
+        (run / "а-work.aider.stats.json").write_text(json.dumps(
+            {"cost": 0.6, "cost_real": 0.3, "calls": [["2026-09-28T17:00:00+00:00", 1000, 800, 10]]}))
+        # Статистика до замера цены: сказать, а не посчитать нулём.
+        (run / "б-work.aider.stats.json").write_text(json.dumps({"cost": 0.2}))
+        out = self.run_report().stdout
+        self.assertIn("DeepSeek $0.30, из кэша 80%, задач без замера цены 1", out)
+        self.assertNotIn("$0.80", out)
+        self.assertEqual(out.count("DeepSeek $0.30"), 2, out)   # порция и итог
+
+    def test_peak_pause_is_shown_so_a_slow_night_is_explained(self):
+        self.write_state()
+        (self.out / "run-1" / "а-work.aider.stats.json").write_text(json.dumps(
+            {"cost_real": 0.1, "paused_seconds": 5400, "calls": [["2026-09-28T17:00:00+00:00", 10, 0, 1]]}))
+        self.assertIn("пауза на пик 90 мин", self.run_report().stdout)
+
     def test_missing_run_is_said_plainly(self):
         (self.out / "run-1" / "state.json").unlink(missing_ok=True)
         result = self.run_report()

@@ -40,9 +40,10 @@ class NightRunTest(unittest.TestCase):
         return subprocess.check_output(["git", "-C", str(self.repo), *args], text=True,
                                        stderr=subprocess.DEVNULL)
 
-    def run_script(self):
-        env = {**os.environ, "FLEXIRON_REPO": str(self.repo), "FLEXIRON_ROUTING": str(self.routing),
-               "FLEXIRON_NIGHTS": str(self.nights), "FLEXIRON_HOURS": "1", "FLEXIRON_TOKENS": "1000"}
+    def run_script(self, **extra):
+        env = {**{k: v for k, v in os.environ.items() if k != "FLEXIRON_PEAK"},
+               "FLEXIRON_REPO": str(self.repo), "FLEXIRON_ROUTING": str(self.routing),
+               "FLEXIRON_NIGHTS": str(self.nights), "FLEXIRON_HOURS": "1", "FLEXIRON_TOKENS": "1000", **extra}
         return subprocess.run(["bash", str(SCRIPT)], capture_output=True, text=True, env=env, timeout=60)
 
     def test_busy_tree_stops_the_night(self):
@@ -65,6 +66,21 @@ class NightRunTest(unittest.TestCase):
         self.routing.unlink()
         result = self.run_script()
         self.assertEqual(result.returncode, 2)
+        self.assertEqual(self.git("branch", "--show-current").strip(), "main")
+
+    def test_peak_mode_defaults_to_pause(self):
+        """Пик DeepSeek вдвое дороже: ночь по умолчанию в пик ждёт."""
+        self.assertEqual(self.run_script().returncode, 0)
+        self.assertEqual((next(self.nights.glob("night-*")) / "deepseek-peak").read_text().strip(), "pause")
+
+    def test_peak_flag_lets_the_night_work_through_the_peak(self):
+        self.assertEqual(self.run_script(FLEXIRON_PEAK="ignore").returncode, 0)
+        self.assertEqual((next(self.nights.glob("night-*")) / "deepseek-peak").read_text().strip(), "ignore")
+
+    def test_unknown_peak_mode_is_refused_before_touching_git(self):
+        result = self.run_script(FLEXIRON_PEAK="никогда")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("pause или ignore", result.stderr)
         self.assertEqual(self.git("branch", "--show-current").strip(), "main")
 
     # --- продолжение ночи: так её поднимает сторож ---
