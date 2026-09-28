@@ -26,6 +26,7 @@
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -33,13 +34,45 @@ from pathlib import Path
 from urllib.parse import quote, urlsplit, urlunsplit
 
 
-PREFIX = "nightdb_"
+# Пространство имён баз. Имя по умолчанию — боевое, а переменная окружения нужна ЧУЖИМ
+# процессам на том же сервере: набор тестов обвязки ходит в тот же Postgres, а `prepare`
+# сметает СВОЁ пространство целиком, считая всё в нём мусором прошлых прогонов. С общим
+# именем набор, запущенный при живой ночи, сносит её шаблон, и ночь умирает на следующей
+# же задаче — `template database "nightdb_template" does not exist`. Так погибли две
+# ночи: 2026-09-27-2225 в 00:03 и 2026-09-28-0719 в 07:56, обе в минуты, когда рядом шёл
+# `python3 -m unittest` по этому каталогу (замер: журнал Postgres и стенограммы сессий).
+PREFIX = os.environ.get("NIGHT_DB_PREFIX") or "nightdb_"
 TEMPLATE = PREFIX + "template"
+# Метка владельца пространства имён — в комментарии к базе шаблона: см. `owner`.
+OWNER_TAG = "flexiron-night"
 # Postgres режет идентификатор на 63 байтах МОЛЧА: два длинных id задач дали бы одно
 # имя базы, и вторая задача работала бы в базе первой. Поэтому имя строится из
 # обрезанного слага и хвоста хеша полного id, а не из одного слага.
 MAX_IDENTIFIER = 63
 SLUG_LIMIT = MAX_IDENTIFIER - len(PREFIX) - 1 - 8
+
+
+def process_signature(pid=None):
+    """Подпись процесса: его номер и момент старта.
+
+    Момент старта здесь не украшение: номера переиспользуются, и без него чужой новый
+    процесс с тем же номером выдал бы себя за владельца, которого давно нет. Нет
+    `/proc` — нет подписи, и тогда владение не доказывается и никого не держит.
+    """
+    pid = os.getpid() if pid is None else pid
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return None
+    # Имя процесса в скобках может содержать что угодно, включая пробелы и скобки,
+    # поэтому поля считаются от ПОСЛЕДНЕЙ скобки: starttime — 22-е поле, 20-е после неё.
+    return f"{pid} {stat.rpartition(')')[2].split()[19]}"
+
+
+def process_alive(signature):
+    """Жив ли процесс, оставивший подпись, — вместе с моментом старта, а не по номеру."""
+    pid = signature.split()[0] if signature else ""
+    return pid.isdigit() and process_signature(int(pid)) == signature
 
 
 def database_name(task_id):
@@ -139,6 +172,19 @@ class TaskDatabases:
         return [f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{name}'",
                 f'DROP DATABASE IF EXISTS "{name}"']
 
+    def owner(self):
+        """Подпись процесса, построившего шаблон, — из комментария к его базе.
+
+        Комментарий, а не таблица: таблица уехала бы в каждый клон шаблона, и
+        `alembic check` первой же задачи увидел бы лишнюю таблицу, которой нет в
+        моделях. Комментарий же не виден ни бэкенду, ни alembic.
+        """
+        rows = self._admin(query=["SELECT shobj_description(oid, 'pg_database') "
+                                  "FROM pg_database WHERE datname = $1", TEMPLATE])
+        text = rows[0][0] if rows and rows[0] and rows[0][0] else ""
+        tag, _, signature = str(text).partition(" ")
+        return signature if tag == OWNER_TAG and signature else None
+
     def existing(self):
         """Базы прогона, уже имеющиеся на сервере, — включая шаблон и мусор прошлых ночей."""
         rows = self._admin(query=["SELECT datname FROM pg_database WHERE datname LIKE $1", PREFIX + "%"])
@@ -150,10 +196,24 @@ class TaskDatabases:
         Шаблон строится прогоном ревизий, а не клоном рабочей базы: так он заодно
         доказывает, что ревизии применяются на чистой базе (линза Б2), и не зависит
         от того, в каком состоянии человек оставил свою базу.
+
+        Уборка спрашивает разрешения у пространства имён: если шаблон помечен живым
+        ЧУЖИМ процессом, значит рядом идёт прогон, и «мусор прошлых ночей» — это его
+        рабочие базы. Такая уборка убивала ночь молча, а узнавали о ней через десять
+        минут по `template database … does not exist` у следующей задачи. Теперь это
+        отказ на месте и с именем виновника.
         """
+        holder = self.owner()
+        if holder and holder != process_signature() and process_alive(holder):
+            raise RuntimeError(
+                f"Базы {PREFIX}* держит живой процесс {holder}: смести их — значит убить "
+                f"идущий прогон. Своё пространство имён задаётся NIGHT_DB_PREFIX")
         for name in self.existing():
             self._admin(*self._drop(name))
         self._admin(f'CREATE DATABASE "{TEMPLATE}"')
+        # Метка ставится ДО миграций: они идут секунды, и всё это время пространство
+        # имён уже занято — чужая уборка обязана видеть владельца с первой секунды.
+        self._admin(f"""COMMENT ON DATABASE "{TEMPLATE}" IS '{OWNER_TAG} {process_signature() or ""}'""")
         if (Path(root) / "backend/alembic.ini").is_file():
             run_alembic(self.template_env_url)
 

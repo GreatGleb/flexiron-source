@@ -108,7 +108,7 @@ test.describe('Warehouse module', () => {
       await expect
         .poll(
           async () => page.evaluate(() => (window as unknown as { __hidden: number }).__hidden),
-          { timeout: 10_000 },
+          { timeout: DATA_READY_TIMEOUT },
         )
         .toBeGreaterThan(0)
 
@@ -172,7 +172,9 @@ test.describe('Warehouse module', () => {
       // Сущности нет — ждать её признак нельзя, признаком служит то, что
       // рисуется вместо карточки; утверждение ниже ждёт его само.
       await navigateToAdmin(page, '/admin/warehouse/batches/nonexistent')
-      await expect(page.getByTestId('batch-card-error')).toBeVisible()
+      await expect(page.getByTestId('batch-card-error')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     })
   })
 
@@ -248,7 +250,9 @@ test.describe('Warehouse module', () => {
       // Сущности нет — ждать её признак нельзя, признаком служит то, что
       // рисуется вместо карточки; утверждение ниже ждёт его само.
       await navigateToAdmin(page, '/admin/warehouse/offcuts/nonexistent')
-      await expect(page.getByTestId('offcut-card-error')).toBeVisible()
+      await expect(page.getByTestId('offcut-card-error')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     })
   })
 
@@ -350,7 +354,9 @@ test.describe('Warehouse module', () => {
       // Сущности нет — ждать её признак нельзя, признаком служит то, что
       // рисуется вместо карточки; утверждение ниже ждёт его само.
       await navigateToAdmin(page, '/admin/warehouse/movements/nonexistent')
-      await expect(page.getByTestId('movement-card-error')).toBeVisible()
+      await expect(page.getByTestId('movement-card-error')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     })
   })
 
@@ -411,14 +417,18 @@ test.describe('Warehouse module', () => {
       // Сущности нет — ждать её признак нельзя, признаком служит то, что
       // рисуется вместо карточки; утверждение ниже ждёт его само.
       await navigateToAdmin(page, '/admin/warehouse/deficit/nonexistent')
-      await expect(page.getByTestId('deficit-card-error')).toBeVisible()
+      await expect(page.getByTestId('deficit-card-error')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     })
   })
 
   test.describe('Stock card', () => {
     test('should display stock card details', async ({ page }) => {
       await navigateToAdmin(page, '/admin/warehouse/stock/prod-002')
-      await expect(page.getByTestId('stock-card-page')).toBeVisible()
+      await expect(page.getByTestId('stock-card-page')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await expect(page.getByTestId('stock-card-header')).toBeVisible()
     })
 
@@ -426,7 +436,9 @@ test.describe('Warehouse module', () => {
       // Сущности нет — ждать её признак нельзя, признаком служит то, что
       // рисуется вместо карточки; утверждение ниже ждёт его само.
       await navigateToAdmin(page, '/admin/warehouse/stock/nonexistent')
-      await expect(page.getByTestId('stock-card-error')).toBeVisible()
+      await expect(page.getByTestId('stock-card-error')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     })
   })
 

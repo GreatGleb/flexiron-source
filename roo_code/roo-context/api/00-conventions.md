@@ -756,12 +756,12 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
 эмиттерами, которые зовут чужие домены:
 `notifyOrderStatusChanged`, `notifyWarehouseReady`, `notifyPaymentReceived`, `notifyBatchReceived`,
 `notifyStockDeficit`, `notifySupplierResponse`, `notifyPaymentOverdue`
-(`mocks/notifications.ts:542`, `:566`, `:592`, `:616`, `:637`, `:657`, `:684`; счёт —
+(`mocks/notifications.ts:542`, `:599`, `:625`, `:649`, `:670`, `:690`, `:717`; счёт —
 `grep -c "^export function notify"` → 7). Все семеро проходят через один `emit` (`:514-522`),
 который и присваивает `id`, `isRead: false` и `createdAt`.
 
 Вызывающие — четыре домена, и **каждый вызов защищён условием перехода**:
-`orders` (`mocks/orders.ts:1840` при `oldStatus !== status`, `:3929` при `!wasReady && fullyReserved`,
+`orders` (`mocks/orders.ts:1840` при `oldStatus !== status`, `:3944` при `!wasReady && fullyReserved`,
 `:4001` при `payment.amount > 0` — возврат денег не «поступление оплаты»),
 `warehouse` (`services/mocks/warehouse.ts:789` создание партии, `:1710` только **вновь открытая** нехватка),
 `finance` (`mocks/finance.ts:70` первое обнаружение просрочки, `:486` при `!wasOverdue && …`),
@@ -1089,7 +1089,7 @@ interface PaginationParams { page: number; pageSize: number }     // types/api.t
   интерфейсе страна поставщика приходит через библиотеку полей карточки — `f-country`
   (`services/mocks/config.ts:63`), то есть меняется тип поля, а не вёрстка страницы.
   Перенос данных мока показывает, зачем правило: там `'Estonia'`, `'Lithuania'`, `'Sweden'`,
-  `'Latvia'`, `'Germany'` и `'UK'` (`services/mocks/suppliers.ts:17`, `:117`) — названия
+  `'Latvia'`, `'Germany'` и `'UK'` (`services/mocks/suppliers.ts:17`, `:118`) — названия
   по-английски вперемешку с сокращением, и **`UK` кодом ISO не является**: Великобритания это
   `GB`. Строка, которая выглядит кодом, им не была.
 - **Деньги — `number`, точность до двух знаков**, minor units не используются. Округление —

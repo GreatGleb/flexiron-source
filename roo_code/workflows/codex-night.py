@@ -30,7 +30,8 @@ HERE = Path(__file__).resolve().parent
 DIFF_LIMIT = 120_000
 LOG_TAIL_LIMIT = 2_000
 sys.path.insert(0, str(HERE))
-from headless_backends import ROLES, load_routing  # noqa: E402  (нужен HERE в sys.path)
+from headless_backends import (PROVIDER_REFUSAL_PREFIX, ROLES, UnreadableCallLog,  # noqa: E402
+                               load_routing)  # (нужен HERE в sys.path)
 import night_db  # noqa: E402
 import refs_shift  # noqa: E402
 
@@ -303,6 +304,14 @@ def spent_tokens(backends, run_dir, unfinished=()):
     возобновлённый прогон видит тот же расход, что и непрерывный. Авторы из
     `unfinished` ещё пишут: их лог пуст или недописан, и разбор уронил бы ночь —
     их расход засчитается, когда они закончат.
+
+    Законченный вызов, не оставивший отчёта о сессии, пропускается — так же, как его
+    пропускает `measure()` супервизора, то есть два счётчика ночи дают одно число.
+    Ронять на нём прогон нельзя: ночь 2026-09-28-0022 встала так после того, как ядро
+    УЖЕ разобрало этот случай — задача забракована («Ответ приёмщика непригоден»), а
+    лог остался в каталоге и валил каждую следующую проверку потолка. Молчания тут
+    нет: тот же лог лежит в доказательствах забракованной задачи. Вывод БЕЗ учёта
+    токенов — другое дело, он по-прежнему останавливает прогон.
     """
     total = 0
     for path in sorted(run_dir.glob("*.stdout.log")):
@@ -311,7 +320,10 @@ def spent_tokens(backends, run_dir, unfinished=()):
             continue
         role = match.group(2) if match else None
         if role and backends[role].metered:
-            total += backends[role].tokens(Path(str(path)[: -len(".stdout.log")]))
+            try:
+                total += backends[role].tokens(Path(str(path)[: -len(".stdout.log")]))
+            except UnreadableCallLog:
+                continue
     return total
 
 
@@ -617,7 +629,18 @@ def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1, env
         instruction += (
             f"Порты. Рядом с тобой одновременно работают другие авторы. Твой порт playwright — "
             f"PW_PORT={env['PW_PORT']} (и следующий за ним), он уже в окружении. Не задавай "
-            "PW_PORT и --port руками и не занимай 5173: там чужой сервер.\n")
+            "PW_PORT и --port руками и не занимай 5173: там чужой сервер.\n"
+            # Ночь 2026-09-27-2225: автор пачки поднял 160 `yes` на 8 ядрах ради инверсии
+            # под нагрузкой, а сосед в это время гнал свои e2e под этой нагрузкой.
+            "Машина общая: пока ты работаешь, на ней идут тесты других авторов. Не создавай "
+            "искусственную нагрузку на процессор (`yes`, `stress`, пустые циклы) и не гаси "
+            "процессы по имени (`pkill`, `killall`) — это бьёт по чужим тестам. Если задача "
+            "просит прогон или инверсию под нагрузкой, сделай вместо этого замер фактического "
+            "времени ожидания и так и напиши в результате.\n")
+    if env and "TMPDIR" in env:
+        instruction += (
+            f"Временные файлы — только в `$TMPDIR` (`{env['TMPDIR']}`, уже в окружении), не в "
+            "`/tmp`: одноимённый файл соседа затрёт твой.\n")
     backend = backends[role]
     instruction += backend.result_instruction(result_path)
     prompt = instruction + "\nЗадание (JSON):\n" + json.dumps(task, ensure_ascii=False, indent=2)
@@ -632,6 +655,14 @@ def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1, env
             or (result["status"] == "done" and not result["evidence"])
             or not all(isinstance(item, str) and item.strip() for item in result["evidence"])):
         raise RuntimeError(f"{task['id']} / {role}: нет подтверждения выполнения: {result}")
+    if result["status"] == "blocked" and result["summary"].startswith(PROVIDER_REFUSAL_PREFIX):
+        # Провайдер исполнителя отказал деньгами, ключом или квотой. Это не брак ОДНОЙ
+        # задачи, а отказ среды — тот же, что упавший CLI: следующая задача получит тот
+        # же ответ. Без остановки ночь 2026-09-28-0022 гнала пустые порции, и каждая
+        # уносила по четыре задачи в blocked НАВСЕГДА: супервизор считает заблокированную
+        # решённой и больше не предлагает её оператору. Строку ставит обёртка исполнителя
+        # по своему списку ошибок, а не модель: подделать её ответом нельзя.
+        raise CommandFailed(f'{result["summary"]} (задача {task["id"]}, роль {role})')
     return result
 
 
@@ -649,11 +680,21 @@ def ask_agent(root, backends, task, role, run_dir, deadline, env=None):
                 shutil.copyfile(run_dir / f'{task["id"]}-{role}-retry-2.json',
                                 first_result)
             return result
-        except CommandFailed:
+        except (CommandFailed, ValueError) as error:
             suffix = "" if attempt == 1 else "-retry-2"
             prefix = run_dir / f'{task["id"]}-{role}{suffix}'
-            kind = (service_error_kind(prefix.with_suffix(".stdout.log"))
-                    if backends[role].supports_service_retry else None)
+            if isinstance(error, CommandFailed):
+                kind = (service_error_kind(prefix.with_suffix(".stdout.log"))
+                        if backends[role].supports_service_retry else None)
+            else:
+                # Вышел с кодом 0 и не напечатал НИЧЕГО — это не суждение приёмщика, а
+                # сбой среды, у любого бэкенда. Ночь 2026-09-28-0022: приёмщик Opus по
+                # `expect-budget-after-action-warehouse-specs` умер за секунду с пустыми
+                # stdout и stderr, и готовая работа ушла в брак без второй попытки, хотя
+                # вызовы оператора до и после прошли. Непустой негодный ответ — по-прежнему
+                # брак задачи: его ловит приёмка ядра.
+                log = prefix.with_suffix(".stdout.log")
+                kind = "empty_output" if log.is_file() and not log.read_text(errors="replace").strip() else None
             if role != "review" or not kind:
                 raise
             if git_state(root) != before_git or file_snapshot(root) != before_files:
@@ -678,7 +719,7 @@ def ask_agent(root, backends, task, role, run_dir, deadline, env=None):
 
 
 def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous=None,
-        token_budget=None, parallel=1, databases=None):
+        token_budget=None, parallel=1, databases=None, finish_minutes=0):
     if run_dir.is_relative_to(root):
         raise ValueError("Каталог результатов должен находиться вне checkout")
     # Never reuse a directory: even a stopped run remains intact.
@@ -768,7 +809,23 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             raise RuntimeError("Не удалось изолировать заблокированную задачу; продолжение небезопасно")
         save("task-blocked")
 
-    deadline = time.monotonic() + minutes * 60
+    # Два срока. `minutes` — до какого момента НАЧИНАТЬ задачи; `finish_minutes` сверх
+    # него — запас начатым на доделку. Один срок на всё убивал автора на полуслове:
+    # задача, взятая за пять минут до конца ночи, гибла вместе с прогоном, а её работа
+    # пропадала, потому что патч снимается только с законченного автора.
+    start_deadline = time.monotonic() + minutes * 60
+    deadline = start_deadline + finish_minutes * 60
+    late = [False]
+
+    def may_start():
+        if time.monotonic() < start_deadline:
+            return True
+        if not late[0]:
+            late[0] = True
+            state["reason"] = "Время начинать задачи вышло; начатые доделаны"
+            save("time-limit")
+        return False
+
     pools = [None]
     save("start")
     try:
@@ -994,7 +1051,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                     continue
                 if attempts >= max_tasks:
                     continue
-                if not budget_allows():
+                if not may_start() or not budget_allows():
                     break
                 attempts += 1
                 expected_git, links_before = begin(task)
@@ -1050,7 +1107,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                     candidates.append(task)
                 started = []
                 for task in disjoint_batch(candidates, parallel - len(running), busy):
-                    if exhausted or attempts >= max_tasks or not budget_allows():
+                    if exhausted or attempts >= max_tasks or not may_start() or not budget_allows():
                         break
                     if any(not (root / name).is_file() for name in task["sources"]):
                         # Брак по источникам прячет checkout в stash — посреди чужой
@@ -1063,8 +1120,13 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                     port = author_ports(1, taken={p + d for p in ports.values() for d in (-1, 0, 1)})[0]
                     ports[task["id"]] = port
                     add_worktree(root, task, run_dir)
+                    # Свой TMPDIR: авторы пачки писали в одни и те же /tmp/mine.ts и
+                    # /tmp/head-load.txt (ночь 2026-09-27-2225) и затёрли бы друг другу.
+                    temp = run_dir / f'tmp-{task["id"]}'
+                    temp.mkdir(exist_ok=True)
                     future = pool.submit(write_author, root, backends, task, run_dir, deadline,
-                                         {**databases.env_for(task["id"]), "PW_PORT": str(port)})
+                                         {**databases.env_for(task["id"]), "PW_PORT": str(port),
+                                          "TMPDIR": str(temp)})
                     running[future] = task
                     writing.add(task["id"])
                     started.append(task["id"])
@@ -1108,6 +1170,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
         state["tokens"] = spent_tokens(backends, run_dir)
         resolved_count = sum(len(state[key]) for key in ("completed", "blocked", "waiting"))
         state["status"] = ("token-budget" if exhausted else
+                           "time-limit" if late[0] and resolved_count < len(tasks) else
                            "task-limit" if resolved_count < len(tasks) else
                            "completed-with-blockers" if state["blocked"] else "completed")
         drop_worktrees(root, run_dir)
@@ -1149,7 +1212,9 @@ def main():
                              "самой механики; в прогоне не использовать")
     parser.add_argument("--run", action="store_true", help="Без флага — только preflight, без вызова модели")
     parser.add_argument("--run-dir", type=Path)
-    parser.add_argument("--minutes", type=float)
+    parser.add_argument("--minutes", type=float, help="До какого момента начинать задачи, минут от старта")
+    parser.add_argument("--finish-minutes", type=float, default=0,
+                        help="Запас сверх --minutes начатым задачам на доделку; 0 — обрыв на сроке")
     parser.add_argument("--max-tasks", type=int)
     parser.add_argument("--retry-review", type=Path, help="Каталог остановленного прогона: повторить проверки и приёмку сохранённой работы")
     args = parser.parse_args()
@@ -1164,6 +1229,8 @@ def main():
     if args.run and (args.run_dir is None or args.minutes is None or not math.isfinite(args.minutes)
                      or args.minutes <= 0 or args.max_tasks is None or args.max_tasks <= 0):
         parser.error("Для --run обязательны --run-dir, положительные --minutes и --max-tasks")
+    if not math.isfinite(args.finish_minutes) or args.finish_minutes < 0:
+        parser.error("--finish-minutes — неотрицательное число")
     # Shared git directory lock prevents two controllers using the same repository.
     common = Path(git(root, "rev-parse", "--git-common-dir").strip())
     common = (root / common).resolve()
@@ -1183,7 +1250,7 @@ def main():
         retry = retry_checkpoint(root, queue, previous) if previous else None
         preflight(root, queue, backends, retry)
         return run(root, queue, backends, args.run_dir.resolve(), args.minutes, args.max_tasks,
-                   retry, previous, args.token_budget, args.parallel, databases)
+                   retry, previous, args.token_budget, args.parallel, databases, args.finish_minutes)
 
 
 if __name__ == "__main__":

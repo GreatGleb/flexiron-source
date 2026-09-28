@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures'
-import { waitForDataReady } from './helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from './helpers/ready'
 
 /**
  * Smoke suite — fast sanity pass over every page.
@@ -90,7 +90,7 @@ for (const route of ALL_ROUTES) {
     // Every page here passed only by rendering fast enough; the order card, the
     // slowest of them, failed at random and was written off as a flake for three
     // stages. The generous timeout is for a cold dev server compiling the route.
-    await expect.soft(page.locator('h1').first()).toBeVisible({ timeout: 15_000 })
+    await expect.soft(page.locator('h1').first()).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     expect
       .soft(consoleErrors, `console errors on page; network: ${JSON.stringify(badResponses)}`)
       .toEqual([])

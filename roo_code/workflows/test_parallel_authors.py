@@ -130,10 +130,11 @@ class ParallelRunTest(unittest.TestCase):
     git = _pilot.PilotTest.git
     state = _pilot.PilotTest.state
 
-    def command(self, parallel, run_dir=None, max_tasks=2, previous=None):
+    def command(self, parallel, run_dir=None, max_tasks=2, previous=None, minutes="2", finish=None):
         command = [sys.executable, str(RUNNER), "--workspace", str(self.root), "--queue", str(self.queue),
                    "--routing", str(self.routing), "--run", "--run-dir", str(run_dir or self.logs),
-                   "--minutes", "2", "--max-tasks", str(max_tasks), "--parallel", str(parallel)]
+                   "--minutes", str(minutes), "--max-tasks", str(max_tasks), "--parallel", str(parallel)]
+        command += ["--finish-minutes", str(finish)] if finish is not None else []
         return command + (["--retry-review", str(previous)] if previous else [])
 
     def environment(self, mode="", barrier=0, sleeps=None):
@@ -173,6 +174,15 @@ class ParallelRunTest(unittest.TestCase):
         prompt = (self.logs / "alpha-work.prompt.txt").read_text()
         self.assertIn(f"PW_PORT={ports[0]}", prompt)
 
+    def test_batch_authors_get_own_tmpdir_and_no_load_rule(self):
+        """Авторы пачки писали в одни /tmp/mine.ts и грузили машину соседа (ночь 27.09-2225)."""
+        self.assertEqual(self.invoke(parallel=2, barrier=2).returncode, 0)
+        for task in ("alpha", "beta"):
+            prompt = (self.logs / f"{task}-work.prompt.txt").read_text()
+            self.assertIn(f"`{self.logs / f'tmp-{task}'}`", prompt)
+            self.assertIn("pkill", prompt)
+            self.assertTrue((self.logs / f"tmp-{task}").is_dir())
+
     def test_batch_author_gets_node_modules_inside_its_worktree(self):
         """Симлинк уводил настоящий путь за корень worktree: vite отвечал 403 на шрифты
         `@fontsource`, и у автора пачки краснели все снимки."""
@@ -189,7 +199,10 @@ class ParallelRunTest(unittest.TestCase):
     def test_single_author_keeps_the_default_port(self):
         self.assertEqual(self.invoke(parallel=1).returncode, 0)
         self.assertEqual(self.spans()["alpha"]["port"], 0)
-        self.assertNotIn("PW_PORT", (self.logs / "alpha-work.prompt.txt").read_text())
+        prompt = (self.logs / "alpha-work.prompt.txt").read_text()
+        self.assertNotIn("PW_PORT", prompt)
+        self.assertNotIn("TMPDIR", prompt)
+        self.assertNotIn("pkill", prompt)
 
     def test_sequential_run_keeps_authors_apart(self):
         result = self.invoke(parallel=1)
@@ -280,6 +293,37 @@ class ParallelRunTest(unittest.TestCase):
             {"id": "alpha", "sources": ["plan.md"], "outputs": ["plan.md"], "task": "долгая"},
             {"id": "beta", "sources": ["spec.md"], "outputs": ["plan2.md"], "task": "быстрая"},
             {"id": "gamma", "sources": list(gamma_sources), "outputs": ["gamma-out.md"], "task": "следующая"}]}))
+
+    def test_started_tasks_finish_after_the_start_deadline_and_no_new_one_starts(self):
+        """Срок ночи — последний момент, когда задача НАЧИНАЕТСЯ. Раньше на сроке гибли
+        авторы на полуслове вместе с прогоном, а их работа пропадала."""
+        self.three_tasks()
+        # Старт закрывается через 3 с; alpha и beta пишут дольше, gamma начаться не должна.
+        result = self.invoke(parallel=2, max_tasks=3, minutes=0.05, finish=2,
+                             sleeps={"alpha": 6, "beta": 4.5, "gamma": 0.2})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.state()
+        self.assertEqual(state["status"], "time-limit", state)
+        self.assertEqual(sorted(c["task"] for c in state["completed"]), ["alpha", "beta"])
+        self.assertNotIn("gamma", self.spans())
+        self.assertIn("Время начинать задачи вышло", state["reason"])
+
+    def test_single_author_also_finishes_and_stops_starting(self):
+        self.three_tasks()
+        result = self.invoke(parallel=1, max_tasks=3, minutes=0.05, finish=2,
+                             sleeps={"alpha": 6, "beta": 0.2, "gamma": 0.2})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.state()
+        self.assertEqual(state["status"], "time-limit", state)
+        self.assertEqual([c["task"] for c in state["completed"]], ["alpha"])
+
+    def test_without_finish_margin_the_deadline_still_cuts(self):
+        """Запас 0 — прежнее поведение: на сроке начатый автор обрывается, прогон встаёт."""
+        self.three_tasks()
+        result = self.invoke(parallel=2, max_tasks=3, minutes=0.05, finish=0,
+                             sleeps={"alpha": 6, "beta": 4.5, "gamma": 0.2})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.state()["status"], "stopped")
 
     def test_fast_author_takes_the_next_task_before_the_slow_one_ends(self):
         # Пачкой gamma ждала бы конца alpha: быстрый автор простаивал до самого медленного.
@@ -402,8 +446,13 @@ class ParallelRunTest(unittest.TestCase):
         (self.logs / "beta-work.stdout.log").write_text(json.dumps(done))
         backends = core.load_routing(self.routing)
         self.assertEqual(core.spent_tokens(backends, self.logs, {"alpha"}), 10)
-        with self.assertRaises(json.JSONDecodeError):
-            core.spent_tokens(backends, self.logs)
+        # Тот же пустой лог без пометки «ещё пишет» прогон больше не роняет, а
+        # пропускает — как его пропускает measure() супервизора. Ночь 2026-09-28-0022
+        # встала именно на законченном вызове с пустым логом: приёмщик вышел с кодом 0,
+        # не напечатав ничего, задача была забракована как надо, а учёт токенов падал на
+        # её логе при каждой следующей проверке потолка. Громкий отказ остался там, где
+        # он и нужен: ответ ЕСТЬ, а учёта в нём нет (test_headless_backends).
+        self.assertEqual(core.spent_tokens(backends, self.logs), 10)
         # Задача с id, начинающимся так же, в счёт идёт: сопоставление — по id целиком.
         (self.logs / "alpha-work-work.stdout.log").write_text(json.dumps(done))
         self.assertEqual(core.spent_tokens(backends, self.logs, {"alpha"}), 20)

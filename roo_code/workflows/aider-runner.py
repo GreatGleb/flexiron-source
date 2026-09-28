@@ -28,6 +28,9 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import headless_backends as backends  # noqa: E402  (нужен HERE в sys.path)
+
 MARKER = "\nЗадание (JSON):\n"
 
 
@@ -186,6 +189,14 @@ def main():
             crash = [line.strip() for line in text.rsplit("Traceback (most recent call last):", 1)[1].splitlines()
                      if line.strip()]
             why = f"; aider сообщил: {crash[-1][:300]}" if crash else ""
+    # Отказ провайдера (нет денег, не принят ключ, исчерпана квота) — не брак задачи:
+    # следующая получит тот же ответ. Ядро узнаёт его по началу строки и останавливает
+    # ночь. Таймаут (code is None) сюда не годится: там ошибка могла быть старой и
+    # безобидной, а работу оборвал потолок времени. Уже изменённые файлы важнее отказа —
+    # их судит приёмка, и терять их из-за сдохшего в конце счёта незачем.
+    fatal = None if code is None or edited else backends.provider_refusal(errors)
+    if fatal:
+        return finish("blocked", f"{backends.PROVIDER_REFUSAL_PREFIX}: {fatal[:300]}", evidence)
     if code is None:
         return finish("blocked", f"aider не уложился в {args.timeout} с{why}", evidence)
     if code:

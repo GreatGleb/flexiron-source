@@ -104,6 +104,40 @@ def install_git_guard(directory):
     shim.chmod(0o755)
 
 
+# Команды, которые на общей машине бьют по соседям. Ночь 2026-09-27-2225: автор пачки
+# запустил 160 `yes` на 8 ядрах (load 176) для «инверсии под нагрузкой», а сосед в это
+# время гнал свои e2e под чужой нагрузкой; снимал нагрузку он `pkill -x yes`, то
+# есть и чужую. Запрет — только для автора пачки: ядро выдаёт PW_PORT лишь тогда, когда
+# рядом пишут другие. Один автор на машине нагрузку создавать может, её требует план.
+SHARED_MACHINE = {"yes", "stress", "stress-ng", "pkill", "killall"}
+
+
+def shared_machine():
+    return "PW_PORT" in os.environ
+
+
+def shared_refusal(name):
+    return (f"{name}: отклонено ночным контроллером — машина общая с другими авторами: "
+            "искусственная нагрузка и остановка процессов по имени бьют по их тестам; "
+            "вместо прогона под нагрузкой сделай замер")
+
+
+def install_shared_guard(directory):
+    """Обёртки команд SHARED_MACHINE в каталоге обёртки git — первыми в PATH.
+
+    Разбор строки в command_refusal ловит прямую запись; `bash -c 'yes'` и `xargs pkill`
+    ловит обёртка, как у git."""
+    global GUARD_DIR
+    if not shared_machine():
+        return
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    GUARD_DIR = str(directory)
+    for name in SHARED_MACHINE:
+        shim = Path(GUARD_DIR) / name
+        shim.write_text(f"#!/bin/sh\necho {shlex.quote(shared_refusal(name))} >&2\nexit 1\n")
+        shim.chmod(0o755)
+
+
 def guarded_env():
     env = child_env()
     if GUARD_DIR:
@@ -284,6 +318,13 @@ def command_refusal(command):
         if sub not in GIT_READ_ONLY:
             return (f"`{command}`: git {sub or '(без подкоманды)'} меняет репозиторий; "
                     f"можно только {', '.join(sorted(GIT_READ_ONLY))}")
+    if shared_machine():
+        for index, word in enumerate(words):
+            # `(yes > /dev/null &)` и `$(pkill …)` shlex отдаёт словом со скобкой впереди.
+            name = Path(word.lstrip("($`{")).name
+            if name in SHARED_MACHINE and (not index or word[0] in "($`{" or words[index - 1] in COMMAND_POSITION
+                                           or words[index - 1].endswith((";", "&", "|"))):
+                return f"`{command}`: {shared_refusal(name)}"
     return None
 
 
@@ -311,6 +352,7 @@ def drive(config_path):
     if CONFIG.get("env_file"):
         load_env(CONFIG["env_file"])
     install_git_guard(CONFIG["guard_dir"])
+    install_shared_guard(CONFIG["guard_dir"])
 
     import aider.coders.base_coder as base_coder
     from aider.coders import Coder

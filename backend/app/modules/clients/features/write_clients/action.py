@@ -17,6 +17,8 @@ from app.modules.auth.internal_api.interface import CurrentUser, get_current_use
 
 from .domain import ClientFieldTakenError, ClientValidationError
 from .domain import create_client as create_client_usecase
+from .domain import delete_client as delete_client_usecase
+from .domain import delete_client_audit_entry as delete_client_audit_entry_usecase
 from .domain import patch_client as patch_client_usecase
 from .schemas import ClientCreateRequest, ClientPatchRequest
 
@@ -76,3 +78,41 @@ async def patch_client(
     except ClientFieldTakenError as error:
         return _refusal(status.HTTP_409_CONFLICT, error, error.field)
     return ApiResponse(success=True, data=result.model_dump(mode="json"))
+
+
+@router.delete("/{client_id}", response_model=ApiResponse)
+async def delete_client(
+    client_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Delete a client — physical, no soft delete.
+
+    Two refusals, and both surface through `app.main`'s `AppError` handler as
+    `detail: {message, code}` (`00-conventions.md` §1): `CLIENT_NOT_FOUND` for
+    an unknown or foreign id, `CONFLICT` when the client still has orders.
+    Neither is caught here — the status is a property of the exception class,
+    so the table lives in one place and not twice.
+    """
+    await delete_client_usecase(db, current_user.tenant_id, client_id)
+    return ApiResponse(success=True, data=None)
+
+
+@router.delete("/{client_id}/audit/{entry_id}", response_model=ApiResponse)
+async def delete_client_audit_entry(
+    client_id: UUID,
+    entry_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Delete one journal entry of one client — an `entryId`, not an index.
+
+    `CLIENT_NOT_FOUND` and `AUDIT_ENTRY_NOT_FOUND` both answer 404; an unknown
+    entry is a refusal, never a silent success. The right to delete a journal
+    row (owner only, П8) is deliberately not checked here: permissions are a
+    stub across the project today, and implementing them is outside this task.
+    """
+    await delete_client_audit_entry_usecase(
+        db, current_user.tenant_id, client_id, entry_id
+    )
+    return ApiResponse(success=True, data=None)

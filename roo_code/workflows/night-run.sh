@@ -60,7 +60,8 @@ python3 "$repo/roo_code/workflows/night-supervisor.py" \
     --max-tasks "${FLEXIRON_BATCH:-5}" \
     --parallel "${FLEXIRON_PARALLEL:-4}" \
     --max-batches "${FLEXIRON_MAX_BATCHES:-8}" \
-    --idle-limit "${FLEXIRON_IDLE_LIMIT:-3}" || status=$?
+    --idle-limit "${FLEXIRON_IDLE_LIMIT:-3}" \
+    --finish-minutes "${FLEXIRON_FINISH:-120}" || status=$?
 
 # Сводка пишется при любом исходе: оборванную ночь утром тоже надо читать.
 python3 "$repo/roo_code/workflows/night-report.py" --out "$out" --repo "$repo" \

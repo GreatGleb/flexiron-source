@@ -130,6 +130,20 @@ class DecisionTest(unittest.TestCase):
         self.assertEqual(self.world.launched, [])
         self.assertEqual(self.journal(), [])
 
+    def test_exhausted_provider_is_not_raised_again(self):
+        """Счёт провайдера пуст — подъём упрётся в ту же стену и сожжёт оператора.
+
+        Записать один раз и ждать владельца: ни запуска, ни вызова Claude.
+        """
+        self.report("ядро остановилось: исполнитель без доступа к модели: litellm.BadRequestError: "
+                    "DeepseekException - Insufficient Balance (задача alpha, роль work)")
+        self.run_state(1, "stopped", "alpha", "исполнитель без доступа к модели: Insufficient Balance")
+        self.assertEqual(self.tick(), "ресурс исполнителя исчерпан")
+        self.assertEqual(self.tick(), "ресурс исполнителя исчерпан")
+        self.assertEqual(self.world.launched, [])
+        self.assertEqual(self.world.claude_calls, [])
+        self.assertEqual(sum(1 for e in self.journal() if "решение за владельцем" in e["сделал"]), 1)
+
     def test_stop_on_review_with_work_in_checkout_is_retried(self):
         self.report("ядро остановилось: Команда завершилась с кодом 1: alpha-review; см. логи")
         self.run_state(1, "completed")
@@ -443,6 +457,17 @@ class ResumeTest(NightFixture):
         night = json.loads((self.out / "night.json").read_text())
         (self.out / "night.json").write_text(json.dumps({**night, **changes}))
         return night
+
+    def test_night_started_before_the_finish_margin_still_resumes(self):
+        result = self.run_supervisor([sup.queue_json("alpha"), sup.queue_json("beta", ["plan2.md"])], batches=1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        night = self.set_night(max_batches=2)
+        del night["finish_minutes"]   # так выглядит night.json ночи, начатой до параметра
+        (self.out / "night.json").write_text(json.dumps({**night, "max_batches": 2}))
+        result = self.resume()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([b["tasks"] for b in self.report()["batches"]], [["alpha"], ["beta"]])
+        self.assertEqual(json.loads((self.out / "night.json").read_text())["finish_minutes"], 0)
 
     def test_resume_continues_the_same_night(self):
         result = self.run_supervisor([sup.queue_json("alpha"), sup.queue_json("beta", ["plan2.md"])], batches=1)

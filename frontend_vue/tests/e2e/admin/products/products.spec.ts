@@ -144,7 +144,7 @@ test.describe('products-list › search', () => {
     // Признак применённого фильтра — изменившаяся длина, а не 300 мс по часам. Прежняя
     // проверка была `countAfter <= totalBefore`: она проходила и при фильтре, который
     // не применился вовсе, потому что равенство её устраивало.
-    await expect(rows).not.toHaveCount(totalBefore)
+    await expect(rows).not.toHaveCount(totalBefore, { timeout: DATA_READY_TIMEOUT })
     const names = await rows.evaluateAll((els) =>
       els.map((el) => (el.querySelector('td')?.textContent ?? '').trim()),
     )
@@ -156,7 +156,9 @@ test.describe('products-list › search', () => {
   test('no match shows empty state', async ({ page }) => {
     const input = page.locator('[data-test="products-filter-search"] input')
     await input.fill('zzz-nomatch-xyz')
-    await expect(page.locator('[data-test="products-empty"]')).toBeVisible()
+    await expect(page.locator('[data-test="products-empty"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="products-row"]')).toHaveCount(0, {
       timeout: DATA_READY_TIMEOUT,
     })
@@ -171,7 +173,7 @@ test.describe('products-list › search', () => {
     // Обе перерисовки ждём признаком — изменившейся длиной списка. Часы здесь были
     // лишними: следующая проверка и так самоперепроверяющаяся.
     await input.fill(searchTerm)
-    await expect(rows).not.toHaveCount(totalBefore)
+    await expect(rows).not.toHaveCount(totalBefore, { timeout: DATA_READY_TIMEOUT })
     await input.fill('')
     await expect(rows).toHaveCount(totalBefore, { timeout: DATA_READY_TIMEOUT })
   })
@@ -187,29 +189,39 @@ test.describe('products-list › create modal', () => {
 
   test('opens modal on create button click', async ({ page }) => {
     await page.locator('[data-test="products-btn-create"]').click()
-    await expect(page.locator('[data-test="modal-create-product"]')).toBeVisible()
+    await expect(page.locator('[data-test="modal-create-product"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('Escape closes modal', async ({ page }) => {
     await page.locator('[data-test="products-btn-create"]').click()
-    await expect(page.locator('[data-test="modal-create-product"]')).toBeVisible()
+    await expect(page.locator('[data-test="modal-create-product"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.keyboard.press('Escape')
-    await expect(page.locator('[data-test="modal-create-product"]')).toBeHidden()
+    await expect(page.locator('[data-test="modal-create-product"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('Cancel button closes modal', async ({ page }) => {
     await page.locator('[data-test="products-btn-create"]').click()
     const modal = page.locator('[data-test="modal-create-product"]')
-    await expect(modal).toBeVisible()
+    await expect(modal).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await modal.locator('.btn-secondary').click()
-    await expect(modal).toBeHidden()
+    await expect(modal).toBeHidden({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('submit with empty name stays open (validation)', async ({ page }) => {
     await page.locator('[data-test="products-btn-create"]').click()
-    await expect(page.locator('[data-test="modal-create-product"]')).toBeVisible()
+    await expect(page.locator('[data-test="modal-create-product"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Button should be disabled when name is empty
-    await expect(page.locator('[data-test="create-product-submit"]')).toBeDisabled()
+    await expect(page.locator('[data-test="create-product-submit"]')).toBeDisabled({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('submit with valid data creates product and navigates to card', async ({ page }) => {
@@ -222,7 +234,9 @@ test.describe('products-list › create modal', () => {
       await categorySelect.locator('.custom-select-option').first().click()
     }
     await page.locator('[data-test="create-product-submit"]').click()
-    await expect(page.locator('[data-test="modal-create-product"]')).toBeHidden()
+    await expect(page.locator('[data-test="modal-create-product"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // After creation, should navigate to the product card
     await expect(page).toHaveURL(/\/admin\/products\/prod-\w+$/, { timeout: DATA_READY_TIMEOUT })
   })
@@ -238,7 +252,9 @@ test.describe('products-list › delete', () => {
 
   test('delete button opens confirm modal', async ({ page }) => {
     await page.locator('[data-test="products-delete-btn"]').first().click()
-    await expect(page.locator('[data-test="modal-delete-product"]')).toBeVisible()
+    await expect(page.locator('[data-test="modal-delete-product"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('cancel leaves row count unchanged', async ({ page }) => {
@@ -249,9 +265,9 @@ test.describe('products-list › delete', () => {
     const countBefore = await rows.count()
     await page.locator('[data-test="products-delete-btn"]').first().click()
     const modal = page.locator('[data-test="modal-delete-product"]')
-    await expect(modal).toBeVisible()
+    await expect(modal).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await modal.locator('.btn-secondary').click()
-    await expect(modal).toBeHidden()
+    await expect(modal).toBeHidden({ timeout: DATA_READY_TIMEOUT })
     await expect(rows).toHaveCount(countBefore, { timeout: DATA_READY_TIMEOUT })
   })
 
@@ -263,10 +279,16 @@ test.describe('products-list › delete', () => {
     expect(doomed).not.toBe('')
 
     await page.locator('[data-test="products-delete-btn"]').nth(1).click()
-    await expect(page.locator('[data-test="modal-delete-product"]')).toBeVisible()
+    await expect(page.locator('[data-test="modal-delete-product"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.locator('[data-test="confirm-delete-submit"]').click()
-    await expect(page.locator('[data-test="modal-delete-product"]')).toBeHidden()
-    await expect(page.locator('.toast-container .toast.show')).toBeVisible()
+    await expect(page.locator('[data-test="modal-delete-product"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('.toast-container .toast.show')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // The list is paged, so a row count says nothing — the next product moves up.
     await expect(rows.filter({ hasText: doomed })).toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
   })
@@ -276,7 +298,9 @@ test.describe('products-list › delete', () => {
     const kept = (await rows.first().locator('td').first().textContent())?.trim() ?? ''
     await page.locator('[data-test="products-delete-btn"]').first().click()
     await page.locator('[data-test="confirm-delete-submit"]').click()
-    await expect(page.locator('.toast-container .toast.show')).toBeVisible()
+    await expect(page.locator('.toast-container .toast.show')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(rows.filter({ hasText: kept })).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
   })
 })
@@ -386,29 +410,29 @@ test.describe('product-card › dirty check', () => {
     const saveBtn = page.locator('[data-test="product-save-bar"] .btn-save')
     await expect(saveBtn).toBeDisabled()
     await page.locator('[data-test="field-name"]').fill('Changed')
-    await expect(saveBtn).toBeEnabled()
+    await expect(saveBtn).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('discard changes → save button becomes disabled again', async ({ page }) => {
     const saveBtn = page.locator('[data-test="product-save-bar"] .btn-save')
     await page.locator('[data-test="field-name"]').fill('Changed')
-    await expect(saveBtn).toBeEnabled()
+    await expect(saveBtn).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
     await page.locator('[data-test="product-save-bar"] .btn-secondary').click()
-    await expect(saveBtn).toBeDisabled()
+    await expect(saveBtn).toBeDisabled({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('edit price → save enabled', async ({ page }) => {
     const saveBtn = page.locator('[data-test="product-save-bar"] .btn-save')
     await expect(saveBtn).toBeDisabled()
     await page.locator('[data-test="field-price"]').fill('999')
-    await expect(saveBtn).toBeEnabled()
+    await expect(saveBtn).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('edit SKU → save enabled', async ({ page }) => {
     const saveBtn = page.locator('[data-test="product-save-bar"] .btn-save')
     await expect(saveBtn).toBeDisabled()
     await page.locator('[data-test="field-sku"]').fill('CHANGED-SKU')
-    await expect(saveBtn).toBeEnabled()
+    await expect(saveBtn).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -424,15 +448,15 @@ test.describe('product-card › save lifecycle', () => {
     const saveBtn = page.locator('[data-test="product-save-bar"] .btn-save')
     await expect(saveBtn).toBeDisabled()
     await page.locator('[data-test="field-name"]').fill('Save test')
-    await expect(saveBtn).toBeEnabled()
+    await expect(saveBtn).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
     await saveBtn.click()
-    await expect(saveBtn).toBeDisabled({ timeout: 5000 })
+    await expect(saveBtn).toBeDisabled({ timeout: DATA_READY_TIMEOUT })
   })
 
   test('toast "Changes saved" appears', async ({ page }) => {
     await page.locator('[data-test="field-name"]').fill('Toast test')
     await page.locator('[data-test="product-save-bar"] .btn-save').click()
-    await expect(page.getByText('Changes saved')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Changes saved')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -451,14 +475,22 @@ test.describe('product-card › suppliers', () => {
 
   test('add supplier modal opens', async ({ page }) => {
     await page.locator('[data-test="add-supplier-open"]').click()
-    await expect(page.locator('[data-test="add-supplier-form"]')).toBeVisible()
+    await expect(page.locator('[data-test="add-supplier-form"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('add supplier form has select, price, lead inputs', async ({ page }) => {
     await page.locator('[data-test="add-supplier-open"]').click()
-    await expect(page.locator('[data-test="add-supplier-select"]')).toBeVisible()
-    await expect(page.locator('[data-test="add-supplier-price"]')).toBeVisible()
-    await expect(page.locator('[data-test="add-supplier-lead"]')).toBeVisible()
+    await expect(page.locator('[data-test="add-supplier-select"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="add-supplier-price"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.locator('[data-test="add-supplier-lead"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('confirm adds supplier to list', async ({ page }) => {
@@ -468,10 +500,13 @@ test.describe('product-card › suppliers', () => {
     await page.locator('[data-test="add-supplier-price"]').fill('150')
     await page.locator('[data-test="add-supplier-lead"]').fill('10')
     await page.locator('[data-test="add-supplier-confirm"]').click()
-    await expect(page.locator('[data-test="add-supplier-form"]')).toBeHidden()
+    await expect(page.locator('[data-test="add-supplier-form"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // After adding, the "No suppliers linked" text should be gone
     await expect(page.locator('[data-test="product-card-suppliers"]')).not.toContainText(
       'No suppliers linked',
+      { timeout: DATA_READY_TIMEOUT },
     )
   })
 
@@ -529,9 +564,9 @@ test.describe('product-card › suppliers', () => {
     await page.locator('[data-test="add-supplier-confirm"]').click()
 
     const saveBtn = page.locator('[data-test="product-save-bar"] .btn-save')
-    await expect(saveBtn).toBeEnabled()
+    await expect(saveBtn).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
     await saveBtn.click()
-    await expect(saveBtn).toBeDisabled({ timeout: 5000 })
+    await expect(saveBtn).toBeDisabled({ timeout: DATA_READY_TIMEOUT })
 
     const after = await storedProduct(page, 'prod-001')
     const added = after.suppliers.filter((s) => !linkedBefore.includes(s.id))
@@ -550,14 +585,18 @@ test.describe('product-card › suppliers', () => {
   test('remove supplier modal opens', async ({ page }) => {
     // prod-001 already has suppliers, click remove on the first one
     await page.locator('[data-test="product-card-suppliers"] .supplier-remove-btn').first().click()
-    await expect(page.locator('[data-test="modal-remove-supplier"]')).toBeVisible()
+    await expect(page.locator('[data-test="modal-remove-supplier"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('confirm removes supplier', async ({ page }) => {
     // prod-001 already has suppliers, click remove on the first one
     await page.locator('[data-test="product-card-suppliers"] .supplier-remove-btn').first().click()
     await page.locator('[data-test="confirm-remove-supplier"]').click()
-    await expect(page.locator('[data-test="modal-remove-supplier"]')).toBeHidden()
+    await expect(page.locator('[data-test="modal-remove-supplier"]')).toBeHidden({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Supplier should no longer be in the table (remove is local, no save needed)
     await expect(
       page.locator('[data-test="product-card-suppliers"] .supplier-remove-btn'),
@@ -603,7 +642,7 @@ test.describe('product-card › dynamic fields', () => {
     await expect(saveBtn).toBeDisabled()
     const fields = page.locator('[data-test="product-card-fields"] .input-group')
     await fields.first().locator('input').fill('Edited dynamic field')
-    await expect(saveBtn).toBeEnabled()
+    await expect(saveBtn).toBeEnabled({ timeout: DATA_READY_TIMEOUT })
   })
 })
 

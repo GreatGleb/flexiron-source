@@ -29,7 +29,9 @@ test.describe('Sales CRM dashboard', () => {
 
     // A brand new order is `new`: both active and pending.
     await page.locator('[data-test="sales-crm-action-new-order"]').click()
-    await expect(page.locator('[data-test="page-order-create"]')).toBeVisible()
+    await expect(page.locator('[data-test="page-order-create"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.locator('[data-test="order-create-client-item"]').first().click()
     await page.locator('[data-test="order-create-save-btn"]').click()
     await page.waitForURL(/\/admin\/orders\/ORD-/)
@@ -38,7 +40,11 @@ test.describe('Sales CRM dashboard', () => {
     // store would forget the order that was just created.
     await page.goBack()
     await page.goBack()
-    await expect(page.locator('[data-test="sales-crm-kpis"]')).toBeVisible()
+    // Два возврата назад — это действие, а не открывалка: пола у него нет, и
+    // утверждение ждёт перерисовку дашборда по дефолтному потолку в пять секунд.
+    await expect(page.locator('[data-test="sales-crm-kpis"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await expect
       .poll(() => kpi(page, 'active-orders'), { timeout: DATA_READY_TIMEOUT })

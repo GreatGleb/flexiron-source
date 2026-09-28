@@ -13,7 +13,7 @@
 
 ## БАГ-01 — Дефолтный потолок `expect` у обычных утверждений под нагрузкой
 
-**File:** `tests/e2e/admin/clients/clients.spec.ts:666` и далее по набору
+**File:** `tests/e2e/admin/clients/clients.spec.ts:671` и далее по набору
 **Severity:** Medium — ложный красный, неотличимый от настоящего.
 **Источник:** инверсия питфолла #74 (нагрузка ~50, 40 «горелок» CPU, `--workers=4`)
 
@@ -25,8 +25,8 @@
 
 | тест | утверждение |
 |---|---|
-| `clients.spec.ts:666` «the order history is the client's real orders» | `expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/)` |
-| `clients.spec.ts:331` «cancelling the modal closes it» | видимость после действия |
+| `clients.spec.ts:671` «the order history is the client's real orders» | `expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/)` |
+| `clients.spec.ts:333` «cancelling the modal closes it» | видимость после действия |
 | `layout.spec.ts:72` «sidebar has all 6 nav entries» | состав элементов |
 | `layout.spec.ts:229` «initial state: shell is not active» | класс оболочки |
 

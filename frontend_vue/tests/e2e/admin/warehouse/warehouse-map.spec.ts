@@ -76,7 +76,9 @@ test.describe('Warehouse map', () => {
 
     await navigateToAdmin(page, '/admin/warehouse/map')
 
-    await expect(page.getByTestId('page-warehouse-map')).toBeVisible()
+    await expect(page.getByTestId('page-warehouse-map')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     expect(errors).toHaveLength(0)
   })
 

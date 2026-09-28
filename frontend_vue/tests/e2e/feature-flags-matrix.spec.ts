@@ -99,7 +99,9 @@ test.describe('All section flags OFF, page flags ON', () => {
   test('DashboardPage renders without alerts/charts panels', async ({ page, context }) => {
     await setFlags(context, ALL_SECTIONS_OFF)
     await page.goto('/admin/analytics/dashboard')
-    await expect(page.locator('[data-test="dashboard-title"]')).toBeVisible()
+    await expect(page.locator('[data-test="dashboard-title"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="dashboard-charts"]')).toHaveCount(0)
     await expect(page.locator('[data-test="dashboard-alerts"]')).toHaveCount(0)
   })
@@ -110,7 +112,9 @@ test.describe('All section flags OFF, page flags ON', () => {
   }) => {
     await setFlags(context, ALL_SECTIONS_OFF)
     await page.goto('/admin/suppliers')
-    await expect(page.locator('[data-test="suppliers-table-view"]')).toBeVisible()
+    await expect(page.locator('[data-test="suppliers-table-view"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="suppliers-view-tabs"]')).toHaveCount(0)
     await expect(page.locator('[data-test="suppliers-export-btn"]')).toHaveCount(0)
   })
@@ -118,14 +122,18 @@ test.describe('All section flags OFF, page flags ON', () => {
   test('BccRequestPage renders without history panel', async ({ page, context }) => {
     await setFlags(context, ALL_SECTIONS_OFF)
     await page.goto('/admin/suppliers/bcc-request')
-    await expect(page.locator('[data-test="bcc-request-title"]')).toBeVisible()
+    await expect(page.locator('[data-test="bcc-request-title"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="bcc-request-history-panel"]')).toHaveCount(0)
   })
 
   test('SupplierCardConfigPage renders without permissions editor', async ({ page, context }) => {
     await setFlags(context, ALL_SECTIONS_OFF)
     await page.goto('/admin/suppliers/config')
-    await expect(page.locator('[data-test="supplier-card-config-title"]')).toBeVisible()
+    await expect(page.locator('[data-test="supplier-card-config-title"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="supplier-card-config-permissions"]')).toHaveCount(0)
   })
 })
@@ -138,7 +146,7 @@ test.describe('Cross-page link follow-through', () => {
     await setFlags(context, { bccRequest: false })
     await page.goto('/admin/suppliers/1')
     const bccLink = page.locator('[data-test="supplier-card-bcc-link"]')
-    await expect(bccLink).toBeVisible()
+    await expect(bccLink).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await bccLink.click()
     await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
@@ -150,7 +158,7 @@ test.describe('Cross-page link follow-through', () => {
     await setFlags(context, { supplierCardConfig: false })
     await page.goto('/admin/suppliers/1')
     const configLink = page.locator('[data-test="supplier-card-config-link"]')
-    await expect(configLink).toBeVisible()
+    await expect(configLink).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await configLink.click()
     await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
@@ -162,7 +170,7 @@ test.describe('Cross-page link follow-through', () => {
     await setFlags(context, { bccRequest: false })
     await page.goto('/admin/suppliers')
     const bccBtn = page.locator('[data-test="suppliers-bcc-btn"]')
-    await expect(bccBtn).toBeVisible()
+    await expect(bccBtn).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await bccBtn.click()
     await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
@@ -174,7 +182,7 @@ test.describe('Cross-page link follow-through', () => {
     await setFlags(context, { supplierCreate: false })
     await page.goto('/admin/suppliers')
     const newBtn = page.locator('[data-test="suppliers-new-btn"]')
-    await expect(newBtn).toBeVisible()
+    await expect(newBtn).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await newBtn.click()
     await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
@@ -188,7 +196,7 @@ test.describe('Sidebar cross-link', () => {
     await setFlags(context, { suppliersList: false })
     await page.goto('/admin/analytics/dashboard')
     const link = page.locator('[data-test="sidebar-nav-suppliers"]')
-    await expect(link).toBeVisible()
+    await expect(link).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await link.click()
     await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
@@ -201,7 +209,7 @@ test.describe('Sidebar cross-link', () => {
     await setFlags(context, { adminDashboard: false })
     await page.goto('/admin/suppliers')
     const link = page.locator('[data-test="sidebar-nav-analytics"]')
-    await expect(link).toBeVisible()
+    await expect(link).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await link.click()
     await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })

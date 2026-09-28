@@ -17,12 +17,16 @@ test.describe('Services page', () => {
 
   test('should show create modal on button click', async ({ page }) => {
     await page.click('[data-test="services-btn-create"]')
-    await expect(page.locator('[data-test="services-create-modal"]')).toBeVisible()
+    await expect(page.locator('[data-test="services-create-modal"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('should show delete confirmation modal', async ({ page }) => {
     await page.locator('[data-test="services-btn-delete"]').first().click()
-    await expect(page.locator('[data-test="services-delete-modal"]')).toBeVisible()
+    await expect(page.locator('[data-test="services-delete-modal"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('should navigate to service card on open button click', async ({ page }) => {

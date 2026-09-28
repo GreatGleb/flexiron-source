@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import headless_backends as backends  # noqa: E402
@@ -38,6 +39,12 @@ assert (role == 'review') == ('--restricted' in args)
 with pathlib.Path(os.environ['NIGHT_TEST_CALLS']).open('a') as calls:
     calls.write(f"{task['id']}:{role}:claude\n")
 mode = os.environ.get('NIGHT_TEST_MODE', '')
+if role == 'review' and mode == 'review-silent':
+    raise SystemExit(0)   # вышел с нулём, не напечатав ничего: ни результата, ни учёта
+if role == 'review' and mode == 'review-silent-once':
+    reviews = pathlib.Path(os.environ['NIGHT_TEST_CALLS']).read_text().count(f"{task['id']}:review:")
+    if reviews == 1:
+        raise SystemExit(0)   # первая приёмка молчит, повтор отвечает как обычно
 if role == 'review' and mode in ('review-quotes-code', 'review-no-json'):
     body = {'review-quotes-code': 'Ожидание `{ timeout: DATA_READY_TIMEOUT }` верно.\n```json\n'
                                   + json.dumps({'status': 'done', 'summary': 'ок', 'evidence': ['дифф']}) + '\n```',
@@ -97,6 +104,17 @@ if mode == 'auth':
     error = 'litellm.AuthenticationError: AuthenticationError: DeepseekException - Authentication Fails'
     print(error)
     pathlib.Path(config['stats']).write_text(json.dumps({'aider_errors': [error, 'The API provider is not able to authenticate you.']}))
+    raise SystemExit(0)
+if mode in ('balance', 'overload'):
+    # Так 0.86.2 отвечает на пустой счёт DeepSeek (ночь 2026-09-28-0022) и на его же
+    # перегрузку: печатает ошибку и выходит с кодом 0. Первая — отказ всем вызовам,
+    # вторая лечится повтором.
+    error = ('litellm.BadRequestError: DeepseekException - {"error":{"message":"Insufficient Balance '
+             '(request_id: 631f0a60)","type":"unknown_error","param":null,"code":"invalid_request_error"}}'
+             if mode == 'balance' else
+             'litellm.InternalServerError: DeepseekException - Service Unavailable')
+    print(error)
+    pathlib.Path(config['stats']).write_text(json.dumps({'aider_errors': [error], 'final_reply': 'ничего не вышло'}))
     raise SystemExit(0)
 if mode == 'crash':
     print('AssertionError: строка вывода тестов, процитированная раньше')
@@ -173,6 +191,49 @@ class RoutingTest(unittest.TestCase):
                         {"work": {"backend": "codex"}}):
             with self.assertRaises(ValueError):
                 backends.load_routing(self.write(routing))
+
+
+class NewestClaudeTest(unittest.TestCase):
+    """Путь к CLI не зашит: VS Code обновляет расширение и удаляет старую папку."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.extensions = Path(self.tmp.name)
+
+    def install(self, version, executable=True):
+        binary = self.extensions / f"anthropic.claude-code-{version}-linux-x64/resources/native-binary/claude"
+        binary.parent.mkdir(parents=True)
+        binary.write_text("#!/bin/sh\n")
+        binary.chmod(0o755 if executable else 0o644)
+        return str(binary)
+
+    def test_newest_version_wins_by_number_not_by_text(self):
+        self.install("2.1.99")
+        newest = self.install("2.1.283")
+        self.install("2.1.278")
+        self.assertEqual(backends.newest_claude(self.extensions), newest)
+
+    def test_version_without_executable_cli_is_skipped(self):
+        usable = self.install("2.1.282")
+        self.install("2.1.283", executable=False)   # распаковка ещё не дописана
+        self.assertEqual(backends.newest_claude(self.extensions), usable)
+
+    def test_without_extension_falls_back_to_path(self):
+        self.assertEqual(backends.newest_claude(self.extensions), "claude")
+
+    def test_backend_looks_up_on_every_call(self):
+        with mock.patch.object(backends.ClaudeBackend, "EXTENSIONS", self.extensions):
+            backend = backends.ClaudeBackend({})
+            self.install("2.1.278")
+            newer = self.install("2.1.283")
+            self.assertEqual(backend.binary, newer)
+            self.assertEqual(backend.build("review", Path("/repo"), Path("/run"), Path("/run/r.json"))[0], newer)
+
+    def test_binary_from_routing_wins(self):
+        with mock.patch.object(backends.ClaudeBackend, "EXTENSIONS", self.extensions):
+            self.install("2.1.283")
+            self.assertEqual(backends.ClaudeBackend({"binary": "/opt/claude"}).binary, "/opt/claude")
 
 
 class CommandTest(unittest.TestCase):
@@ -307,6 +368,20 @@ class TokenCountTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.write({})
 
+    def test_call_that_printed_nothing_is_not_a_measurement(self):
+        # Пустой лог — вызов, чей отчёт о сессии уже не дописать. Это отдельный вид
+        # отказа: по нему прогон не падает, потому что его задача разобрана сама по себе.
+        self.prefix.with_suffix(".stdout.log").write_text("")
+        with self.assertRaises(backends.UnreadableCallLog):
+            backends.ClaudeBackend({}).tokens(self.prefix)
+
+    def test_missing_accounting_is_not_confused_with_a_missing_report(self):
+        # Ответ есть, а учёта в нём нет — прогон обязан встать: молчаливый ноль здесь
+        # сломал бы потолок. Граница между двумя отказами держится этим тестом.
+        with self.assertRaises(RuntimeError) as caught:
+            self.write({})
+        self.assertNotIsInstance(caught.exception, backends.UnreadableCallLog)
+
 
 class BudgetTest(unittest.TestCase):
     """Потолок токенов: он защищает недельный лимит, поэтому обязан срабатывать.
@@ -437,6 +512,39 @@ class ReviewOnClaudeTest(unittest.TestCase):
         self.assertIn("Ответ приёмщика непригоден", state["blocked"][0]["reason"])
         self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
         self.assertFalse(self.git("status", "--porcelain"))
+
+    def test_reviewer_that_printed_nothing_does_not_stop_the_night(self):
+        # Ночь 2026-09-28-0022 встала так: приёмщик вышел с кодом 0 и пустым stdout.
+        # Задачу ядро забраковало верно, а следом умерло на учёте токенов по тому же
+        # пустому логу — и умирало бы на каждой проверке потолка, включая возобновление.
+        result = self.invoke("review-silent")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.state()
+        self.assertNotEqual(state["status"], "stopped", state)
+        self.assertEqual([x["task"] for x in state["blocked"]], ["alpha"])
+        # Молчание — сбой среды: одна повторная приёмка, и только потом брак.
+        self.assertIn("Сервис проверки недоступен после двух попыток: empty_output", state["blocked"][0]["reason"])
+        self.assertEqual(len((self.logs / "service-retries.jsonl").read_text().splitlines()), 2)
+        # Единственный вызов в счёт потолка — та самая приёмка; её лог не измерить,
+        # и в счёт она не пошла, а не уронила прогон.
+        self.assertEqual(state["tokens"], 0)
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+        self.assertFalse(self.git("status", "--porcelain"))
+
+
+    def test_reviewer_silent_once_is_asked_again_and_work_is_accepted(self):
+        # Ночь 2026-09-28-0022: приёмщик Opus умер за секунду с пустыми stdout и stderr,
+        # вызовы оператора до и после прошли — готовая работа ушла в брак без повтора.
+        result = self.invoke("review-silent-once")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.state()
+        self.assertIn("alpha", [x["task"] for x in state["completed"]])
+        self.assertEqual(state["blocked"], [])
+        # Молчит первая приёмка КАЖДОЙ задачи — ровно один повтор на задачу, не больше.
+        retries = [json.loads(x) for x in (self.logs / "service-retries.jsonl").read_text().splitlines()]
+        self.assertEqual(sorted(r["task"] for r in retries), sorted(x["task"] for x in state["completed"]))
+        self.assertEqual({(r["attempt"], r["error"]) for r in retries}, {(1, "empty_output")})
+        self.assertTrue((self.logs / "alpha-review-retry-2.stdout.log").exists())
 
 
 class MixedRunTest(unittest.TestCase):
@@ -615,10 +723,34 @@ class AiderRunTest(unittest.TestCase):
         self.assertFalse(list(self.root.glob(".aider*")))
         self.assertFalse(self.git("status", "--porcelain"))
 
-    def test_model_error_with_exit_zero_is_named_in_the_reason(self):
+    def test_refused_key_stops_the_night_instead_of_burning_the_queue(self):
+        # Ключ не принят — откажут и следующей задаче. Раньше это была браковка одной
+        # задачи, и порции шли пустыми до утра, унося очередь в blocked навсегда.
         result = self.invoke("auth")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertEqual(self.state()["status"], "stopped")
+        self.assertTrue(self.state()["reason"].startswith(backends.PROVIDER_REFUSAL_PREFIX),
+                        self.state()["reason"])
+        self.assertIn("AuthenticationError", self.state()["reason"])
+        self.assertEqual(self.state()["blocked"], [])
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+        self.assertFalse(self.git("status", "--porcelain"))
+
+    def test_empty_provider_balance_stops_the_night(self):
+        result = self.invoke("balance")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertEqual(self.state()["status"], "stopped")
+        self.assertTrue(self.state()["reason"].startswith(backends.PROVIDER_REFUSAL_PREFIX),
+                        self.state()["reason"])
+        self.assertIn("Insufficient Balance", self.state()["reason"])
+
+    def test_temporary_provider_failure_still_blocks_only_the_task(self):
+        # Перегрузка провайдера лечится сама: ночь обязана идти дальше.
+        result = self.invoke("overload")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("AuthenticationError", self.state()["blocked"][0]["reason"])
+        self.assertEqual([b["task"] for b in self.state()["blocked"]], ["plan"])
+        self.assertIn("Service Unavailable", self.state()["blocked"][0]["reason"])
+        self.assertNotIn(backends.PROVIDER_REFUSAL_PREFIX, self.state()["blocked"][0]["reason"])
 
     def test_driver_crash_is_named_by_its_traceback(self):
         result = self.invoke("crash")
@@ -633,6 +765,36 @@ class AiderRunTest(unittest.TestCase):
         self.assertIn("вне задачи", self.state()["blocked"][0]["reason"])
         self.assertFalse((self.root / "unrelated.md").exists())
         self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+
+
+class ProviderRefusalTest(unittest.TestCase):
+    """Что считать отказом среды, а что — невезением одной задачи."""
+
+    def test_money_key_and_quota_are_refusals(self):
+        for error in ('litellm.BadRequestError: DeepseekException - {"error":{"message":"Insufficient Balance"}}',
+                      "litellm.AuthenticationError: AuthenticationError: DeepseekException - Authentication Fails",
+                      "litellm.RateLimitError: OpenAIException - insufficient_quota",
+                      "API Error: 400 {\"message\":\"Your credit balance is too low\"}",
+                      "litellm.PermissionDeniedError: invalid_api_key"):
+            with self.subTest(error=error):
+                self.assertEqual(backends.provider_refusal([error]), error)
+
+    def test_transient_failures_are_not_refusals(self):
+        for error in ("litellm.InternalServerError: DeepseekException - Service Unavailable",
+                      "litellm.APIConnectionError: Connection reset by peer",
+                      "litellm.RateLimitError: Too many requests, please retry",
+                      "litellm.ContextWindowExceededError: too many tokens",
+                      "KeyError: 'guard_dir'"):
+            with self.subTest(error=error):
+                self.assertIsNone(backends.provider_refusal([error]))
+
+    def test_refusal_is_found_behind_an_earlier_harmless_error(self):
+        self.assertEqual(backends.provider_refusal(["KeyError: 'x'", "litellm.AuthenticationError: nope"]),
+                         "litellm.AuthenticationError: nope")
+
+    def test_no_errors_at_all(self):
+        self.assertIsNone(backends.provider_refusal([]))
+        self.assertIsNone(backends.provider_refusal(None))
 
 
 class AiderRoutingTest(unittest.TestCase):
@@ -693,6 +855,38 @@ class GitFilterTest(unittest.TestCase):
         for command in ("git commit -am x", "git -C /home/x/repo add .", "cd a; git stash",
                         "echo x && git checkout -- f", "ls | xargs git rm", "git", "python3 roo_code/workflows/refs_shift.py --fix"):
             self.assertIsNotNone(aider_agent.command_refusal(command), command)
+
+    # Формы из ночи 2026-09-27-2225: так автор пачки поднимал и снимал нагрузку.
+    LOAD = ("for i in $(seq 1 160); do (yes > /dev/null &); done; npx playwright test a.spec.ts",
+            "npx playwright test > /tmp/x.txt 2>&1; echo \"exit=$?\"; pkill -x yes", "killall node",
+            "stress-ng --cpu 8", "yes | head -1", "echo $(pkill -f vite)")
+    HARMLESS = ("grep -n yes a.spec.ts", "echo yes", "git log --grep yes", "rg 'pkill' roo_code")
+
+    def test_batch_author_may_not_load_the_shared_machine(self):
+        with mock.patch.dict(os.environ, {"PW_PORT": "5412"}):
+            for command in self.LOAD:
+                self.assertIsNotNone(aider_agent.command_refusal(command), command)
+            for command in self.HARMLESS:
+                self.assertIsNone(aider_agent.command_refusal(command), command)
+
+    def test_single_author_keeps_the_load_recipe_of_the_plan(self):
+        with mock.patch.dict(os.environ):
+            os.environ.pop("PW_PORT", None)
+            for command in self.LOAD:
+                self.assertIsNone(aider_agent.command_refusal(command), command)
+
+    def test_shared_guard_catches_what_the_parser_misses(self):
+        """`bash -c 'yes …'` разбор строки не видит — видит обёртка первой в PATH."""
+        saved = aider_agent.GUARD_DIR
+        with tempfile.TemporaryDirectory() as guard, mock.patch.dict(os.environ, {"PW_PORT": "5412"}):
+            try:
+                aider_agent.install_shared_guard(guard)
+                out = subprocess.run(["bash", "-c", "bash -c 'yes > /dev/null'; echo code=$?"],
+                                     env=aider_agent.guarded_env(), capture_output=True, text=True, timeout=10)
+            finally:
+                aider_agent.GUARD_DIR = saved
+        self.assertIn("code=1", out.stdout)
+        self.assertIn("машина общая", out.stderr)
 
     def test_git_guard_decides_on_the_parsed_command(self):
         for args in (["add", "."], ["-C", "/x", "commit", "-m", "y"], ["--git-dir=.git", "stash"], ["-c", "a=b", "reset"]):
@@ -1200,9 +1394,15 @@ class AiderDriverTest(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
 
     def test_model_error_from_litellm_reaches_the_reason(self):
+        """Ключ не принят — причина названа отказом среды, а не «ничего не изменил».
+
+        Раньше причина звучала «aider сообщил: …» и оставалась браковкой одной задачи;
+        теперь начало строки опознаёт ядро и останавливает ночь (AiderRunTest).
+        """
         result, stats = self.drive(["!auth"], ["notes.md"])
         self.assertEqual(result["status"], "blocked")
-        self.assertIn("aider сообщил: litellm.AuthenticationError", result["summary"])
+        self.assertTrue(result["summary"].startswith(backends.PROVIDER_REFUSAL_PREFIX), result["summary"])
+        self.assertIn("litellm.AuthenticationError", result["summary"])
         self.assertIn("The API provider is not able to authenticate you. Check your API key.", stats["aider_errors"])
 
     def test_error_quoted_by_the_model_is_not_blamed_on_aider(self):

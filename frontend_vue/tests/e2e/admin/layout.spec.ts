@@ -411,8 +411,8 @@ test.describe('admin layout › navigation', () => {
     await waitForDataReady(page)
     await page.locator('[data-test="sidebar-nav-items"]').click()
     // href="#" — stays on same path (possibly adds #), URL should not change to /admin/items etc.
-    await expect(page).not.toHaveURL(/\/admin\/items/)
-    await expect(page).not.toHaveURL(/\/admin\/warehouse/)
+    await expect(page).not.toHaveURL(/\/admin\/items/, { timeout: DATA_READY_TIMEOUT })
+    await expect(page).not.toHaveURL(/\/admin\/warehouse/, { timeout: DATA_READY_TIMEOUT })
   })
 })
 

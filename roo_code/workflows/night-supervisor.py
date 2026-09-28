@@ -106,7 +106,7 @@ def runner(args_list):
 # Параметры ночи, которые продолжение берёт из `night.json`, а не из командной строки:
 # сторож поднимает ночь, не зная, с какими флагами её запускал владелец.
 NIGHT_PARAMS = ("workspace", "routing", "operator_prompt", "token_budget", "operator_model",
-                "operator_binary", "max_tasks", "parallel", "max_batches", "idle_limit")
+                "operator_binary", "max_tasks", "parallel", "max_batches", "idle_limit", "finish_minutes")
 
 
 def number(path):
@@ -164,6 +164,9 @@ def main():
     parser.add_argument("--idle-limit", type=int, default=3,
                         help="Сколько порций подряд без принятых задач заканчивают ночь; 0 — не "
                              "заканчивать вовсе")
+    parser.add_argument("--finish-minutes", type=float, default=0,
+                        help="Запас после срока начатым задачам на доделку: срок ночи — последний "
+                             "момент, когда задача НАЧИНАЕТСЯ, а не когда её обрывают")
     parser.add_argument("--resume", action="store_true",
                         help="Продолжить ночь в --out: параметры и срок — из её night.json")
     parser.add_argument("--retry-review", type=Path,
@@ -173,7 +176,8 @@ def main():
     if args.resume:
         night = json.loads((args.out / "night.json").read_text())
         for key in NIGHT_PARAMS:
-            value = night[key]
+            # Ночь, начатая до появления параметра, его не хранит — тогда умолчание.
+            value = night[key] if key in night else getattr(args, key)
             setattr(args, key, Path(value) if key in ("workspace", "routing", "operator_prompt") else value)
         # Срок ночи — тот, что назначил владелец при старте: продолжение его не продлевает.
         deadline_wall = night["deadline"]
@@ -262,7 +266,8 @@ def main():
         minutes_left = (deadline - time.monotonic()) / 60
         result = runner(["--workspace", str(root), "--queue", str(previous / "queue.json"),
                          "--routing", str(args.routing), "--run", "--run-dir", str(run_dir),
-                         "--minutes", f"{minutes_left - 5:.1f}", "--max-tasks", str(len(queue["tasks"])),
+                         "--minutes", f"{minutes_left - 5:.1f}", "--finish-minutes", str(args.finish_minutes),
+                         "--max-tasks", str(len(queue["tasks"])),
                          "--parallel", str(args.parallel), "--token-budget", str(args.token_budget - spent),
                          "--retry-review", str(previous)])
         stop = absorb(start, run_dir, result, {"retry_of": previous.name})
@@ -303,6 +308,7 @@ def main():
         rejection = ""
         result = runner(["--workspace", str(root), "--queue", str(queue_path), "--routing", str(args.routing),
                          "--run", "--run-dir", str(run_dir), "--minutes", f"{minutes_left - 5:.1f}",
+                         "--finish-minutes", str(args.finish_minutes),
                          "--max-tasks", str(args.max_tasks), "--parallel", str(args.parallel),
                          "--token-budget", str(args.token_budget - spent)])
         stop = absorb(index, run_dir, result)

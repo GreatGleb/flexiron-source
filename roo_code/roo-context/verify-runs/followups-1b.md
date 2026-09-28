@@ -496,9 +496,9 @@ $ node scan-1b.js
 
 | # | Место | Почему не случай |
 |---|---|---|
-| 1 | `clients.spec.ts:673` «a payment that names a document is money on that document row» | «Мутация» — клик по `a.name-link`, то есть переход внутри SPA, ничего не меняющий. А само утверждение (`not.toHaveCount(unfiltered)`) стоит ПОСЛЕ загрузки и после `fill` фильтра: оно про фильтр, применённый уже на новой странице |
+| 1 | `clients.spec.ts:678` «a payment that names a document is money on that document row» | «Мутация» — клик по `a.name-link`, то есть переход внутри SPA, ничего не меняющий. А само утверждение (`not.toHaveCount(unfiltered)`) стоит ПОСЛЕ загрузки и после `fill` фильтра: оно про фильтр, применённый уже на новой странице |
 | 2–3 | `order-offcuts.spec.ts:35` | «Мутация» — `firstAvailableOffcut`, которая только читает товар и партию со складской вкладки (внутри `openAdminPage` есть `evaluate(__mockCalls)`, отсюда и метка). Утверждения `not.toHaveText('—')` — про содержимое пришедшей строки, а не про исчезновение |
-| 4–5 | `categories.spec.ts:457` «switching language updates UI text» | Язык лежит в `localStorage`; перезагрузка его не откатывает — она и есть предмет теста. Утверждается, что подпись сменилась, а не что запись исчезла |
+| 4–5 | `categories.spec.ts:479` «switching language updates UI text» | Язык лежит в `localStorage`; перезагрузка его не откатывает — она и есть предмет теста. Утверждается, что подпись сменилась, а не что запись исчезла |
 | 6 | `audit-log.spec.ts:53` «loads without console errors and shows records» | `expect(errors).toHaveLength(0)` — про консоль, а не про данные; мутации нет вовсе (метку MUT дал `evaluate(__mockCalls)` внутри `navigateToAdmin`) |
 | 7 | `suppliers-list.spec.ts:639` «stored kanban view is restored on reload» | Сохранённый вид — `localStorage`, перезагрузка предмет теста. Присутствие канбана утверждается строкой выше, то есть ноль у таблицы не может быть истиной «страница пуста» |
 | 8 | `warehouse-map.spec.ts:61` «loads without console errors» | То же, что 6 |

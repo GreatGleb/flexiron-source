@@ -35,6 +35,50 @@ SCHEMA_INSTRUCTION = (
 )
 
 
+# Отказ провайдера, который повторится у следующей задачи слово в слово: кончились
+# деньги на счёте, ключ не принят, квота исчерпана. Ночь 2026-09-28-0022: у DeepSeek
+# обнулился баланс (замер: `total_balance: -0.01`, `is_available: false`), и aider
+# отвечал «не изменил ни одного файла из outputs; aider сообщил: litellm.BadRequestError
+# … Insufficient Balance» — то есть браковкой ОДНОЙ задачи. Порция шла пустой, а
+# супервизор считает заблокированную задачу решённой и больше не предлагает её
+# оператору: к утру так сгорела бы вся очередь. Это отказ СРЕДЫ, как упавший CLI, и
+# обязан останавливать ночь — деньги на счёт кладёт владелец, а не прогон.
+PROVIDER_REFUSAL_PREFIX = "исполнитель без доступа к модели"
+# Ищется только в списке ошибок, который ведёт драйвер (сообщения aider и litellm), а не
+# по всему логу: ответы модели цитируют вывод тестов и свои же команды. Временные сбои
+# (перегрузка, обрыв потока, превышенный контекст) сюда НЕ входят — они лечатся повтором
+# и бракуют одну задачу.
+PROVIDER_REFUSALS = (
+    "insufficient balance",
+    "insufficient_quota",
+    "exceeded your current quota",
+    "credit balance is too low",
+    "authenticationerror",
+    "permissiondeniederror",
+    "invalid api key",
+    "invalid_api_key",
+    "incorrect api key",
+)
+
+
+def provider_refusal(errors):
+    """Первая ошибка списка, означающая отказ провайдера ЛЮБОМУ вызову, или None."""
+    for error in errors or ():
+        lowered = str(error).lower()
+        if any(mark in lowered for mark in PROVIDER_REFUSALS):
+            return str(error)
+    return None
+
+
+class UnreadableCallLog(RuntimeError):
+    """Вызов кончился, не напечатав отчёта о сессии: считать по нему нечего.
+
+    Не то же самое, что вывод без `modelUsage`: там отчёт есть, и молчаливый ноль
+    сломал бы потолок, поэтому такой вывод по-прежнему отвергается. Здесь вывода нет
+    вовсе — процесс умер или был убит до печати, и лог уже не дописать никогда.
+    """
+
+
 class Backend:
     """Общий контракт. Реализация обязана оставить результат в result_path."""
 
@@ -91,6 +135,21 @@ class CodexBackend(Backend):
                 "--output-last-message", str(result_path), "-"]
 
 
+def newest_claude(extensions):
+    """CLI из самой свежей версии расширения Claude Code; без расширения — `claude` из PATH.
+
+    Путь с зашитой версией устаревал молча: VS Code обновляет расширение и со временем
+    удаляет старую папку, и в ту же ночь приёмка, оператор и сторож не находили CLI.
+    Ищется на каждый вызов — обновление посреди ночи подхватывается следующим вызовом.
+    """
+    found = []
+    for binary in Path(extensions).glob("anthropic.claude-code-*/resources/native-binary/claude"):
+        match = re.match(r"anthropic\.claude-code-(\d+(?:\.\d+)*)", binary.parents[2].name)
+        if match and os.access(binary, os.X_OK):
+            found.append((tuple(int(part) for part in match.group(1).split(".")), str(binary)))
+    return max(found)[1] if found else "claude"
+
+
 class ClaudeBackend(Backend):
     """Claude Code в режиме --print.
 
@@ -101,12 +160,11 @@ class ClaudeBackend(Backend):
 
     name = "claude"
     metered = True
-    DEFAULT_BINARY = str(Path.home() / ".vscode/extensions/anthropic.claude-code-2.1.278-linux-x64"
-                                        "/resources/native-binary/claude")
+    EXTENSIONS = Path.home() / ".vscode/extensions"
 
     @property
     def binary(self):
-        return self.options.get("binary", self.DEFAULT_BINARY)
+        return self.options.get("binary") or newest_claude(self.EXTENSIONS)
 
     def check(self):
         if not shutil.which(self.binary):
@@ -144,7 +202,11 @@ class ClaudeBackend(Backend):
         В деньгах чтение кэша платное, но предел владельца — лимит, а не счёт.
         Молча вернуть ноль нельзя: потолок, который не срабатывает, хуже отсутствующего.
         """
-        printed = json.loads(prefix.with_suffix(".stdout.log").read_text())
+        printed = prefix.with_suffix(".stdout.log").read_text()
+        try:
+            printed = json.loads(printed)
+        except json.JSONDecodeError as error:
+            raise UnreadableCallLog(f"{prefix.name}: отчёта о сессии нет ({error})") from None
         usage = printed.get("modelUsage")
         if not isinstance(usage, dict) or not usage:
             raise RuntimeError(f"В выводе {prefix.name} нет учёта токенов (modelUsage)")

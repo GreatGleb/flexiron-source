@@ -35,7 +35,7 @@ import time
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from headless_backends import ClaudeBackend  # noqa: E402
+from headless_backends import PROVIDER_REFUSAL_PREFIX, ClaudeBackend  # noqa: E402
 
 # Замер ночей 26–27.09: журнал ядра молчит до 32.8 мин внутри законной пачки (автор
 # пишет, событий нет), оператор — до 11 мин. Порог 30 по журналу поднимал бы ложную
@@ -55,6 +55,10 @@ CLAUDE_TIMEOUT = 40 * 60
 # Файл в каталоге ночи, которым владелец выключает сторожа для этой ночи.
 OFF = "сторож-выключен"
 NORMAL_FINISH = ("время вышло", "потолок токенов", "порции кончились", "порций подряд без принятых задач")
+# Ночь встала из-за исчерпанного ресурса исполнителя (деньги на счёте провайдера, ключ,
+# квота). Подъём упрётся в ту же стену через минуту, а каждая попытка стоит вызова
+# оператора — 8–11 мин и сотни тысяч токенов. Ждём владельца, а не пробуем снова.
+UNREVIVABLE = ("ядро остановилось: " + PROVIDER_REFUSAL_PREFIX,)
 SIGNAL_STOP = "Получен сигнал остановки"
 
 
@@ -339,6 +343,12 @@ def check(night, world):
     stopped = report.get("stopped")
     if stopped and stopped.startswith(NORMAL_FINISH):
         return "ночь закончилась штатно"
+    if stopped and stopped.startswith(UNREVIVABLE):
+        key = "не поднять:" + stopped[:120]
+        if not journal.seen(key):
+            journal.write(stopped, "не поднимаю: ресурс исполнителя исчерпан — решение за владельцем",
+                          ключ=key)
+        return "ресурс исполнителя исчерпан"
     alive = world.night_processes(workspace, night)
     if alive:
         # Супервизор мёртв, но ядро или авторы ещё работают: убийство супервизора по PID
