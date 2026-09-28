@@ -137,7 +137,7 @@ backend/app/modules/suppliers --include=*.py` не даёт ни одного п
 есть меняется тип поля.
 
 Перенос посева показывает, зачем правило: сегодня там `'Estonia'`, `'Lithuania'`, `'Sweden'`,
-`'Latvia'`, `'Germany'` и `'UK'` (`services/mocks/suppliers.ts:17`, `:117`) — английские названия
+`'Latvia'`, `'Germany'` и `'UK'` (`services/mocks/suppliers.ts:17`, `:118`) — английские названия
 вперемешку с сокращением, и **`UK` кодом ISO не является**: Великобритания это `GB`
 (`domain/countries.ts:96`). Строка, которая выглядит кодом, им не была.
 
