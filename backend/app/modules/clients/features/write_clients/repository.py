@@ -3,7 +3,7 @@
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.clients.shared.models import Client
@@ -82,3 +82,26 @@ async def update_client_record(
     await db.flush()
     await db.refresh(client)
     return client
+
+
+async def delete_client_record(
+    db: AsyncSession, client_id: UUID, tenant_id: UUID
+) -> bool:
+    """Remove one client row, tenant-scoped. Physical — there is no soft delete.
+
+    The row is addressed by id **and** tenant inside the DELETE itself, not
+    through an object loaded earlier: the narrowing then holds even if the
+    caller's read is ever bypassed (`tests/test_tenant_scope.py`, Т3 — the
+    writer narrows, not the reader before it).
+
+    `client_interactions` rows and the journal follow the client: the first
+    through the model's own `ondelete="CASCADE"`, the second through
+    `delete_audit_entries_for_entity` in the domain layer (the shared
+    `audit_entries` table is not tied to a client by a foreign key, so
+    nothing cascades it — `00-conventions.md` §9, П38).
+    """
+    result = await db.execute(
+        delete(Client).where(Client.id == client_id, Client.tenant_id == tenant_id)
+    )
+    await db.flush()
+    return result.rowcount > 0

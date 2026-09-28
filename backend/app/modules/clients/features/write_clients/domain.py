@@ -17,9 +17,18 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ConflictError, ValidationError
-from app.modules.clients.features.read_clients.domain import ClientNotFoundError
+from app.core.exceptions import AppError, ConflictError, NotFoundError, ValidationError
+from app.modules.audit.internal_api.interface import (
+    delete_audit_entries_for_entity,
+    delete_audit_entry,
+    read_audit_entries_for_entity,
+)
+from app.modules.clients.features.read_clients.domain import (
+    CLIENT_AUDIT_ENTITY_TYPE,
+    ClientNotFoundError,
+)
 from app.modules.clients.features.read_clients.repository import list_interactions
+from app.modules.orders.internal_api.interface import count_orders_for_client
 from app.modules.clients.features.read_clients.schemas import (
     ClientDetailResponse,
     ClientInteractionResponse,
@@ -29,6 +38,7 @@ from app.modules.clients.shared.models import Client, ClientInteraction
 from .countries import is_country_code
 from .repository import (
     create_client_record,
+    delete_client_record,
     find_client_by_company_code,
     find_client_by_email,
     find_client_by_vat_code,
@@ -70,6 +80,38 @@ class ClientFieldTakenError(ConflictError):
     def __init__(self, *, code: str, field: str, message: str) -> None:
         super().__init__(message, code=code)
         self.field = field
+
+
+class ClientHasOrdersError(ConflictError):
+    """409 for deleting a client that still has orders — code `CONFLICT`.
+
+    The refusal is the contract's own (`roo_code/roo-context/api/clients.md`,
+    "DELETE /api/clients/:id": "`CONFLICT` — у клиента есть заказы"). Which
+    client has which orders is not known here — the count is asked of the
+    orders module through its `internal_api.interface`.
+    """
+
+    def __init__(self, client_id: UUID) -> None:
+        super().__init__(
+            f"Client has orders and may not be deleted: {client_id}",
+            code="CONFLICT",
+        )
+
+
+class AuditEntryNotFoundError(NotFoundError):
+    """404 for an unknown `entryId` — the domain's own refusal code.
+
+    `NotFoundError.__init__` hardcodes `code="NOT_FOUND"`, so this bypasses it
+    and calls `AppError.__init__` directly with the code the contract names
+    (`roo_code/roo-context/api/clients.md`, "DELETE /api/clients/:id/audit/:entryId").
+    `isinstance(exc, NotFoundError)` still holds, so `app.main`'s `AppError`
+    handler answers 404 without any change to `app/core/exceptions.py`.
+    """
+
+    def __init__(self, entry_id: UUID) -> None:
+        AppError.__init__(
+            self, f"Audit entry not found: {entry_id}", code="AUDIT_ENTRY_NOT_FOUND"
+        )
 
 
 def _reject_unknown_keys(input_data: ClientCreateRequest | ClientPatchRequest) -> None:
@@ -303,3 +345,70 @@ async def patch_client(
 
     interactions = await list_interactions(db, client_id, tenant_id)
     return _to_detail(client, interactions)
+
+
+async def delete_client(db: AsyncSession, tenant_id: UUID, client_id: UUID) -> None:
+    """Execute the delete-client use case.
+
+    The order of the two refusals is part of the contract, not an accident:
+    an unknown or foreign id answers `CLIENT_NOT_FOUND` first, and only a
+    client that exists is then asked about its orders. The count itself
+    belongs to the orders module and is asked through its
+    `internal_api.interface` — never by importing its tables.
+
+    Deletion is physical (`roo_code/roo-context/api/clients.md`, "DELETE
+    /api/clients/:id"): there is no soft delete on `Client`. The journal rows
+    are dropped first — the shared `audit_entries` table has no foreign key
+    to a client, so nothing would cascade it, and a row outliving its subject
+    would leave the feed pointing at a card that no longer exists
+    (`00-conventions.md` §9, П38).
+    """
+    client = await get_client_record(db, client_id, tenant_id)
+    if client is None:
+        raise ClientNotFoundError(client_id)
+
+    if await count_orders_for_client(db, tenant_id=tenant_id, client_id=client_id):
+        raise ClientHasOrdersError(client_id)
+
+    await delete_audit_entries_for_entity(
+        db,
+        tenant_id=tenant_id,
+        entity_type=CLIENT_AUDIT_ENTITY_TYPE,
+        entity_id=client_id,
+    )
+    await delete_client_record(db, client_id, tenant_id)
+
+
+async def delete_client_audit_entry(
+    db: AsyncSession, tenant_id: UUID, client_id: UUID, entry_id: UUID
+) -> None:
+    """Execute the delete-one-journal-entry use case.
+
+    The entry is addressed by its own id, never by its position: an outdated
+    index removes the wrong row, and silently (`00-conventions.md` §9).
+    An unknown id is a refusal, not a quiet success — silence is
+    indistinguishable from success, and the client would erase a row that
+    still stands on the server.
+
+    Ownership is checked here rather than in the audit interface:
+    `delete_audit_entry` narrows by tenant only, so it cannot tell this
+    client's entry from a neighbor client's entry of the same tenant. The
+    entry must therefore be found among *this* client's own rows first; the
+    return value is checked too, so a row that vanished between the two calls
+    still refuses rather than answering success.
+    """
+    client = await get_client_record(db, client_id, tenant_id)
+    if client is None:
+        raise ClientNotFoundError(client_id)
+
+    entries = await read_audit_entries_for_entity(
+        db,
+        tenant_id=tenant_id,
+        entity_type=CLIENT_AUDIT_ENTITY_TYPE,
+        entity_id=client_id,
+    )
+    if not any(entry.id == entry_id for entry in entries):
+        raise AuditEntryNotFoundError(entry_id)
+
+    if not await delete_audit_entry(db, tenant_id=tenant_id, entry_id=entry_id):
+        raise AuditEntryNotFoundError(entry_id)
