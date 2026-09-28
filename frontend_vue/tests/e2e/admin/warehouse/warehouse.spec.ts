@@ -108,7 +108,7 @@ test.describe('Warehouse module', () => {
       await expect
         .poll(
           async () => page.evaluate(() => (window as unknown as { __hidden: number }).__hidden),
-          { timeout: 10_000 },
+          { timeout: DATA_READY_TIMEOUT },
         )
         .toBeGreaterThan(0)
 

@@ -1,6 +1,7 @@
 import { testBare as test, expect } from './fixtures'
 import { ALL_FLAGS_ENABLED } from './helpers/flags'
 import {
+  DATA_READY_TIMEOUT,
   ROUTES_WITHOUT_DATA,
   ROUTES_WITHOUT_DATA_PATHS,
   readyExitOf,
@@ -160,7 +161,7 @@ test('the declared no-data routes ask for nothing, and are not waited for', asyn
     await page.waitForFunction(
       () => typeof (window as unknown as { __mockCalls?: number }).__mockCalls === 'number',
       undefined,
-      { timeout: 10_000 },
+      { timeout: DATA_READY_TIMEOUT },
     )
     expect(await mockCalls(page), `${path} asked before the module even loaded`).toBe(0)
 
