@@ -14,6 +14,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -56,10 +57,15 @@ def blocked_note(blocked):
             + "\n".join(lines) + "\n")
 
 
-def call_operator(root, prompt, model, binary, out_dir, index, done_ids, feedback=""):
+def call_operator(root, prompt, model, binary, out_dir, index, done_ids, feedback="", in_work=(),
+                  on_start=None):
     """Одна read-only сессия оператора: вернуть очередь задач JSON-ом."""
     history = ("\nУЖЕ СДЕЛАНО этой ночью — не предлагай снова и не переделывай: "
                + (", ".join(sorted(done_ids)) if done_ids else "ничего") + "\n")
+    if in_work:
+        history += ("В РАБОТЕ прямо сейчас — порция ещё идёт, их коммиты появятся после твоего ответа. "
+                    "Не предлагай их и не бери задач с теми же файлами: "
+                    + ", ".join(sorted(in_work)) + "\n")
     prefix = out_dir / f"operator-{index}"
     backend = ClaudeBackend({"model": model, **({"binary": binary} if binary else {})})
     # Оператор читает checkout, а не каталог, из которого его запустили.
@@ -68,7 +74,12 @@ def call_operator(root, prompt, model, binary, out_dir, index, done_ids, feedbac
     # Что именно оператору сказали — утром это первое, что хочется увидеть.
     prefix.with_suffix(".prompt.txt").write_text(full_prompt)
     with prefix.with_suffix(".stdout.log").open("wb") as out, prefix.with_suffix(".stderr.log").open("wb") as err:
-        subprocess.run(argv, input=full_prompt.encode(), stdout=out, stderr=err, cwd=root, check=True)
+        proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=out, stderr=err, cwd=root)
+        if on_start:
+            on_start(proc)
+        proc.communicate(full_prompt.encode())
+        if proc.returncode:
+            raise subprocess.CalledProcessError(proc.returncode, argv)
     backend.finalize("review", prefix, prefix.with_suffix(".json"))
     queue = json.loads(prefix.with_suffix(".json").read_text())
     spent = backend.tokens(prefix)
@@ -87,7 +98,7 @@ def measure(out_dir):
     """
     total = 0
     for path in sorted(out_dir.rglob("*.stdout.log")):
-        if not re.fullmatch(r".*-(?:work|review)(?:-retry-\d+)?\.stdout\.log|operator-\d+\.stdout\.log",
+        if not re.fullmatch(r".*-(?:work|review)(?:-retry-\d+)?\.stdout\.log|operator-\d+(?:-discarded)?\.stdout\.log",
                             path.name):
             continue
         try:
@@ -101,6 +112,118 @@ def measure(out_dir):
 
 def runner(args_list):
     return subprocess.run([sys.executable, str(RUNNER), *args_list], capture_output=True, text=True)
+
+
+# Как часто супервизор заглядывает в журнал ядра, не пора ли звать следующего оператора.
+EARLY_POLL_SECONDS = float(os.environ.get("NIGHT_EARLY_POLL_SECONDS", "5"))
+
+
+def portion_handed_out(run_dir, max_tasks):
+    """Ядро раздало авторам всё, что раздаст в этой порции: id задач в работе, иначе None.
+
+    Дальше порция только дописывается и принимается, новых задач она не возьмёт — самое
+    время звать оператора следующей. Признак по журналу ядра: каждая нерешённая задача
+    уже побывала в событии `batch`, либо роздано `max_tasks`. Журнал дописывается на
+    ходу, поэтому оборванная последняя строка — не ошибка, а «ещё не записано».
+    """
+    try:
+        lines = (run_dir / "journal.jsonl").read_text().splitlines()
+    except OSError:
+        return None
+    started, last = set(), None
+    for line in lines:
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        last = event
+        if event.get("event") == "batch":
+            started.update(event.get("batch") or [])
+    if last is None or not started:
+        return None
+    pending = set(last.get("pending", []))
+    if pending <= started or len(started) >= max_tasks:
+        return sorted(pending & started)
+    return None
+
+
+class EarlyOperator:
+    """Оператор следующей порции, позванный, пока текущая ещё идёт.
+
+    Замер ночей 2026-09-28: вызов оператора — 8–16 мин, за ночь 42–46 мин, и всё это
+    время оба автора стоят. Здесь он режет порцию N+1, пока авторы дописывают хвост
+    порции N. Очередь, собранная на устаревших сведениях, не берётся: браковка после
+    вызова — зовём заново, чтобы причина дошла до оператора; сделанные тем временем
+    задачи из очереди выбрасываются.
+    """
+
+    def __init__(self, run_dir, max_tasks, call):
+        self.run_dir, self.max_tasks, self.call = run_dir, max_tasks, call
+        self.stop = threading.Event()
+        self.proc = None
+        self.launched = False
+        self.seen_blocked = set()
+        self.result = self.error = None
+        self.thread = threading.Thread(target=self.watch, daemon=True)
+        self.thread.start()
+
+    def watch(self):
+        while not self.stop.is_set():
+            in_work = portion_handed_out(self.run_dir, self.max_tasks)
+            if in_work is not None:
+                break
+            self.stop.wait(EARLY_POLL_SECONDS)
+        else:
+            return
+        state = json.loads((self.run_dir / "state.json").read_text())
+        self.seen_blocked = {b["task"] for b in state.get("blocked", [])}
+        self.launched = True
+        try:
+            self.result = self.call(state, in_work, self.started)
+        except (subprocess.CalledProcessError, ValueError, RuntimeError, json.JSONDecodeError, OSError) as error:
+            self.error = error
+
+    def started(self, proc):
+        self.proc = proc
+
+    def core_done(self):
+        """Порция кончилась: не начатый вызов уже не нужен, начатый пусть доработает."""
+        self.stop.set()
+        if not self.launched:
+            self.thread.join()
+
+    def cancel(self):
+        self.stop.set()
+        if self.proc and self.proc.poll() is None:
+            self.proc.terminate()
+        self.thread.join(timeout=30)
+
+    def take(self, run_state, done_ids):
+        """Готовая очередь или (None, почему не годится)."""
+        self.thread.join()
+        if not self.launched:
+            return None, "порция кончилась раньше, чем была роздана"
+        if self.error is not None:
+            return None, f"вызов не удался: {self.error}"
+        fresh = sorted({b["task"] for b in run_state.get("blocked", [])} - self.seen_blocked)
+        if fresh:
+            return None, "после вызова забракованы: " + ", ".join(fresh)
+        path, queue, spent = self.result
+        tasks = [t for t in queue["tasks"] if t.get("id") not in done_ids]
+        if not tasks:
+            return None, "все задачи очереди сделаны, пока оператор думал"
+        if len(tasks) < len(queue["tasks"]):
+            queue = {**queue, "tasks": tasks}
+            path.write_text(json.dumps(queue, ensure_ascii=False, indent=2))
+        return (path, queue, spent), None
+
+
+def discard_operator(out_dir, index):
+    """Файлы отброшенного вызова — в сторону: номер нужен следующему, расход остаётся в счёте."""
+    for path in [*out_dir.glob(f"operator-{index}.*"), out_dir / f"queue-{index}.json"]:
+        if path.exists():
+            head, _, tail = path.name.partition(".")
+            path.rename(path.with_name(f"{head}-discarded.{tail}"))
 
 
 # Параметры ночи, которые продолжение берёт из `night.json`, а не из командной строки:
@@ -275,15 +398,35 @@ def main():
             return finish(stop)
         start += 1
 
+    early = None
+    last_state = {}
+    operator_note = {}
+
+    def stop_early():
+        if early:
+            early.cancel()
+
     for index in range(start, args.max_batches + 1):
         minutes_left = (deadline - time.monotonic()) / 60
         if minutes_left <= 10:
+            stop_early()
             return finish("время вышло")
         if spent >= args.token_budget:
+            stop_early()
             return finish(f"потолок токенов исчерпан: {spent} из {args.token_budget}")
 
+        ready = None
+        if early:
+            ready, why = early.take(last_state, done_ids)
+            early = None
+            if ready:
+                operator_note = {"operator": "заранее"}
+            else:
+                discard_operator(args.out, index)
+                operator_note = {"operator": f"после порции: {why}"}
+                spent = measure(args.out)
         try:
-            queue_path, queue, operator_spent = call_operator(
+            queue_path, queue, operator_spent = ready or call_operator(
                 root, prompt, args.operator_model, args.operator_binary, args.out, index, done_ids,
                 rejection + blocked_note(blocked))
         # RuntimeError сюда попадает от разбора ответа: оператор, не сумевший выдать
@@ -296,7 +439,9 @@ def main():
         checked = runner(["--workspace", str(root), "--queue", str(queue_path), "--routing", str(args.routing)])
         if checked.returncode:
             # Негодная очередь не стоит ночи: следующая порция может быть годной.
-            report["batches"].append({"batch": index, "completed": 0, "preflight": checked.stderr.strip()[:400]})
+            report["batches"].append({"batch": index, "completed": 0, "preflight": checked.stderr.strip()[:400],
+                                      **operator_note})
+            operator_note = {}
             persist()
             # Причина обязана дойти до следующего оператора: без неё он повторяет ту же ошибку.
             rejection = rejection_note(checked.stderr, queue)
@@ -306,14 +451,32 @@ def main():
             continue
 
         rejection = ""
+        if args.parallel > 1 and index < args.max_batches:
+            # Без параллели ядро не пишет событий `batch`, и признака «порция роздана» нет.
+            # Снимок сделанного — до ядра: главный поток меняет эти списки после порции,
+            # а фоновый вызов в это время может их читать.
+            def early_call(state, in_work, on_start, index=index, done=frozenset(done_ids),
+                           earlier=tuple(blocked)):
+                return call_operator(
+                    root, prompt, args.operator_model, args.operator_binary, args.out, index + 1,
+                    done | {c["task"] for c in state["completed"]} | {b["task"] for b in state["blocked"]},
+                    blocked_note([*earlier, *(b for b in state["blocked"] if b["task"] not in done)]),
+                    in_work=in_work, on_start=on_start)
+            early = EarlyOperator(run_dir, args.max_tasks, early_call)
         result = runner(["--workspace", str(root), "--queue", str(queue_path), "--routing", str(args.routing),
                          "--run", "--run-dir", str(run_dir), "--minutes", f"{minutes_left - 5:.1f}",
                          "--finish-minutes", str(args.finish_minutes),
                          "--max-tasks", str(args.max_tasks), "--parallel", str(args.parallel),
                          "--token-budget", str(args.token_budget - spent)])
-        stop = absorb(index, run_dir, result)
+        if early:
+            early.core_done()
+        last_state = json.loads((run_dir / "state.json").read_text()) if (run_dir / "state.json").is_file() else {}
+        stop = absorb(index, run_dir, result, operator_note)
+        operator_note = {}
         if stop:
+            stop_early()
             return finish(stop)
+    stop_early()
     return finish("порции кончились")
 
 

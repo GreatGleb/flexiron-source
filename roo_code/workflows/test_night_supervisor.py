@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import time
 import unittest
 
 SUPERVISOR = Path(__file__).with_name("night-supervisor.py").resolve()
@@ -20,9 +21,10 @@ _spec.loader.exec_module(_pilot)
 # Один скрипт на две роли: с --restricted он оператор и возвращает очередь,
 # без него — исполнитель. Очередь берётся из файла, чтобы тест ей управлял.
 FAKE_CLAUDE = r'''#!/usr/bin/env python3
-import json, os, pathlib, sys
+import json, os, pathlib, sys, time
 args = sys.argv[1:]
 prompt = sys.stdin.read()
+mode = os.environ.get('NIGHT_TEST_MODE', '').split(',')
 usage = {'m': {'inputTokens': 100, 'outputTokens': 10,
                'cacheCreationInputTokens': 0, 'cacheReadInputTokens': 999999}}
 if '--restricted' in args:
@@ -33,10 +35,15 @@ if '--restricted' in args:
     assert 'УЖЕ СДЕЛАНО этой ночью' in prompt, 'оператору не сказали, что уже сделано'
     bodies = json.loads(pathlib.Path(os.environ['NIGHT_TEST_QUEUES']).read_text())
     body = bodies[min(index, len(bodies) - 1)]
+    if index and os.environ.get('NIGHT_TEST_OPERATOR_SLEEP'):
+        pathlib.Path(os.environ['NIGHT_TEST_CALLS'] + f'.pid-{index}').write_text(str(os.getpid()))
+        time.sleep(float(os.environ['NIGHT_TEST_OPERATOR_SLEEP']))
     print(json.dumps({'is_error': False, 'result': body, 'modelUsage': usage}))
     raise SystemExit(0)
 task = json.loads(prompt.split('\nЗадание (JSON):\n', 1)[1])
-if os.environ.get('NIGHT_TEST_MODE') != 'no-edit':
+if 'slow' in mode:
+    time.sleep(3)
+if 'no-edit' not in mode:
     for name in task['outputs']:
         path = pathlib.Path(name)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -69,7 +76,7 @@ class SupervisorTest(unittest.TestCase):
     git = _pilot.PilotTest.git
 
     def run_supervisor(self, queues, batches=3, budget=10_000_000, mode="", parallel=1,
-                       idle_limit=None, finish=None):
+                       idle_limit=None, finish=None, env=None):
         self.queues.write_text(json.dumps(queues))
         command = [sys.executable, str(SUPERVISOR), "--workspace", str(self.root),
                    "--routing", str(self.routing), "--operator-prompt", str(self.prompt),
@@ -81,7 +88,8 @@ class SupervisorTest(unittest.TestCase):
         if finish is not None:
             command += ["--finish-minutes", str(finish)]
         return subprocess.run(command, env={**self.env, "NIGHT_TEST_QUEUES": str(self.queues),
-                                            "NIGHT_TEST_MODE": mode},
+                                            "NIGHT_TEST_MODE": mode, "NIGHT_EARLY_POLL_SECONDS": "0.2",
+                                            **(env or {})},
                               capture_output=True, text=True, timeout=120)
 
     def report(self):
@@ -210,6 +218,78 @@ class SupervisorTest(unittest.TestCase):
         result = self.run_supervisor([queue_json("alpha")], batches=5, budget=200)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("потолок токенов исчерпан", self.report()["stopped"])
+
+
+
+class EarlyOperatorTest(unittest.TestCase):
+    """Оператор следующей порции зовётся, пока текущая дописывается (ночи 2026-09-28:
+    вызов 8–16 мин, 42–46 мин за ночь, оба автора в это время стоят)."""
+
+    setUp = SupervisorTest.setUp
+    git = SupervisorTest.git
+    run_supervisor = SupervisorTest.run_supervisor
+    report = SupervisorTest.report
+    operator_prompt = SupervisorTest.operator_prompt
+
+    def finished_at(self, run):
+        journal = [json.loads(x) for x in (self.out / run / "journal.jsonl").read_text().splitlines()]
+        return next(e["time"] for e in journal if e["event"] == "finish")
+
+    def test_next_operator_is_called_while_the_portion_runs(self):
+        result = self.run_supervisor([queue_json("alpha"), queue_json("beta", ["plan2.md"])], batches=2,
+                                     mode="slow", parallel=2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.report()
+        self.assertEqual([b["tasks"] for b in report["batches"]], [["alpha"], ["beta"]])
+        self.assertEqual(report["batches"][1]["operator"], "заранее")
+        # Вызов оператора начался до конца первой порции, а не после.
+        self.assertLess((self.out / "operator-2.prompt.txt").stat().st_mtime, self.finished_at("run-1"))
+        self.assertIn("В РАБОТЕ прямо сейчас", self.operator_prompt(2))
+        self.assertIn("alpha", self.operator_prompt(2).split("В РАБОТЕ прямо сейчас", 1)[1])
+        self.assertEqual((self.base / "calls").read_text().count("operator"), 2)
+
+    def test_last_portion_does_not_call_an_operator_ahead(self):
+        # Порций больше не будет — вызов впустую.
+        self.run_supervisor([queue_json("alpha")], batches=1, mode="slow", parallel=2)
+        self.assertEqual((self.base / "calls").read_text().count("operator"), 1)
+
+    def test_tasks_done_meanwhile_are_dropped_from_the_early_queue(self):
+        both = json.dumps({"description": "тест", "baseline_checks": [], "tasks": [
+            {"id": t, "depends_on": [], "sources": ["plan.md"], "outputs": [out], "checks": [],
+             "task": "подготовить", "acceptance": ["готово"]} for t, out in (("alpha", "plan.md"),
+                                                                              ("beta", "plan2.md"))]},
+                          ensure_ascii=False)
+        result = self.run_supervisor([queue_json("alpha"), both], batches=2, mode="slow", parallel=2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.report()
+        self.assertEqual(report["batches"][1]["operator"], "заранее")
+        self.assertEqual([t["id"] for t in json.loads((self.out / "queue-2.json").read_text())["tasks"]],
+                         ["beta"])
+        self.assertEqual(report["batches"][1]["tasks"], ["beta"])
+
+    def test_blocked_task_after_the_early_call_makes_the_operator_ask_again(self):
+        """Браковка, случившаяся после раннего вызова, обязана дойти до оператора."""
+        result = self.run_supervisor([queue_json("alpha"), queue_json("beta", ["plan2.md"])], batches=2,
+                                     mode="slow,no-edit", parallel=2, idle_limit=0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.report()
+        self.assertIn("после вызова забракованы: alpha", report["batches"][1]["operator"])
+        self.assertEqual((self.base / "calls").read_text().count("operator"), 3)
+        self.assertNotIn("ЗАБРАКОВАНО", (self.out / "operator-2-discarded.prompt.txt").read_text())
+        self.assertIn("ЗАБРАКОВАНО ядром этой ночью", self.operator_prompt(2))
+        # Отброшенный вызов — тоже расход: 3 оператора и 2 автора по 110 токенов.
+        self.assertEqual(report["tokens"], 550)
+
+    def test_early_operator_is_stopped_when_the_night_ends(self):
+        started = time.monotonic()
+        result = self.run_supervisor([queue_json("alpha"), queue_json("beta", ["plan2.md"])], batches=3,
+                                     mode="slow,no-edit", parallel=2, idle_limit=1,
+                                     env={"NIGHT_TEST_OPERATOR_SLEEP": "60"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.report()["stopped"], "порций подряд без принятых задач: 1")
+        self.assertLess(time.monotonic() - started, 45, "супервизор ждал ненужного оператора")
+        pid = int((self.base / "calls.pid-1").read_text())
+        self.assertFalse(Path(f"/proc/{pid}").exists(), "ранний оператор пережил ночь")
 
 
 if __name__ == "__main__":
