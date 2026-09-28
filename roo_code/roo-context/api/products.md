@@ -260,7 +260,7 @@ interface ProductCatalogItem {
 Три свойства, которые сервер обязан знать:
 
 - **путь `/list` обязан разбираться раньше `/:id`.** В моке порядок именно такой:
-  `path === '/api/products'` (`services/mocks/index.ts:426`), затем `'/api/products/list'` (`:440`),
+  `path === '/api/products'` (`services/mocks/index.ts:426`), затем `'/api/products/list'` (`:551`),
   затем регулярка карточки (`:449`). У сервера теперь тот же порядок — регистрация роутера
   `list_products` в `backend/app/main.py` идёт раньше `get_product_detail`, тем же приёмом, каким
   мок разбирает путь построчно — БАГ-08 (закрыт 2026-09-24). Общее правило — §18 соглашений;
@@ -576,7 +576,7 @@ Partial<{
 
 Удаление товара. Сегмент `:id` — идентификатор товара. Save-режим: quick-action — уходит сразу
 после подтверждения модала (`views/admin/products/ProductsPage.vue:190-195`, вызов
-`composables/useProducts.ts:47`); после успеха тост `products.toast_deleted` (`:48`) и `load()`
+`composables/useProducts.ts:47`); после успеха тост `products.toast_deleted` (`:49`) и `load()`
 (`:49`). Save bar не участвует.
 
 Запрос: тела нет — `apiDelete(\`/api/products/${id}\`)` (`services/productsService.ts:120-122`). Ни
