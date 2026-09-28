@@ -40,7 +40,11 @@ test.describe('Sales CRM dashboard', () => {
     // store would forget the order that was just created.
     await page.goBack()
     await page.goBack()
-    await expect(page.locator('[data-test="sales-crm-kpis"]')).toBeVisible()
+    // Два возврата назад — это действие, а не открывалка: пола у него нет, и
+    // утверждение ждёт перерисовку дашборда по дефолтному потолку в пять секунд.
+    await expect(page.locator('[data-test="sales-crm-kpis"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await expect
       .poll(() => kpi(page, 'active-orders'), { timeout: DATA_READY_TIMEOUT })

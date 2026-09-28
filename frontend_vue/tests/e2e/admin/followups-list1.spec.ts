@@ -127,12 +127,14 @@ test.describe('followups №1 · пункт 3 · куда уйдёт тесто�
       { timeout: DATA_READY_TIMEOUT },
     )
     // Главное утверждение: черновик не назван получателем. Именно этим строка врала.
-    await expect(line).not.toContainText('changed@example.com')
+    // Отрицательное утверждение — такое же утверждение: оно тоже ждёт перерисовку,
+    // и дефолтных пяти секунд ему так же мало.
+    await expect(line).not.toContainText('changed@example.com', { timeout: DATA_READY_TIMEOUT })
 
     await page.locator('[data-test="settings-mail-test-btn"]').click()
     const toast = page.locator('.toast-container .toast.show')
     await expect(toast).toContainText(saved, { timeout: DATA_READY_TIMEOUT })
-    await expect(toast).not.toContainText('changed@example.com')
+    await expect(toast).not.toContainText('changed@example.com', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('после сохранения строка называет НОВЫЙ адрес, и письмо уходит туда', async ({ page }) => {
