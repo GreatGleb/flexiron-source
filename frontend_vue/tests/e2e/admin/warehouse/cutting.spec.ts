@@ -76,7 +76,9 @@ test.describe('Cutting operation', () => {
   test('поиск партии не теряет фокус на каждой букве', async ({ page }) => {
     await navigateToAdmin(page, '/admin/warehouse/cutting')
     // Признак ПРИШЕДШИХ данных, а не отрисованной панели: панель видна и со скелетом.
-    await expect(page.getByTestId('warehouse-cutting-batch-row').first()).toBeVisible()
+    await expect(page.getByTestId('warehouse-cutting-batch-row').first()).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     // Считаем переходы панели в скелет НАЧИНАЯ ОТСЮДА: первая загрузка уже позади,
     // её скелет законен и к делу не относится.
@@ -264,7 +266,9 @@ test.describe('Cutting operation', () => {
     // Тот же экран, открытый ссылкой напрямую, — это полная загрузка приложения, и
     // список партий на этом пути не запрашивается.
     await navigateToAdmin(page, directUrl)
-    await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(METRE_BATCH)
+    await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(METRE_BATCH, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.getByTestId('warehouse-cutting-product')).toHaveText(insideSpa)
   })
 

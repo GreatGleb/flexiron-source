@@ -15,7 +15,9 @@ import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 test.describe('Offcut area', () => {
   test('a sheet offcut shows the area computed from its dimensions', async ({ page }) => {
     await navigateToAdmin(page, '/admin/warehouse/offcuts/who-001')
-    await expect(page.getByTestId('field-length')).toHaveValue('500 mm')
+    await expect(page.getByTestId('field-length')).toHaveValue('500 mm', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.getByTestId('field-width')).toHaveValue('300 mm')
     // 500 × 300 мм = 0.15 м². Число, а не факт наличия поля.
     await expect(page.getByTestId('field-area')).toHaveValue('0.15 m²')
@@ -23,7 +25,9 @@ test.describe('Offcut area', () => {
 
   test('a linear offcut has no area, and says so with a dash', async ({ page }) => {
     await navigateToAdmin(page, '/admin/warehouse/offcuts/who-006')
-    await expect(page.getByTestId('field-width')).toHaveValue('—')
+    await expect(page.getByTestId('field-width')).toHaveValue('—', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.getByTestId('field-area')).toHaveValue('—')
     // Не ноль: ноль означал бы «площадь есть и она нулевая».
     await expect(page.getByTestId('field-area')).not.toHaveValue('0 m²')
