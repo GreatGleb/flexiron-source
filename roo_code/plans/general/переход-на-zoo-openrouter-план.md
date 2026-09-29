@@ -105,6 +105,23 @@
 у контейнера `flexiron_pg_verify` теперь `--restart unless-stopped`; ядро требует ветку `auto/*`
 и несуществующий `--run-dir`, `--run` без `--minutes` не стартует.
 
+**Пробы 2–5, 2026-09-29 — задача так и не сделана; кончилась квота.** Что выяснилось:
+
+- **Лимит у владельца — 50 запросов в день** (кредиты не покупались). Точный текст отказа, для
+  `PROVIDER_REFUSALS` (§4.3 п.2): `429 Rate limit exceeded: free-models-per-day. Add 9.98 credits to
+  unlock 1000 free model requests per day`. Zoo на нём **не останавливается**, а повторяет с паузой —
+  задача висела бы до таймаута 5400 с;
+- `thinkingmachines/inkling:free` — 403 «only available on agentic harnesses», Zoo не в списке;
+- `poolside/laguna-s-2.1:free` — частые `429 … rate-limited upstream`, потолок ответа 32k; на документах
+  контракта (контекст 130k) ответ обрезался на 32 768, потом модель молчала по 9 мин;
+- `nvidia/nemotron-3-ultra-550b-a55b:free` — лучший из опробованных: за 5 мин 21 запрос и 32 действия,
+  сам гонял `grep`, перегрузки провайдера («Service temporarily overloaded») стоили секунд;
+- **среда:** отдельный экземпляр VS Code «ночь» (`~/.local/share/applications/code-night.desktop`,
+  `--user-data-dir ~/.config/Code-night`) — иначе сокет перехватывает любое окно (задача ушла в
+  `3D_website`); новый экземпляр стартует в режиме `architect` → в маршрутизации
+  `work.configuration = {"mode": "code"}` (проверено: `pwd` выполнен, `mode=code`);
+- смена модели в интерфейсе прерывает идущую задачу Zoo, и ядро останавливает прогон.
+
 ### 4.3 Правки обвязки (ветка `fix/zoo-openrouter`, каждая с тестом в `test_headless_backends.py` / `test_night_run.py`)
 
 По важности:
