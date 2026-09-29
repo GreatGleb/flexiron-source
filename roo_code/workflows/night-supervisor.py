@@ -319,7 +319,7 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     deadline = time.monotonic() + (deadline_wall - time.time())
     prompt = args.operator_prompt.read_text()
-    load_routing(args.routing)  # падаем сразу, если маршрутизация негодна
+    load_routing(args.routing, parallel=args.parallel)  # падаем сразу, если маршрутизация негодна
     # По этому файлу сторож узнаёт, жива ли ночь, до какого часа она должна идти и с
     # какими параметрами её поднимать.
     (args.out / "night.json").write_text(json.dumps({
