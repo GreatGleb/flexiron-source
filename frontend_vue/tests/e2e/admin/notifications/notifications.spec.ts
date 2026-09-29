@@ -18,13 +18,17 @@ test.describe('Notifications Page', () => {
     })
 
     await page.goto('/admin/notifications')
-    await expect(page.locator('[data-test="page-notifications"]')).toBeVisible()
+    await expect(page.locator('[data-test="page-notifications"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     expect(errors).toHaveLength(0)
   })
 
   test('header with title and mark-all-read button is visible', async ({ page }) => {
     await page.goto('/admin/notifications')
-    await expect(page.locator('[data-test="notifications-header"]')).toBeVisible()
+    await expect(page.locator('[data-test="notifications-header"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('h1.page-title')).toBeVisible()
     // Mark all as read button
     await expect(page.locator('[data-test="notifications-header"] button')).toBeVisible()
@@ -32,12 +36,16 @@ test.describe('Notifications Page', () => {
 
   test('breadcrumb is visible', async ({ page }) => {
     await page.goto('/admin/notifications')
-    await expect(page.locator('nav.breadcrumb, .breadcrumb').first()).toBeVisible()
+    await expect(page.locator('nav.breadcrumb, .breadcrumb').first()).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('filters section is visible with type and status selectors', async ({ page }) => {
     await page.goto('/admin/notifications')
-    await expect(page.locator('[data-test="notifications-filters"]')).toBeVisible()
+    await expect(page.locator('[data-test="notifications-filters"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="notifications-filter-search"]')).toBeVisible()
     await expect(page.locator('[data-test="notifications-filter-type"]')).toBeVisible()
     await expect(page.locator('[data-test="notifications-filter-status"]')).toBeVisible()
@@ -45,7 +53,9 @@ test.describe('Notifications Page', () => {
 
   test('table renders with notification rows', async ({ page }) => {
     await page.goto('/admin/notifications')
-    await expect(page.locator('[data-test="notifications-table"]')).toBeVisible()
+    await expect(page.locator('[data-test="notifications-table"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.locator('[data-test="notifications-row"]').first()).toBeVisible({
       timeout: DATA_READY_TIMEOUT,
     })
@@ -53,7 +63,9 @@ test.describe('Notifications Page', () => {
 
   test('pagination is visible when notifications exist', async ({ page }) => {
     await page.goto('/admin/notifications')
-    await expect(page.locator('[data-test="notifications-pagination"]')).toBeVisible()
+    await expect(page.locator('[data-test="notifications-pagination"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('empty state when no matching notifications', async ({ page }) => {
@@ -107,7 +119,7 @@ test.describe('Notifications Page', () => {
   test('clicking a notification navigates to linked entity', async ({ page }) => {
     await page.goto('/admin/notifications')
     const firstRow = page.locator('[data-test="notifications-row"]').first()
-    await expect(firstRow).toBeVisible()
+    await expect(firstRow).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await firstRow.click()
     // Should navigate away from notifications page
     await expect(page).not.toHaveURL(/\/admin\/notifications/, { timeout: DATA_READY_TIMEOUT })
@@ -143,7 +155,9 @@ test.describe('Notifications Page', () => {
 test.describe('Notification Dropdown', () => {
   test('bell icon is visible in header', async ({ page }) => {
     await page.goto('/admin/notifications')
-    await expect(page.locator('[data-test="topbar-notifications"]')).toBeVisible()
+    await expect(page.locator('[data-test="topbar-notifications"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('dropdown opens on bell click showing notifications', async ({ page }) => {

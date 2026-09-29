@@ -23,7 +23,9 @@ async function kpi(page: Page, name: string): Promise<number> {
 test.describe('Sales CRM dashboard', () => {
   test('KPI counts include an order created after them', async ({ page }) => {
     await page.goto('/admin/sales-crm')
-    await expect(page.locator('[data-test="sales-crm-kpis"]')).toBeVisible()
+    await expect(page.locator('[data-test="sales-crm-kpis"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     const activeBefore = await kpi(page, 'active-orders')
     const pendingBefore = await kpi(page, 'pending-orders')
 

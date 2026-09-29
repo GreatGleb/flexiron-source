@@ -26,7 +26,7 @@
 (карточка) и [`views/admin/orders/AddOrderServicesModal.vue`](../../../frontend_vue/src/views/admin/orders/AddOrderServicesModal.vue)
 (выбор услуги для заказа — пятый потребитель, читающий тот же `GET /api/services`).
 Маршруты домена — `products/services` и `products/services/:id`
-(`frontend_vue/src/router/index.ts:241`, `:247`), а не `/admin/services`, как обещал прежний
+(`frontend_vue/src/router/index.ts:241`, `:248`), а не `/admin/services`, как обещал прежний
 контракт.
 
 **Ни один из пяти вызовов не шлёт ни одного заголовка.** Третьего аргумента у `apiGet` и второго
@@ -89,7 +89,7 @@
 
 **Переводимые поля на схеме уже переводимы**, и в этом домен — счастливое исключение из
 [§12](00-conventions.md#12-translatedstring): `name_translations` и `description_translations`
-объявлены `JSONB` (`backend/app/modules/services/shared/models.py:21`, `:44`), а не `String(255)`.
+объявлены `JSONB` (`backend/app/modules/services/shared/models.py:21`, `:50`), а не `String(255)`.
 Имена колонок при этом `snake_case` и с суффиксом `_translations`, тогда как на проводе поля
 называются `name` и `description` — сопоставление обязан делать слайс, форма провода не меняется.
 
@@ -558,7 +558,7 @@ merge-patch по `exclude_unset`, итоговая пара валюта+еди�
 | `"description": null` в примере ответа карточки (`:1221`) | тип объявляет поле необязательным, а не обнуляемым (`types/service.ts:28`), и мок кладёт `undefined` (`mocks/services.ts:115`) |
 | `"createdAt": "2025-01-15"` — дата без времени (`:1222`) | сервер ставит ISO-момент: `new Date().toISOString()` (`mocks/services.ts:127-128`), `updatedAt` в примере отсутствовал вовсе |
 | «Last-write-wins» как отсутствие правила (`:1243`) | верно, и это общее поведение шестнадцати доменов ([§11](00-conventions.md#11-идемпотентность-и-оптимистичная-блокировка)); у заказов версия есть (`mocks/orders.ts:2406`, проверка `:1938`), у услуг — нет намеренно |
-| роуты `/admin/services` и `/admin/services/:id` (`:1116`, `:1261`) | маршруты домена — `products/services` и `products/services/:id` (`frontend_vue/src/router/index.ts:241`, `:247`) |
+| роуты `/admin/services` и `/admin/services/:id` (`:1116`, `:1261`) | маршруты домена — `products/services` и `products/services/:id` (`frontend_vue/src/router/index.ts:241`, `:248`) |
 | `ApiResponse<void>` у DELETE (`:1198`) | тела успеха нет вовсе: `Promise<void>` в клиенте (`servicesService.ts:75`), `delay(undefined as T)` в моке (`mocks/index.ts:1521`) |
 | «Каскадного удаления из заказов нет» (`:1199`) | верно и подтверждено, но недосказано: **добавить** удалённую услугу в заказ нельзя (`mocks/orders.ts:375-379`), а уже добавленная живёт снимком (`:2415-2422`) |
 

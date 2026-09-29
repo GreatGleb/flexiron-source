@@ -35,7 +35,7 @@ test.describe('followups №1 · пункт 1 · зазор между кноп�
     await page.goto('/admin/warehouse/batches/whb-100')
     const a = '[data-test="batch-card-create-offcut-link"]'
     const b = '[data-test="batch-card-cutting-link"]'
-    await expect(page.locator(a)).toBeVisible()
+    await expect(page.locator(a)).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await expect(page.locator(b)).toBeVisible()
     // 8px — значение общей обёртки `.panel-header-actions`. Ноль означал бы,
     // что кнопки снова держатся на `margin-left: auto` и слиплись.
@@ -48,14 +48,16 @@ test.describe('followups №1 · пункт 1 · зазор между кноп�
     await page.goto('/admin/suppliers/config')
     const a = '[data-test="supplier-card-config-library-toggle"]'
     const b = '[data-test="supplier-card-config-library-new-btn"]'
-    await expect(page.locator(a)).toBeVisible()
+    await expect(page.locator(a)).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await expect(page.locator(b)).toBeVisible()
     expect(await gapBetween(page, a, b)).toBe(8)
   })
 
   test('группа кнопок умеет переноситься — иначе на узком она вылезет', async ({ page }) => {
     await page.goto('/admin/warehouse/batches/whb-100')
-    await expect(page.locator('[data-test="batch-card-cutting-link"]')).toBeVisible()
+    await expect(page.locator('[data-test="batch-card-cutting-link"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Проверяется правило, а не сегодняшняя раскладка: при нынешних подписях пара
     // влезает в строку на любой поддерживаемой ширине, и тест на переполнение
     // остаётся зелёным даже без переноса — проверено инверсией. Собранные в один
@@ -79,7 +81,9 @@ test.describe('followups №1 · пункт 1 · зазор между кноп�
     await page.setViewportSize({ width: 320, height: 900 })
     await page.goto('/admin/warehouse/batches/whb-100')
     const section = page.locator('[data-test="batch-card-offcuts-section"]')
-    await expect(section.locator('[data-test="batch-card-cutting-link"]')).toBeVisible()
+    await expect(section.locator('[data-test="batch-card-cutting-link"]')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     const box = await section.evaluate((el) => {
       const r = (n: Element | null) => (n ? n.getBoundingClientRect().right : null)
       return {
@@ -105,6 +109,7 @@ test.describe('followups №1 · пункт 3 · куда уйдёт тесто�
     expect(saved).not.toBe('')
     await expect(page.locator('[data-test="settings-mail-test-target"]')).toHaveText(
       `The email will be sent to ${saved}`,
+      { timeout: DATA_READY_TIMEOUT },
     )
 
     await page.locator('[data-test="settings-mail-test-btn"]').click()
@@ -170,7 +175,9 @@ test.describe('followups №1 · пункт 3 · куда уйдёт тесто�
 
     await page.goto('/admin/settings/mail')
     const saved = await page.locator('[data-test="settings-mail-from-email"]').inputValue()
-    await expect(line).toHaveText(`The email will be sent to ${saved}`)
+    await expect(line).toHaveText(`The email will be sent to ${saved}`, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     // Переходы кликом, а не page.goto: goto перезагружает страницу и стирает
     // несохранённое — с ним премисса теста не выполнялась вовсе, и он оставался
@@ -216,7 +223,7 @@ test.describe('followups №1 · пункт 5 · шапка Sales CRM', () => {
     await page.goto('/admin/sales-crm')
     const newOrder = page.locator('[data-test="sales-crm-action-new-order"]')
     const newClient = page.locator('[data-test="sales-crm-action-new-client"]')
-    await expect(newOrder).toBeVisible()
+    await expect(newOrder).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await expect(newClient).toBeVisible()
     await expect(newOrder).toHaveClass(/btn-primary/)
     await expect(newClient).toHaveClass(/btn-primary/)
@@ -256,7 +263,7 @@ test.describe('followups №1 · Л1 · смена языка на лету', ()
     await setLang(page, 'en')
     await page.goto('/admin/settings/mail')
     const line = page.locator('[data-test="settings-mail-test-target"]')
-    await expect(line).toContainText('The email will be sent to')
+    await expect(line).toContainText('The email will be sent to', { timeout: DATA_READY_TIMEOUT })
 
     // Строка — вычислимое поверх `t()`. Снимись значение однажды, английский
     // текст остался бы на литовской странице.
