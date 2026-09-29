@@ -90,6 +90,10 @@ class Backend:
     # недельный лимит Claude; Codex и DeepSeek оплачиваются отдельно и своими
     # лимитами, поэтому в общий счёт не идут.
     metered = False
+    # Работает ли исполнитель в каталоге, который ему дало ядро. Параллельный автор
+    # пишет в своём worktree (`wt-<задача>`), и исполнитель, который каталог выбрать
+    # не может, будет править чужое дерево.
+    follows_root = True
 
     def __init__(self, options=None):
         self.options = dict(options or {})
@@ -230,6 +234,9 @@ class ZooBackend(Backend):
     """
 
     name = "zoo"
+    # `StartNewTask` папку не принимает: Zoo Code правит ту, на которой открыт его
+    # VS Code (headless-24-7-plan.md §3.3), то есть основной checkout, а не worktree.
+    follows_root = False
 
     @property
     def socket(self):
@@ -345,8 +352,12 @@ def extract_json_object(text):
     return found
 
 
-def load_routing(path, codex_binary=None):
-    """Собрать исполнителей по ролям. Без файла — обе роли на Codex, как было до адаптеров."""
+def load_routing(path, codex_binary=None, parallel=1):
+    """Собрать исполнителей по ролям. Без файла — обе роли на Codex, как было до адаптеров.
+
+    `parallel` — сколько авторов пишут разом; больше одного допустимо, только если автор
+    работает в каталоге, который ему даёт ядро.
+    """
     if path is None:
         options = {"binary": codex_binary} if codex_binary else {}
         return {role: CodexBackend(options) for role in ROLES}
@@ -366,4 +377,10 @@ def load_routing(path, codex_binary=None):
         # Политика прогона: приёмку делает не тот, кто писал. Один и тот же бэкенд
         # с одной и той же моделью превращает приёмку в самопроверку.
         raise ValueError("Автор и проверяющий заданы одинаково: приёмка станет самопроверкой")
+    if parallel > 1 and not backends["work"].follows_root:
+        # Ядро ждёт правок автора в его worktree, а автор правит основной checkout —
+        # под ногами у приёмки и коммитов. `night-run.sh` по умолчанию ставит четыре автора,
+        # поэтому отказ обязан быть здесь, до первой задачи, а не в памяти владельца.
+        raise ValueError(f'Автор {backends["work"].name} не выбирает рабочий каталог и не может '
+                         f"писать параллельно (--parallel {parallel}): нужен --parallel 1")
     return backends

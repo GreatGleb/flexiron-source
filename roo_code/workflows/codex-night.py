@@ -1220,7 +1220,7 @@ def main():
     args = parser.parse_args()
     root = args.workspace.resolve()
     queue = json.loads(args.queue.read_text())
-    backends = load_routing(args.routing, args.codex)
+    backends = load_routing(args.routing, args.codex, args.parallel)
     # Изоляция включена ПО УМОЛЧАНИЮ везде, где есть чему отравляться: БАГ-05 вернулся бы
     # от одного забытого флага, а забытый флаг ничем не виден. Репозиторий без backend/.env
     # базы не имеет вовсе — там изолировать нечего, и это не умолчание, а отсутствие предмета.

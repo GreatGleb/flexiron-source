@@ -189,6 +189,29 @@ class RoutingTest(unittest.TestCase):
                                                   "review": {"backend": "claude", "model": "b"}}))
         self.assertEqual(built["work"].name, built["review"].name)
 
+    def test_zoo_author_cannot_write_in_parallel(self):
+        # Zoo Code правит папку своего VS Code, а параллельный автор обязан писать в worktree.
+        path = self.write({"work": {"backend": "zoo", "socket": "/tmp/s"},
+                           "review": {"backend": "claude", "model": "claude-opus-5"}})
+        with self.assertRaisesRegex(ValueError, "--parallel 1"):
+            backends.load_routing(path, parallel=2)
+        self.assertEqual(backends.load_routing(path, parallel=1)["work"].name, "zoo")
+
+    def test_authors_that_follow_the_root_may_write_in_parallel(self):
+        for work in ({"backend": "claude", "model": "a"}, {"backend": "codex"},
+                     {"backend": "aider", "model": "deepseek/deepseek-chat"}):
+            built = backends.load_routing(self.write({"work": work,
+                                                      "review": {"backend": "claude", "model": "b"}}),
+                                          parallel=4)
+            self.assertEqual(built["work"].name, work["backend"])
+
+    def test_zoo_reviewer_does_not_block_parallel_authors(self):
+        # Запрет — про автора: приёмка идёт в основном checkout и по одной задаче.
+        built = backends.load_routing(self.write({"work": {"backend": "claude", "model": "a"},
+                                                  "review": {"backend": "zoo", "socket": "/tmp/s"}}),
+                                      parallel=4)
+        self.assertEqual(built["review"].name, "zoo")
+
     def test_unknown_backend_and_missing_role_are_refused(self):
         for routing in ({"work": {"backend": "нет"}, "review": {"backend": "codex"}},
                         {"work": {"backend": "codex"}}):
