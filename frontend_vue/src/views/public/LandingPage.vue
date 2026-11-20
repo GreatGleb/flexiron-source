@@ -3,13 +3,9 @@
     <LandingHeader />
 
     <main class="landing-main">
-      <section class="landing-section" data-test="landing-hero">
-        <div class="landing-container">
-          <h1>{{ content.hero.title }}</h1>
-        </div>
-      </section>
-      <section class="landing-section" data-test="landing-pains"></section>
-      <section id="flow" class="landing-section" data-test="landing-flow"></section>
+      <LandingHero />
+      <LandingPains />
+      <LandingFlow />
       <div id="features" class="landing-features">
         <section class="landing-section" data-test="landing-feature-warehouse"></section>
         <section class="landing-section" data-test="landing-feature-cutting"></section>
@@ -31,9 +27,8 @@
 <script setup lang="ts">
 /*
  * Каркас лендинга (L-03): секции 0–14 в порядке таблицы плана
- * roo_code/plans/landing/landing-plan.md. Содержимое секций 1–13 дописывают L-04…L-06;
- * h1 в hero стоит уже сейчас, чтобы у страницы был заголовок (navigation/smoke его ждут),
- * — L-04 заменит его компонентом LandingHero.
+ * roo_code/plans/landing/landing-plan.md. Секции 1–3 — компоненты L-04 (единственный h1
+ * страницы — в LandingHero); содержимое секций 4–13 дописывают L-05…L-06.
  *
  * id="features" — обёртка секций 4–10: на неё ведёт пункт шапки «Возможности».
  */
@@ -43,6 +38,9 @@ import { useHead } from '@/composables/useHead'
 import { landingRu } from '@/content/landing.ru'
 import LandingHeader from '@/components/landing/LandingHeader.vue'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
+import LandingHero from '@/components/landing/LandingHero.vue'
+import LandingPains from '@/components/landing/LandingPains.vue'
+import LandingFlow from '@/components/landing/LandingFlow.vue'
 import '@styles/public/landing.css'
 
 /** Язык текстов лендинга — только русский на первом этапе (решения 1 и 2 плана). */

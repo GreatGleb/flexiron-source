@@ -47,3 +47,23 @@
 Рассмотрено: `LandingHeader.vue:HTMLButtonElement:no-undef` — починено; `landing-shell.spec.ts:toHaveURL:budget` —
 починено; `landing-shell.spec.ts:focus:слепой` и `:overflow:слепой` — починено; `landing.css:header:overflow-769-993`
 — починено; `landing.css:mobile-menu:просвечивает` — починено.
+
+## L-04 — hero, боли, контур
+
+**Итерация 1.** typecheck/eslint по новым файлам — чисто. e2e `tests/e2e/public` → 25 passed. Скриншоты 1440/900/375 —
+замечаний нет.
+**Итерация 2 (финальная).** `npm run verify` → exit 0 (1349 passed); e2e check.sh-набора → exit 0, 75 passed;
+инверсии — 13, все красные (две переделаны после промаха #71, см. progress.md).
+Линзы:
+- Л1 — `grep -n "watch(\|useHead(\|structuredClone\|toRaw("` по новым файлам — пусто; слушателей нет.
+- Л2 — текстов в шаблонах нет, только интерполяция `landingRu.*`; ключей i18n не добавлено.
+- Л3/Л4/Л8 — API, моков и сохранения нет.
+- Л5 — правило языка демо в одном месте (`useLandingDemoLang.ts`); `grep -rn "flexiron_lang" src --include=*.vue --include=*.ts`
+  — прежние места (LangSwitcher, AdminTopbar, AdminSidebar — выбор человека) + композабл; иконки лендинга — один компонент.
+- Л6 — классы `landing-*` под `.page-landing`; каждый компонент импортирует `landing.css`; `<!--` в шаблонах нет;
+  вылезания нет на 9 ширинах (тест L-03).
+- Л7 — `router-link` на `/admin` (маршрут есть, `router/index.ts:84`, редирект на дашборд); якорь `#lead` существует.
+- Л9 — инверсии в progress.md; `grep -rn "await page.waitForLoadState" tests/` — 0.
+- Л10 — роутер не тронут; dev-сервер поднимается (e2e).
+Новых находок в итерации 2 нет — свип чистый.
+Рассмотрено: `landing-hero-pains-flow.spec.ts:inversion-cdn:промах` и `:inversion-icon-img:промах` — инверсии переделаны.

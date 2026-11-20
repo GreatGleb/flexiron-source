@@ -3,7 +3,7 @@
  * Все классы — с префиксом landing- и под .page-landing (питфолл #73): файл грузится
  * вместе с компонентами лендинга, и непрефиксное правило могло бы победить чужое
  * порядком впрыска. Синий — только var(--primary)/var(--primary-dark) из erp-base.css.
- * Блоки секций 1–13 дописывают задачи L-04…L-06.
+ * Блоки секций 1–3 — L-04; секций 4–13 дописывают задачи L-05…L-06.
  */
 
 .page-landing {
@@ -250,6 +250,260 @@
   font-size: 0.875rem;
 }
 
+/* ── Общие элементы секций: заголовки, текст, карточки, кружки иконок (L-04, план «Дизайн») ── */
+
+.page-landing .landing-hero,
+.page-landing .landing-pains,
+.page-landing .landing-flow {
+  padding: clamp(56px, 8vw, 104px) 0;
+}
+
+.page-landing .landing-eyebrow {
+  margin: 0 0 16px;
+  color: var(--landing-accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.page-landing .landing-h2 {
+  max-width: 860px;
+  margin: 0 0 clamp(28px, 4vw, 48px);
+  color: #fff;
+  font-size: clamp(1.75rem, 3.2vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.page-landing .landing-h3 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.page-landing .landing-text {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.page-landing .landing-note {
+  margin: 28px 0 0;
+  color: var(--text-dim);
+  font-size: 1rem;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+.page-landing .landing-card {
+  padding: clamp(20px, 3vw, 32px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--landing-radius);
+  background: var(--glass-light);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.page-landing .landing-icon {
+  display: block;
+}
+
+.page-landing .landing-icon-circle {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  color: #fff;
+}
+
+.page-landing .landing-icon-circle--lg {
+  width: 72px;
+  height: 72px;
+}
+
+.page-landing .landing-icon-circle--accent {
+  background: var(--landing-accent);
+}
+
+.page-landing .landing-icon-circle--primary {
+  background: var(--primary);
+}
+
+.page-landing .landing-icon-circle--dark {
+  border: 1px solid var(--glass-border);
+  background: rgba(10, 14, 23, 0.85);
+}
+
+/* ── Скриншот в рамке «окно программы» (LandingShot, L-04/L-05) ── */
+
+.page-landing .landing-shot {
+  min-width: 0;
+  margin: 0;
+}
+
+.page-landing .landing-shot-window {
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--landing-radius);
+  background: var(--glass-light);
+  box-shadow: var(--landing-shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.page-landing .landing-shot-bar {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.page-landing .landing-shot-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.page-landing .landing-shot-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.page-landing .landing-shot-caption {
+  margin-top: 12px;
+  color: var(--text-dim);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+/* ── Секция 1: hero ── */
+
+.page-landing .landing-hero {
+  padding-top: clamp(32px, 6vw, 80px);
+}
+
+.page-landing .landing-hero-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: clamp(32px, 5vw, 64px);
+  align-items: center;
+}
+
+.page-landing .landing-hero-title {
+  margin: 0 0 16px;
+  color: #fff;
+  font-size: clamp(2.25rem, 5vw, 4rem);
+  font-weight: 800;
+  line-height: 1.05;
+  overflow-wrap: break-word;
+}
+
+.page-landing .landing-hero-subtitle {
+  margin: 0 0 32px;
+  color: var(--text-dim);
+  font-size: clamp(1.125rem, 2vw, 1.375rem);
+  line-height: 1.5;
+}
+
+.page-landing .landing-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ── Секция 2: боли ── */
+
+.page-landing .landing-pains-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.page-landing .landing-pain {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* ── Секция 3: контур ── */
+
+.page-landing .landing-flow-steps {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 24px;
+  margin: 0 0 32px;
+  padding: 0;
+  list-style: none;
+}
+
+.page-landing .landing-flow-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.page-landing .landing-flow-step-title {
+  margin-top: 16px;
+}
+
+.page-landing .landing-flow-step--accent .landing-flow-step-title {
+  color: var(--landing-accent);
+}
+
+.page-landing .landing-flow-step-text {
+  font-size: 0.95rem;
+}
+
+/* Стрелка к следующему шагу: от края кружка (72 px) до кружка соседа через зазор 24 px,
+   с отступом 6 px с каждой стороны — длина = ширина шага − 60 px. */
+.page-landing .landing-flow-arrow {
+  position: absolute;
+  top: 35px;
+  left: calc(50% + 42px);
+  width: calc(100% - 60px);
+  height: 2px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.page-landing .landing-flow-arrow::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: -1px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid rgba(255, 255, 255, 0.3);
+}
+
+.page-landing .landing-flow-step:last-child .landing-flow-arrow {
+  display: none;
+}
+
+.page-landing .landing-flow-note {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.page-landing .landing-flow-note-lead {
+  color: #fff;
+}
+
 /* ── Брейкпоинты: 1200, 992, 768, 600, 375 (план) ── */
 
 /* Одна строка шапки (логотип + 4 пункта + 2 кнопки) не помещается уже ниже ~1050 px:
@@ -343,5 +597,63 @@
   .page-landing .landing-footer-inner {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+/* Секции 1–3: на ≤992 hero в одну колонку (скриншот под текстом), контур 3×2;
+   на ≤768 боли в одну колонку; на ≤600 контур столбиком со стрелками вниз. */
+@media (max-width: 992px) {
+  .page-landing .landing-hero-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-landing .landing-flow-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 40px;
+  }
+
+  .page-landing .landing-flow-step:nth-child(3) .landing-flow-arrow {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-landing .landing-pains-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .page-landing .landing-flow-steps {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 56px;
+  }
+
+  .page-landing .landing-flow-step:nth-child(3) .landing-flow-arrow {
+    display: block;
+  }
+
+  .page-landing .landing-flow-arrow {
+    top: calc(100% + 12px);
+    left: 50%;
+    width: 2px;
+    height: 32px;
+    transform: translateX(-50%);
+  }
+
+  .page-landing .landing-flow-arrow::after {
+    top: auto;
+    right: auto;
+    bottom: -1px;
+    left: -4px;
+    border-top: 8px solid rgba(255, 255, 255, 0.3);
+    border-right: 5px solid transparent;
+    border-bottom: 0;
+    border-left: 5px solid transparent;
+  }
+
+  .page-landing .landing-pain,
+  .page-landing .landing-flow-note {
+    flex-direction: column;
   }
 }
