@@ -24,7 +24,7 @@ import { submitLead } from '@/services/landingLeadService'
 export type LeadFormState = 'idle' | 'sending' | 'success' | 'error' | 'disabled'
 
 /** Порядок полей на форме — фокус уходит на первое неверное в этом порядке. */
-export const LEAD_FIELDS: readonly LeadField[] = ['name', 'company', 'contact', 'message']
+const LEAD_FIELDS: readonly LeadField[] = ['name', 'company', 'contact', 'message']
 
 export function useLandingLead(url: string = LEADS_URL) {
   const draft = reactive<LeadDraft>({

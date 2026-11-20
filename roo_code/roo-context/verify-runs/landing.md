@@ -113,3 +113,45 @@ e2e check.sh-набора → exit 0, 119 passed, failed/flaky нет; повт�
 - Л9 — 13 инверсий + ручная (progress.md, L-08); `grep -rn "await page.waitForLoadState" tests/` — 0.
 - Л10 — роутер не тронут; dev-сервер поднимается (e2e).
 Новых находок нет — свип чистый.
+
+## L-09 — сквозная спека, сборка демо, финальный свип
+
+Область — весь лендинг, Л1–Л10. Вход каждой итерации — `npm run verify`.
+
+**Итерация 1.** Новая `tests/e2e/public/landing.spec.ts`. Находки:
+- `landing.spec.ts:visual:style-option-ignored` — у `toHaveScreenshot` нет опции `style` (только `stylePath`,
+  `node_modules/playwright/types/test.d.ts`), шапка легла в снимки чужих секций. Починено: стиль на страницу
+  (`addStyleTag`), окно 1280×1100 выше самой высокой секции (971 px). Эталоны переснят.
+- `landing.spec.ts:visual:scroll-dependent-backdrop` — инверсия «сдвиг padding hero/pains/flow» покрасила снимки
+  шести НЕтронутых секций: фон `.bg-image` фиксирован, сквозь стекло видно то, что под секцией в окне, а
+  `scrollIntoViewIfNeeded` ставил секцию куда выходило. Починено: верх секции — к верху окна перед съёмкой.
+  Повторная инверсия с ЦЕЛЫМ сдвигом (`margin-top: 10px`) — красный только hero, 14 зелёных. С дробным сдвигом
+  (8vw = 102.4 px → 96) нижние секции краснеют и после правки: субпиксельное положение меняет растр — это
+  свойство страницы, а не теста; записано в «Не проверено» progress.md.
+- `landing.spec.ts:anchors:poll-satisfied-by-inaction` — первый вариант ждал «верх секции ≥ низа шапки», что
+  истинно и до клика (секция ниже окна) — #68, найдено чтением до прогона. Условие сведено в одно с двумя краями.
+- `expectUrlBudget.spec.ts` (в `npm run verify`) — `toHaveURL` якорей без `DATA_READY_TIMEOUT`. Починено.
+`npm run verify` после правок → exit 0 (92 файла, 1364 passed, 3 skipped).
+
+**Итерация 2 (финальный свип).** `npm run deadcode` (вне гейта): у лендинга 1 экспорт + 7 типов без внешнего
+импорта (`useLandingLead.ts:LEAD_FIELDS`, `types/landing.ts:LandingAnchor…LandingFormField`) — каждый используется
+только внутри своего файла (`grep -rlw` по src и tests). `export` снят: `deadcode` → по лендингу 0 (всего 56
+экспортов / 27 типов — чужие, гейт и до правки красный). `npm run verify` → exit 0 (92 / 1364 / 3 skipped).
+Линзы на этом дереве:
+- Л1 — `grep -rn "structuredClone\|toRaw(\|useHead(\|watch("` по LandingPage, components/landing, useReveal,
+  content, config, domain → одно вхождение: `useHead` со статическим заголовком из модуля текстов (данных нет, #54
+  не применим).
+- Л2 — `grep -n "landing\." src/i18n/public.*` → пусто (тексты в `content/landing.ru.ts`, решение 1);
+  localeParity внутри verify зелёный.
+- Л3 — эндпоинтов нет; `landingLeadService.ts:25` — POST `text/plain`, его держит `landingLeadService.spec.ts`.
+- Л4 — `grep -rln landing src/services/mocks/` → два посторонних слова («landing day», «landing in the feed»).
+- Л5 — порядок секций и якоря шапки ПЕРЕНЕСЕНЫ из `landing-shell.spec.ts`, не скопированы:
+  `grep -rln "SECTION_ORDER\|landing-footer-link\|'#features'" tests/` → только `landing.spec.ts`.
+- Л6 — `grep -rn "<!--"` по компонентам и странице → 0; `grep -L landing.css src/components/landing/*.vue` → 0;
+  классы в шаблонах — только `landing-*` (остальное в выводе — выражения `:class`).
+- Л7 — `name: 'landing'` в роутере есть; повторы имён в `grep -o "name: '…'" | uniq -d` — ссылки
+  (`redirect`, `return { name }`), не определения; `<a>` без `#`-якоря — только `tel:` в LandingContacts.
+- Л8 — форма не менялась.
+- Л9 — 20 инверсий (progress.md, L-09); `grep -rn "await page.waitForLoadState" tests/` → 0.
+- Л10 — роутер не тронут; dev-сервер поднимается (e2e); `npm run build` exit 0.
+Новых находок нет — свип чистый.

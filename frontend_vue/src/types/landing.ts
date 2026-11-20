@@ -23,7 +23,7 @@ export type LandingIcon =
   | 'language'
 
 /** id секций-якорей страницы: на них ведут ссылки шапки и кнопки «Заказать показ». */
-export type LandingAnchor = 'features' | 'flow' | 'roadmap' | 'lead'
+type LandingAnchor = 'features' | 'flow' | 'roadmap' | 'lead'
 
 export interface LandingImage {
   /** URL после сборки Vite (импорт из src/assets/images/landing/). */
@@ -34,25 +34,25 @@ export interface LandingImage {
   height: number
 }
 
-export interface LandingPoint {
+interface LandingPoint {
   title: string
   text: string
   icon?: LandingIcon
 }
 
-export interface LandingLink {
+interface LandingLink {
   label: string
 }
 
-export interface LandingAnchorLink extends LandingLink {
+interface LandingAnchorLink extends LandingLink {
   anchor: LandingAnchor
 }
 
-export interface LandingRouteLink extends LandingLink {
+interface LandingRouteLink extends LandingLink {
   to: string
 }
 
-export type LandingFeatureId =
+type LandingFeatureId =
   | 'warehouse'
   | 'cutting'
   | 'order'
@@ -82,7 +82,7 @@ export interface LandingFeature {
 /** Коды ошибок поля формы заявки; правило валидации — src/domain/landingLead.ts (L-02). */
 export type LandingLeadErrorCode = 'required' | 'invalidContact' | 'tooLong'
 
-export interface LandingFormField {
+interface LandingFormField {
   label: string
   placeholder?: string
 }
