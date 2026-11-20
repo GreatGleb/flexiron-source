@@ -71,13 +71,21 @@
     border-color 0.2s ease;
 }
 
-.page-landing .landing-btn:focus-visible {
+/* Видимый фокус — одно правило на всю страницу (L-08): ссылки, кнопки, поля формы. Кольцо
+   поверх рамки, а не смена её цвета: смену цвета рамки на тёмном стекле не различить. */
+.page-landing :is(a, button, input, textarea):focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 3px;
 }
 
 .page-landing .landing-btn--primary {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  /* Светлый край — не чистый --primary: белый текст 16px на #1890ff даёт 3.2:1, ниже AA 4.5
+     (замер L-08). Смесь 40 % --primary с --primary-dark — 4.9:1 в самой светлой точке. */
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary) 40%, var(--primary-dark)) 0%,
+    var(--primary-dark) 100%
+  );
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow:
     0 8px 20px rgba(24, 144, 255, 0.3),
@@ -728,7 +736,6 @@
 
 .page-landing .landing-lead-input:focus {
   border-color: var(--primary);
-  outline: none;
 }
 
 .page-landing .landing-lead-textarea {

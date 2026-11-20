@@ -3,7 +3,7 @@ import { DATA_READY_TIMEOUT } from '../helpers/ready'
 
 /**
  * Каркас лендинга `/` (задача L-03, roo_code/plans/landing/landing-plan.md):
- * порядок секций, якоря шапки, язык страницы, мобильное меню, липкий фон шапки.
+ * порядок секций, якоря шапки, язык страницы, липкий фон шапки.
  * Содержимое секций проверяют спеки L-04…L-09.
  */
 
@@ -82,72 +82,4 @@ test.describe('landing shell', () => {
   })
 })
 
-test.describe('landing header — mobile menu', () => {
-  test.use({ viewport: { width: 375, height: 740 } })
-
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/')
-    await expect(page.getByTestId('landing-menu-toggle')).toBeVisible({
-      timeout: DATA_READY_TIMEOUT,
-    })
-  })
-
-  test('toggle opens the menu and reports it in aria-expanded', async ({ page }) => {
-    const toggle = page.getByTestId('landing-menu-toggle')
-    const menu = page.getByTestId('landing-menu')
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await expect(menu).toBeHidden()
-    await toggle.click()
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    await expect(menu).toBeVisible()
-    await toggle.click()
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await expect(menu).toBeHidden()
-  })
-
-  test('Escape closes the menu and returns focus to the toggle', async ({ page }) => {
-    const toggle = page.getByTestId('landing-menu-toggle')
-    await toggle.click()
-    await expect(page.getByTestId('landing-menu')).toBeVisible()
-    // Фокус уходит в меню: иначе он остался бы на кнопке после клика, и проверка возврата
-    // фокуса прошла бы без всякого возврата.
-    await page.getByTestId('landing-nav-link').first().focus()
-    await expect(toggle).not.toBeFocused()
-    await page.keyboard.press('Escape')
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await expect(page.getByTestId('landing-menu')).toBeHidden()
-    await expect(toggle).toBeFocused()
-  })
-
-  test('clicking a menu link closes the menu', async ({ page }) => {
-    const toggle = page.getByTestId('landing-menu-toggle')
-    await toggle.click()
-    await page.getByTestId('landing-nav-link').last().click()
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await expect(page.getByTestId('landing-menu')).toBeHidden()
-    await expect(page).toHaveURL(/#lead$/, { timeout: DATA_READY_TIMEOUT })
-  })
-})
-
-/** Брейкпоинты плана (1200, 992, 768, 600, 375) с обеих сторон и края диапазона 320–1440. */
-const WIDTHS = [320, 375, 600, 768, 769, 992, 993, 1200, 1440]
-
-for (const width of WIDTHS) {
-  test.describe(`landing shell at ${width}px`, () => {
-    test.use({ viewport: { width, height: 800 } })
-
-    test('nothing sticks out past the viewport', async ({ page }) => {
-      await page.goto('/')
-      await expect(page.getByTestId('landing-header')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
-      // Не scrollWidth документа: public.css ставит body { overflow-x: hidden }, и вылезший
-      // блок прокрутки не даёт — его просто обрезает. Меряется правый край каждого элемента.
-      const sticking = await page.getByTestId('page-landing').evaluate((root) => {
-        const limit = document.documentElement.clientWidth + 0.5
-        return [root, ...root.querySelectorAll('*')]
-          .filter((el) => el.getBoundingClientRect().right > limit)
-          .map((el) => el.getAttribute('data-test') ?? el.className.toString())
-      })
-      expect(sticking).toEqual([])
-    })
-  })
-}
+// Мобильное меню и ширины 320–1440 — tests/e2e/public/landing-layout.spec.ts (L-08).

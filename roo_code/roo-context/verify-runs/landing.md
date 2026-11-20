@@ -85,3 +85,31 @@
 - Л9 — 14 инверсий, по одной на утверждение; `grep -rn "await page.waitForLoadState" tests/` — 0.
 - Л10 — роутер не тронут; dev-сервер поднимается (e2e).
 Новых находок нет — свип чистый. Открытый вопрос владельцу (не находка): надзаголовки фич.
+
+## L-08 — адаптив и доступность
+
+**Итерация 1.** Новая спека `landing-layout.spec.ts` на текущем коде: 1 failed — фокус полей формы невидим
+(`landing-lead-input:focus { outline: none }`, только смена цвета рамки). Починено общим правилом фокуса.
+Отдельный замер контраста (скрипт `/tmp/l08/contrast2.mjs` + `.py`, весь текст спрятан, фон снят целиком,
+121 элемент на 1440 / 115 на 375): белый текст основных кнопок на градиенте — 3.59 при норме 4.5. Починено
+сдвигом светлого края градиента (смесь токенов). Находки: `landing.css:landing-lead-input:focus:focus-invisible`,
+`landing.css:landing-btn--primary:contrast` — обе починены.
+Инверсия 0 нашла слепоту теста: `documentElement.scrollWidth` равен окну при любом содержимом (прокручиваемая
+коробка — body). Тест дополнен `body.scrollWidth` — `landing-layout.spec.ts:no-horizontal-scroll:blind` починено.
+
+**Итерация 2 (финальная, после последней правки).** `npm run verify` → exit 0 (92 файла, 1364 passed, 3 skipped);
+e2e check.sh-набора → exit 0, 119 passed, failed/flaky нет; повторный замер контраста — ниже AA ничего, кроме
+артефакта замера у h1 (текст не спрятался; по фону без текста — ~10:1).
+Линзы:
+- Л1 — `grep -n "watch(\|useHead(\|structuredClone\|toRaw("` по изменённому — изменены только CSS и спеки; пусто.
+- Л2 — текстов не добавлено.
+- Л3/Л4/Л8 — API, моков и сохранения задача не касается.
+- Л5 — правило фокуса одно (`.page-landing :is(a, button, input, textarea):focus-visible`), прежнее
+  `.landing-btn:focus-visible` удалено; тесты меню и ширин перенесены из `landing-shell.spec.ts`, а не скопированы
+  (`grep -rn "landing-menu-toggle\|nothing sticks out" tests/e2e | grep -v landing-layout` — пусто).
+- Л6 — селекторы под `.page-landing`; синий — только из `--primary`/`--primary-dark` (`color-mix` двух токенов);
+  `grep -rn "<!--" src/components/landing/` — 0.
+- Л7 — маршрутов не добавлено.
+- Л9 — 13 инверсий + ручная (progress.md, L-08); `grep -rn "await page.waitForLoadState" tests/` — 0.
+- Л10 — роутер не тронут; dev-сервер поднимается (e2e).
+Новых находок нет — свип чистый.
