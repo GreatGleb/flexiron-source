@@ -225,3 +225,125 @@
 ## L-02: заблокирована ночным прогоном (2026-11-20 16:09)
 
 Причина (оркестратор): Оркестратор запускает check.sh на системном Node 18.19, а гейт требует Node ≥19/20. Чинить это надо в запускалке roo_code/workflows/landing-night/ (вне путей rules[3]): поставить Node 22 из nvm в PATH. Иначе check.sh красный у любой задачи.. Работа — в git stash «night-blocked L-02».
+
+## L-03
+
+**Статус: работа сделана; задача blocked по среде (check.sh оркестратора идёт на Node 18 — см. «Доработка 1»).** Каркас страницы, шапка, подвал, язык. Зависит только от L-01 (L-02 заблокирована по среде —
+на L-03 это не влияет: домен заявки здесь не используется).
+
+### Что сделано
+- `src/views/public/LandingPage.vue` переписан: корень `.page-landing` `data-test="page-landing"`, секции 0–14 в
+  порядке таблицы плана (`landing-header` … `landing-footer`). Секции 2–13 — пустые обёртки с `data-test`.
+  Якоря шапки: `#flow` (секция 3), `#features` (обёртка `div.landing-features` вокруг секций 4–10 — L-05 рисует их
+  v-for внутри), `#roadmap` (12), `#lead` (13). `useHead` — `landingRu.seo`. На `onMounted` — `html[lang]=ru`,
+  на `onUnmounted` — обратно `locale.value` i18n.
+- `src/components/landing/LandingHeader.vue` — логотип (`router-link` на `landing`), 4 якоря, «Войти» (`/login`),
+  «Оставить заявку» (`#lead`); мобильное меню (≤768) — кнопка с `aria-expanded`/`aria-controls`/`aria-label`
+  «Меню», закрытие по Escape (фокус возвращается на кнопку) и по клику на любую ссылку меню; фон по скроллу
+  (`scrollY > 8`), слушатель `scroll` с `{ passive: true }`, снимается в `onUnmounted` вместе с `keydown`.
+- `src/components/landing/LandingFooter.vue` — контакты из `CONTACTS` (`mailto:`, `tel:`, `t.me/…`), ссылки
+  «Поддержка / О продукте / Условия», «© Flexiron». Адрес заглушки в файле не записан — берётся из конфига.
+- `src/styles/public/landing.css` — токены плана на `.page-landing`, `.landing-btn` / `--primary` / `--ghost`
+  (градиент `.cta-button`, синий только `--primary`/`--primary-dark`), шапка, подвал, брейкпоинты.
+- `src/router/index.ts` — `meta: { hideLangSwitcher: true }` у `/`; `src/App.vue` — `showLangSwitcher`
+  (`!isAdmin && meta.hideLangSwitcher !== true`).
+- `src/i18n/public.ts` — блоки `landing` удалены из ru/en/lt (46 строк); `grep "t('landing\." src/` пуст.
+- `tests/e2e/i18n.spec.ts` — проверка переключателя перенесена на `/login`; добавлен тест «на `/` переключателя
+  нет, после перехода на `/login` — есть».
+- `tests/e2e/public/landing-shell.spec.ts` — новая спека каркаса (17 тестов): порядок секций, якоря шапки ведут на
+  существующие элементы, `lang` ru и возврат к `en`, `document.title`, фон шапки по скроллу, мобильное меню
+  (aria-expanded, Escape + фокус, клик по ссылке), «ничего не вылезает за окно» на 320/375/600/768/769/992/993/1200/1440.
+
+### Решения (и почему)
+- **h1 в hero уже в L-03** (`landingRu.hero.title`, без своего класса). Без него `navigation.spec` («landing
+  renders at /» ждёт `h1`) и `smoke.spec` красные, а done L-03 требует их зелёными. L-04 заменит его `LandingHero`.
+- **Язык страницы — в `LandingPage.vue`, а не в `App.vue`.** Язык — свойство содержимого страницы; в `App.vue`
+  пришлось бы сравнивать имя маршрута. `App.vue` тронут только условием переключателя.
+- **Модификаторы состояния — `landing-header--scrolled` / `--menu-open`**, а не `is-*`: done требует префикс
+  `landing-` у каждого класса новых файлов.
+- **Якоря — обычные `<a href="#…">`**, не `router-link`: это прокрутка внутри страницы, а не переход (#32 про
+  переходы между страницами). Отступ под липкую шапку — `scroll-margin-top`.
+- **Шапка на 769–1200** (находка этой задачи, см. ниже): на ≤1200 плотнее, на ≤992 навигация второй строкой;
+  кнопка меню — с ≤768, как в плане.
+- Из подвала ушли «Регистрация» и «Карта экранов» прежней страницы: в таблице плана (секции 0 и 14) их нет.
+  Маршруты `/register` и `/screens` живы; e2e на эти ссылки с `/` не опирался (греп `tests/`).
+- Меню на мобильном почти непрозрачное (`rgba(10,14,23,.97)`): у шапки свой `backdrop-filter`, и размытие
+  вложенного меню страницу под собой не видит — сквозь пункты читался заголовок hero (видно на скриншоте 375).
+
+### Находки цикла (рассмотрено)
+- `landing.css:landing-header-inner:overflow-769-993` — шапка в одну строку не помещалась, кнопки вылезали за окно
+  (тест ширин: `landing-menu`, `landing-header-actions`, `landing-header-cta`). Починено медиа-блоками ≤1200/≤992.
+- `landing-shell.spec.ts:toHaveURL:budget` — `expectUrlBudget.spec.ts` (внутри verify) потребовал
+  `DATA_READY_TIMEOUT` у `toHaveURL`. Починено.
+- `LandingHeader.vue:HTMLButtonElement:no-undef` — eslint не знает глобал; тип `HTMLElement`. Починено.
+- Инверсии `nofocus` и `overflow` сначала остались зелёными — тесты были слепы (фокус и так оставался на кнопке
+  после клика; `body { overflow-x: hidden }` из public.css прячет вылезание от `scrollWidth`). Тесты переписаны:
+  фокус уводится в меню до Escape; вылезание меряется правым краем каждого элемента. После правки обе красные.
+
+### Инверсии (Л9) — каждая ломала одно место, файл возвращался и сверялся `cmp`; прогон `tests/e2e/public` + `i18n.spec.ts`
+| Поломка | Покраснело |
+|---|---|
+| снят `meta.hideLangSwitcher` у `/` | landing hides the switcher, /login shows it |
+| снято условие `meta.hideLangSwitcher` в App.vue | то же |
+| `lang = 'ru'` на монтировании снят | html lang is ru … returns to the app locale |
+| возврат `lang` при уходе снят | то же |
+| pains и flow переставлены | sections 0–14 in plan order |
+| `id="roadmap"` → `road` | every header anchor leads to an element |
+| слушатель scroll не вешается | header gets its background only after scrolling |
+| порог `scrollY > 8` → `>= 0` | то же |
+| Escape не обрабатывается | Escape closes the menu and returns focus |
+| фокус на кнопку не возвращается | то же (после правки теста; до правки — зелёный, см. выше) |
+| клик по ссылке меню не закрывает | clicking a menu link closes the menu |
+| `aria-expanded` всегда `false` | toggle opens the menu and reports it in aria-expanded |
+| `seo.title` изменён | document title comes from the landing content |
+| `min-width: 420px` у шапки | nothing sticks out … at 375 (после правки теста) |
+| меню на ≤768 всегда показано | три теста мобильного меню |
+Удаление `onUnmounted`-снятия слушателей тестом не покрыто — проверено грепом и чтением (done L-03 так и требует):
+`LandingHeader.vue` — `addEventListener('scroll', onScroll, { passive: true })` в `onMounted`,
+`removeEventListener('scroll', onScroll)` и `removeEventListener('keydown', onKeydown)` в `onUnmounted`.
+
+### Проверки
+- **Среда:** в PATH сессии снова системный Node 18.19 (`/usr/bin/node`) — та же причина, что заблокировала L-02.
+  Все проверки гонялись на `PATH=$HOME/.nvm/versions/node/v22.23.1/bin:$PATH`. Если check.sh оркестратора опять
+  пойдёт на Node 18, он покраснеет независимо от задачи.
+- `cd frontend_vue && npm run verify` → **exit 0** (87 файлов, 1281 passed, 3 skipped); в т.ч. `localeParity.spec.ts`.
+- Узкий e2e (navigation, smoke, i18n, tests/e2e/public) → exit 0, 59 passed (до добавления тестов ширин);
+  `tests/e2e/public` после → 17 passed.
+- Полный e2e, уровень 2 (роутер, App.vue, i18n), PW_PORT=5373, одно дерево:
+  прогон 1 — **exit 0, 1105 passed**, failed/flaky нет (34.7 мин, `/tmp/landing-l03-e2e.txt`);
+  прогон 2 — **exit 0, 1105 passed**, failed/flaky нет (31.5 мин, `/tmp/landing-l03-e2e-2.txt`); между прогонами
+  дерево не менялось (`git status` в начале прогона 2 — тот же набор файлов).
+  Полный набор идёт ~35 мин, больше 10-минутного потолка переднего плана инструмента, поэтому оба прогона шли
+  фоновой задачей с ожиданием её завершения; вердикт — по коду возврата и строкам failed/flaky.
+- Греп-критерии: `grep -rn "t('landing\." src` — пусто; классы в новых файлах — все `landing-*` (+ корень
+  `page-landing`), `.container` не используется; адрес заглушки по `src/` и `tests/` — только `src/config/landing.ts`.
+- Глазами (скриншоты Playwright 375 с открытым меню / 900 / 1100 / 1440): шапка в одну строку на 1440 и 1100,
+  в две на 900, меню на 375; подвал читается.
+
+### Доработка 1 (замечание приёмки: «check.sh full: красный (код 1)», лог night-2026-11-20-1546/L-03.check0.log)
+Замечание по сути неверно адресовано задаче: красный — от среды, а не от L-03.
+- Причина в логе: `npm run verify` → test:unit, 4 падения в двух **чужих** спеках, которые L-03 не трогала
+  (`git status` их не показывает): `src/services/mocks/idempotency-scope.spec.ts` — `ReferenceError: crypto is not
+  defined` (глобального `crypto` нет в Node 18) и `src/composables/notifications-refusals-are-translated.spec.ts` —
+  таймаут хука. check.sh гоняется системным Node `/usr/bin/node` v18.19.1.
+- Замер: те же два файла на Node 18 → exit 1, 4 failed; на Node 22.23.1 (nvm) → exit 0, 16 passed.
+  Ровно те же 4 падения в `L-02.check0.log` — до того, как L-03 началась; L-02 заблокирована по этой же причине
+  (night.log, 16:09).
+- Работа L-03 не менялась. На Node 22: `npm run verify` → **exit 0** (87 файлов, 1281 passed, 3 skipped);
+  `grep "t('landing\." src/` — пусто; e2e navigation+smoke+i18n+tests/e2e/public → **exit 0, 67 passed**.
+  Полный набор повторно не гонялся: он идёт ~35 мин, дольше потолка инструмента, а дерево не менялось с двух
+  зелёных полных прогонов (1105 passed ×2, раздел «Проверки» выше).
+- Чинить надо запускалку (`roo_code/workflows/landing-night/` — поставить Node 22 из nvm в PATH перед check.sh);
+  это вне путей rules[3], поэтому задача — **blocked**. Править чужие спеки или добавлять полифилл `crypto`
+  ради Node 18 — вне задачи («только то, что требует задача») и скрыло бы настоящую причину.
+
+### Не проверено / оставлено следующим задачам
+- Плавная прокрутка к якорям не включалась — в плане её нет («Движение» — L-07).
+- Пустые секции 2–13 высоты не имеют: прокрутка и вид страницы целиком — после L-04…L-06.
+- Блокировка прокрутки body при открытом мобильном меню не делалась — план её не требует.
+- Firefox/Safari не проверялись — набор e2e только Chromium.
+
+
+## L-03: заблокирована ночным прогоном (2026-11-20 18:02)
+
+Причина (оркестратор): The night's check.sh runs on /usr/bin/node v18.19.1, where unit tests not touched by L-03 fail. The fix is to put Node 22 from nvm in PATH in roo_code/workflows/landing-night/, which is outside the paths in rules[3].. Работа — в git stash «night-blocked L-03».
