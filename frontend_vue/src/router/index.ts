@@ -41,6 +41,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'landing',
     component: LandingPage,
+    meta: { hideLangSwitcher: true },
   },
   {
     path: '/login',

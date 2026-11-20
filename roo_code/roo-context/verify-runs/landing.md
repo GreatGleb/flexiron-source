@@ -18,25 +18,32 @@
 
 Рассмотрено: `landing.ru.spec.ts:norm:перенос-строки-в-цитате-плана` — починено (схлопывание `\s+`).
 
-## L-02 — домен заявки, сервис, Apps Script
+## L-03 — каркас, шапка, подвал, язык
 
-**Итерация 1.** `npm run verify` на Node 18 (PATH сессии) → exit 2/1: typecheck (`noUncheckedIndexedAccess`
-в двух новых спеках), затем eslint упал на форматере (`util.styleText`, Node ≥20), затем два чужих спека
-(`crypto` глобален с Node 19). Починено: индексный доступ в спеках — через хелперы `at()`/`firstCall()`;
-`sonarjs/code-eval` — вызовы `doGet/doPost` свойством контекста, одна строка `runInContext` с обоснованным disable.
+**Итерация 1.** `npm run verify` → exit 1: eslint `no-undef HTMLButtonElement` (LandingHeader.vue). Починено.
+**Итерация 2.** `npm run verify` → exit 1: `expectUrlBudget.spec.ts` — `toHaveURL` без `DATA_READY_TIMEOUT`
+в `landing-shell.spec.ts`. Починено.
+**Итерация 3.** verify → exit 0. Узкий e2e (navigation, smoke, i18n, public) → 59 passed. Инверсии: 2 из 13
+зелёные (фокус, вылезание) — тесты слепы, переписаны. Тест ширин 320–1440 нашёл вылезание шапки на 769–993 —
+починено CSS (≤1200 плотнее, ≤992 навигация второй строкой). Меню на 375 просвечивало hero — фон 0.97.
+**Итерация 4.** verify → exit 0 (1281 passed); `tests/e2e/public` → 17 passed; все 15 инверсий красные.
+Линзы:
+- Л1 — `grep -n "watch(\|useHead(\|structuredClone\|toRaw(" ` по новым файлам: один `useHead` со статическими
+  строками (текст не зависит от локали — русский всегда), watch нет. Слушатели снимаются в `onUnmounted`.
+- Л2 — `grep -rn "t('landing\." src` пусто; `localeParity.spec.ts` зелёный (внутри verify) после удаления блоков
+  `landing` из трёх локалей; новых ключей i18n нет (решение 1).
+- Л3/Л4/Л8 — нет вызовов API, моков, сохранения.
+- Л5 — тексты только из `landing.ru.ts`, контакты только из `config/landing.ts` (греп адреса заглушки — один файл);
+  второй реализации переключателя языка нет: `lang` на лендинге ставит только LandingPage.
+- Л6 — все классы `landing-*` под `.page-landing` (греп `class=` новых файлов); каждый компонент импортирует
+  `landing.css`; HTML-комментариев в `<template>` нет (`grep -n "<!--" src/components/landing src/views/public/LandingPage.vue` пусто);
+  `z-index: 10` у корня над `.bg-overlay` (#5); вылезания нет на 9 ширинах (тест).
+- Л7 — `router-link` на `{ name: 'landing' }`, `/login`, `/support`, `/about`, `/terms` — все маршруты есть в
+  `router/index.ts`; флагов нет (лендинг публичен, план фаза 8).
+- Л9 — 15 инверсий, таблица в progress.md; `grep -rn "await page.waitForLoadState" tests/` пуст.
+- Л10 — роутер без новых имён, тронута только `meta` маршрута `/`; dev-сервер поднимается (e2e).
+Новых находок в итерации 4 нет — свип чистый. Полный e2e уровня 2 — пара прогонов, результат в progress.md.
 
-**Итерация 2.** На Node 22.23.1 (nvm): `npm run verify` → exit 0, 89 файлов, 1349 passed, 3 skipped.
-`test:unit:coverage` → exit 0. Линзы:
-- Л1, Л2, Л4, Л6, Л7, Л8 — не применимы: ни компонентов, ни i18n, ни моков, ни маршрутов (тексты ошибок — L-01).
-- Л3 — внешний Apps Script, не наш API: метод/заголовок/тело/redirect/таймаут по разделу «Форма заявки» плана,
-  держит `landingLeadService.spec.ts`. `contract-conformance` зелёный (эндпоинт не в `api.ts`).
-- Л5 — правило валидации одно (`domain/landingLead.ts`), Code.gs — вторая среда: спека сверяет константы и
-  выражения разбором и вердикты исполнением в `node:vm`. Греп `EMAIL_RE|isValidEmail|validEmail` по `src/`:
-  вне лендинга только `ClientCreatePage.vue:EMAIL_REGEX` — другое правило админки, рассмотрено, не находка.
-- Л9 — 49 инверсий, все красные (таблица в progress.md, L-02).
-- Л10 — роутер, i18n, флаги не тронуты.
-
-Новых находок во второй итерации нет — свип чистый.
-
-Рассмотрено: `landingLead.spec.ts:*:noUncheckedIndexedAccess` — починено; `landingLead.spec.ts:loadCodeGs:sonarjs/code-eval` —
-починено (одна строка с disable и причиной); `ClientCreatePage.vue:EMAIL_REGEX:Л5` — отклонено (другое правило, вне путей).
+Рассмотрено: `LandingHeader.vue:HTMLButtonElement:no-undef` — починено; `landing-shell.spec.ts:toHaveURL:budget` —
+починено; `landing-shell.spec.ts:focus:слепой` и `:overflow:слепой` — починено; `landing.css:header:overflow-769-993`
+— починено; `landing.css:mobile-menu:просвечивает` — починено.

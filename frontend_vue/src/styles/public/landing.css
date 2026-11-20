@@ -1,0 +1,347 @@
+/*
+ * Лендинг `/` — roo_code/plans/landing/landing-plan.md, раздел «Дизайн».
+ * Все классы — с префиксом landing- и под .page-landing (питфолл #73): файл грузится
+ * вместе с компонентами лендинга, и непрефиксное правило могло бы победить чужое
+ * порядком впрыска. Синий — только var(--primary)/var(--primary-dark) из erp-base.css.
+ * Блоки секций 1–13 дописывают задачи L-04…L-06.
+ */
+
+.page-landing {
+  --landing-accent: #f2994a;
+  --landing-ok: #27ae60;
+  --landing-radius: 16px;
+  --landing-radius-sm: 10px;
+  --landing-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  --landing-max: 1200px;
+  --landing-gutter: clamp(16px, 4vw, 40px);
+  --landing-header-h: 72px;
+
+  /* Над .bg-image/.bg-overlay из App.vue (питфолл #5). */
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
+.page-landing .landing-main {
+  flex: 1;
+}
+
+.page-landing .landing-container {
+  width: 100%;
+  max-width: var(--landing-max);
+  margin: 0 auto;
+  padding: 0 var(--landing-gutter);
+}
+
+.page-landing .landing-section {
+  /* Якорь не уходит под липкую шапку (с запасом: на ≤992 она в две строки, ~82 px). */
+  scroll-margin-top: calc(var(--landing-header-h) + 16px);
+}
+
+.page-landing .landing-features {
+  scroll-margin-top: calc(var(--landing-header-h) + 16px);
+}
+
+/* ── Кнопки (основа — градиент .cta-button из public.css; _buttons.css здесь не загружен, питфолл #63) ── */
+
+.page-landing .landing-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--landing-radius-sm);
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #fff;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.page-landing .landing-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.page-landing .landing-btn--primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 8px 20px rgba(24, 144, 255, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.page-landing .landing-btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 25px rgba(24, 144, 255, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+.page-landing .landing-btn--ghost {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.page-landing .landing-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* ── Шапка: липкая, стеклянный фон после прокрутки ── */
+
+.page-landing .landing-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid transparent;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    backdrop-filter 0.3s ease;
+}
+
+.page-landing .landing-header--scrolled,
+.page-landing .landing-header--menu-open {
+  background: rgba(10, 14, 23, 0.72);
+  border-bottom-color: var(--glass-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.page-landing .landing-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  max-width: var(--landing-max);
+  min-height: var(--landing-header-h);
+  margin: 0 auto;
+  padding: 0 var(--landing-gutter);
+}
+
+.page-landing .landing-header-logo {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.page-landing .landing-header-logo img {
+  display: block;
+  width: auto;
+  height: 24px;
+}
+
+.page-landing .landing-header-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--landing-radius-sm);
+  background: var(--glass-light);
+  color: #fff;
+  cursor: pointer;
+}
+
+.page-landing .landing-header-menu {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 24px;
+}
+
+.page-landing .landing-header-nav {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  gap: 28px;
+}
+
+.page-landing .landing-header-link {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.page-landing .landing-header-link:hover,
+.page-landing .landing-header-link:focus-visible {
+  color: #fff;
+}
+
+.page-landing .landing-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── Подвал ── */
+
+.page-landing .landing-footer {
+  margin-top: auto;
+  padding: 40px 0;
+  border-top: 1px solid var(--glass-border);
+  background: rgba(10, 14, 23, 0.55);
+}
+
+.page-landing .landing-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px 40px;
+}
+
+.page-landing .landing-footer-contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font-style: normal;
+  font-size: 0.95rem;
+}
+
+.page-landing .landing-footer-company {
+  color: #fff;
+  font-weight: 600;
+}
+
+.page-landing .landing-footer-contact,
+.page-landing .landing-footer-link {
+  color: var(--text-dim);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: color 0.2s ease;
+}
+
+.page-landing .landing-footer-contact:hover,
+.page-landing .landing-footer-link:hover {
+  color: #fff;
+}
+
+.page-landing .landing-footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  font-size: 0.95rem;
+}
+
+.page-landing .landing-footer-copy {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.875rem;
+}
+
+/* ── Брейкпоинты: 1200, 992, 768, 600, 375 (план) ── */
+
+/* Одна строка шапки (логотип + 4 пункта + 2 кнопки) не помещается уже ниже ~1050 px:
+   на ≤1200 шапка плотнее, на ≤992 навигация уходит второй строкой; кнопка меню — с ≤768. */
+@media (max-width: 1200px) {
+  .page-landing .landing-header-inner,
+  .page-landing .landing-header-menu {
+    gap: 16px;
+  }
+
+  .page-landing .landing-header-logo img {
+    height: 20px;
+  }
+
+  .page-landing .landing-header-nav {
+    gap: 18px;
+  }
+
+  .page-landing .landing-header-link {
+    font-size: 0.9rem;
+  }
+
+  .page-landing .landing-header-actions .landing-btn {
+    padding: 0.6rem 1.1rem;
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 992px) {
+  .page-landing .landing-header-menu {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding: 12px 0 10px;
+  }
+
+  .page-landing .landing-header-actions {
+    order: 1;
+    margin-left: auto;
+  }
+
+  .page-landing .landing-header-nav {
+    order: 2;
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-landing .landing-header-toggle {
+    display: inline-flex;
+  }
+
+  .page-landing .landing-header-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 16px var(--landing-gutter) 24px;
+    /* Почти непрозрачно: у шапки свой backdrop-filter, и размытие у вложенного меню не
+       видит страницу под собой — без плотного фона сквозь пункты читается hero. */
+    background: rgba(10, 14, 23, 0.97);
+    border-bottom: 1px solid var(--glass-border);
+  }
+
+  .page-landing .landing-header--menu-open .landing-header-menu {
+    display: flex;
+  }
+
+  .page-landing .landing-header-nav {
+    flex-direction: column;
+    flex-basis: auto;
+    gap: 4px;
+  }
+
+  .page-landing .landing-header-link {
+    padding: 10px 0;
+    font-size: 1.05rem;
+  }
+
+  .page-landing .landing-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+    order: 2;
+    margin-left: 0;
+  }
+
+  .page-landing .landing-footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

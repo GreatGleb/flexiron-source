@@ -1,5 +1,5 @@
 <template>
-  <LangSwitcher v-if="!isAdmin" />
+  <LangSwitcher v-if="showLangSwitcher" />
 
   <div class="bg-image"></div>
   <div class="bg-overlay"></div>
@@ -15,6 +15,8 @@ import { useAuth } from '@/composables/useAuth'
 
 const route = useRoute()
 const isAdmin = computed(() => route.meta.layout === 'admin')
+// Лендинг пока только по-русски (решение 2 плана лендинга): маршрут прячет переключатель сам.
+const showLangSwitcher = computed(() => !isAdmin.value && route.meta.hideLangSwitcher !== true)
 const { fetchMe } = useAuth()
 
 onMounted(() => {
