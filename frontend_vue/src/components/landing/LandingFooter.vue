@@ -1,21 +1,7 @@
 <template>
   <footer class="landing-footer" data-test="landing-footer">
     <div class="landing-container landing-footer-inner">
-      <address class="landing-footer-contacts" data-test="landing-footer-contacts">
-        <span class="landing-footer-company">{{ CONTACTS.company }}</span>
-        <a :href="`mailto:${CONTACTS.email}`" class="landing-footer-contact">{{
-          CONTACTS.email
-        }}</a>
-        <a :href="phoneHref" class="landing-footer-contact">{{ CONTACTS.phone }}</a>
-        <a
-          :href="`https://t.me/${CONTACTS.telegram}`"
-          class="landing-footer-contact"
-          target="_blank"
-          rel="noopener"
-        >
-          @{{ CONTACTS.telegram }}
-        </a>
-      </address>
+      <LandingContacts data-test="landing-footer-contacts" />
       <nav class="landing-footer-nav">
         <router-link
           v-for="link in footer.links"
@@ -34,10 +20,8 @@
 
 <script setup lang="ts">
 import '@styles/public/landing.css'
-import { CONTACTS } from '@/config/landing'
 import { landingRu } from '@/content/landing.ru'
+import LandingContacts from './LandingContacts.vue'
 
 const footer = landingRu.footer
-/** tel: без пробелов и скобок — так номер набирается на телефоне. */
-const phoneHref = `tel:${CONTACTS.phone.replace(/[^\d+]/g, '')}`
 </script>

@@ -10,9 +10,9 @@
         <LandingFeature v-for="feature in content.features" :key="feature.id" :feature="feature" />
         <LandingConfig />
       </div>
-      <section class="landing-section" data-test="landing-demo"></section>
-      <section id="roadmap" class="landing-section" data-test="landing-roadmap"></section>
-      <section id="lead" class="landing-section" data-test="landing-lead"></section>
+      <LandingDemo />
+      <LandingRoadmap />
+      <LandingLeadForm />
     </main>
 
     <LandingFooter />
@@ -24,7 +24,7 @@
  * Каркас лендинга (L-03): секции 0–14 в порядке таблицы плана
  * roo_code/plans/landing/landing-plan.md. Секции 1–3 — компоненты L-04 (единственный h1
  * страницы — в LandingHero). Секции 4–9 — LandingFeature по landingRu.features, секция 10 —
- * LandingConfig (L-05); содержимое секций 11–13 дописывает L-06.
+ * LandingConfig (L-05). Секции 11–13 — LandingDemo, LandingRoadmap, LandingLeadForm (L-06).
  *
  * id="features" — обёртка секций 4–10: на неё ведёт пункт шапки «Возможности».
  */
@@ -39,6 +39,9 @@ import LandingPains from '@/components/landing/LandingPains.vue'
 import LandingFlow from '@/components/landing/LandingFlow.vue'
 import LandingFeature from '@/components/landing/LandingFeature.vue'
 import LandingConfig from '@/components/landing/LandingConfig.vue'
+import LandingDemo from '@/components/landing/LandingDemo.vue'
+import LandingRoadmap from '@/components/landing/LandingRoadmap.vue'
+import LandingLeadForm from '@/components/landing/LandingLeadForm.vue'
 import '@styles/public/landing.css'
 
 /** Язык текстов лендинга — только русский на первом этапе (решения 1 и 2 плана). */

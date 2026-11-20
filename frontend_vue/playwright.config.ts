@@ -108,6 +108,13 @@ export default defineConfig({
   webServer: [
     {
       command: `npm run dev -- --port ${PORT} --strictPort`,
+      /*
+       * Адрес Apps Script для формы заявки лендинга (решение 4 плана
+       * roo_code/plans/landing/landing-plan.md). Домен `.invalid` не резолвится никогда:
+       * запрос, не перехваченный `page.route`, падает, а не уходит наружу.
+       * `landing-lead.spec.ts` перехватывает `https://leads.invalid/**`.
+       */
+      env: { VITE_LANDING_LEADS_URL: 'https://leads.invalid/exec' },
       url: `http://localhost:${PORT}`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

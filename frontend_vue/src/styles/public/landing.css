@@ -3,7 +3,7 @@
  * Все классы — с префиксом landing- и под .page-landing (питфолл #73): файл грузится
  * вместе с компонентами лендинга, и непрефиксное правило могло бы победить чужое
  * порядком впрыска. Синий — только var(--primary)/var(--primary-dark) из erp-base.css.
- * Блоки секций 1–3 — L-04; 4–10 — L-05; секций 11–13 дописывает L-06.
+ * Блоки секций 1–3 — L-04; 4–10 — L-05; 11–13 — L-06.
  */
 
 .page-landing {
@@ -211,7 +211,8 @@
   gap: 20px 40px;
 }
 
-.page-landing .landing-footer-contacts {
+/* Контакты (LandingContacts): подвал и форма заявки в состояниях error/disabled. */
+.page-landing .landing-contacts {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 20px;
@@ -219,12 +220,12 @@
   font-size: 0.95rem;
 }
 
-.page-landing .landing-footer-company {
+.page-landing .landing-contacts-company {
   color: #fff;
   font-weight: 600;
 }
 
-.page-landing .landing-footer-contact,
+.page-landing .landing-contacts-link,
 .page-landing .landing-footer-link {
   color: var(--text-dim);
   text-decoration: none;
@@ -232,7 +233,7 @@
   transition: color 0.2s ease;
 }
 
-.page-landing .landing-footer-contact:hover,
+.page-landing .landing-contacts-link:hover,
 .page-landing .landing-footer-link:hover {
   color: #fff;
 }
@@ -600,6 +601,203 @@
   line-height: 1.6;
 }
 
+/* ── Секции 11–13: полоса демо, дорожная карта, форма заявки (L-06) ── */
+
+.page-landing .landing-demo,
+.page-landing .landing-roadmap,
+.page-landing .landing-lead {
+  padding: clamp(56px, 8vw, 104px) 0;
+}
+
+.page-landing .landing-demo-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px 40px;
+  padding: clamp(28px, 4vw, 48px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--landing-radius);
+  background: linear-gradient(135deg, rgba(47, 128, 237, 0.22), rgba(10, 14, 23, 0.6));
+  box-shadow: var(--landing-shadow);
+}
+
+.page-landing .landing-demo-title {
+  margin-bottom: 12px;
+}
+
+.page-landing .landing-demo-strip .landing-btn {
+  flex-shrink: 0;
+}
+
+.page-landing .landing-roadmap-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.page-landing .landing-roadmap-title {
+  margin-bottom: 20px;
+  font-size: 1.25rem;
+}
+
+.page-landing .landing-roadmap-col--done .landing-roadmap-title {
+  color: var(--landing-ok);
+}
+
+.page-landing .landing-roadmap-col--next .landing-roadmap-title {
+  color: var(--landing-accent);
+}
+
+.page-landing .landing-roadmap-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.page-landing .landing-roadmap-item {
+  position: relative;
+  padding-left: 22px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.page-landing .landing-roadmap-item::before {
+  content: '';
+  position: absolute;
+  top: 0.65em;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.page-landing .landing-roadmap-col--done .landing-roadmap-item::before {
+  background: var(--landing-ok);
+}
+
+.page-landing .landing-roadmap-col--next .landing-roadmap-item::before {
+  background: var(--landing-accent);
+}
+
+.page-landing .landing-lead-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(32px, 5vw, 64px);
+  align-items: start;
+}
+
+.page-landing .landing-lead-form {
+  position: relative;
+  display: grid;
+  gap: 20px;
+}
+
+.page-landing .landing-lead-field {
+  display: grid;
+  gap: 8px;
+}
+
+.page-landing .landing-lead-label {
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.page-landing .landing-lead-required {
+  margin-left: 2px;
+  color: var(--landing-accent);
+}
+
+.page-landing .landing-lead-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--landing-radius-sm);
+  background: rgba(10, 14, 23, 0.55);
+  color: #fff;
+  font: inherit;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+}
+
+.page-landing .landing-lead-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.page-landing .landing-lead-input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.page-landing .landing-lead-textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.page-landing .landing-lead-field--invalid .landing-lead-input {
+  border-color: #eb5757;
+}
+
+.page-landing .landing-lead-error {
+  margin: 0;
+  color: #ff8a8a;
+  font-size: 0.9rem;
+}
+
+/* Ловушка для ботов: человек её не видит и не попадает в неё табом. */
+.page-landing .landing-lead-trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.page-landing .landing-lead-submit {
+  justify-self: start;
+}
+
+.page-landing .landing-lead-submit:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.page-landing .landing-lead-consent {
+  margin: -8px 0 0;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.page-landing .landing-lead-direct {
+  display: grid;
+  gap: 12px;
+  padding: 16px 20px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--landing-radius-sm);
+  background: rgba(10, 14, 23, 0.55);
+}
+
+.page-landing .landing-lead-direct--error {
+  border-left: 4px solid #eb5757;
+}
+
+.page-landing .landing-lead-direct-text {
+  margin: 0;
+  color: #fff;
+  font-weight: 600;
+}
+
+.page-landing .landing-lead-success {
+  margin: 0;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
 /* ── Брейкпоинты: 1200, 992, 768, 600, 375 (план) ── */
 
 /* Одна строка шапки (логотип + 4 пункта + 2 кнопки) не помещается уже ниже ~1050 px:
@@ -763,5 +961,24 @@
   .page-landing .landing-pain,
   .page-landing .landing-flow-note {
     flex-direction: column;
+  }
+}
+
+/* Секции 11–13: на ≤992 форма под вступлением; на ≤768 колонки дорожной карты одна под
+   другой и полоса демо столбиком. */
+@media (max-width: 992px) {
+  .page-landing .landing-lead-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .page-landing .landing-roadmap-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-landing .landing-demo-strip {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
