@@ -2,10 +2,12 @@
   <section class="landing-section landing-hero" data-test="landing-hero">
     <div class="landing-container landing-hero-inner">
       <div class="landing-hero-text">
-        <p class="landing-eyebrow" data-test="landing-hero-eyebrow">{{ hero.eyebrow }}</p>
-        <h1 class="landing-hero-title">{{ hero.title }}</h1>
-        <p class="landing-hero-subtitle">{{ hero.subtitle }}</p>
-        <div class="landing-hero-actions">
+        <p class="landing-eyebrow" data-test="landing-hero-eyebrow" data-reveal="load">
+          {{ hero.eyebrow }}
+        </p>
+        <h1 class="landing-hero-title" data-reveal="load">{{ hero.title }}</h1>
+        <p class="landing-hero-subtitle" data-reveal="load">{{ hero.subtitle }}</p>
+        <div class="landing-hero-actions" data-reveal="load">
           <a
             :href="`#${hero.ctaLead.anchor}`"
             class="landing-btn landing-btn--primary"
@@ -28,6 +30,7 @@
         :image="hero.image"
         :caption="hero.caption"
         :lazy="false"
+        data-reveal="load"
       />
     </div>
   </section>

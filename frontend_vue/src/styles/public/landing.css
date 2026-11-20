@@ -982,3 +982,12 @@
     align-items: flex-start;
   }
 }
+
+/* ── Движение: появление при прокрутке (useReveal, L-07) ──
+   Начальное состояние элемента ниже окна, пока он не вошёл в верхние 78 %. Сдвиг ставит
+   useReveal.ts (REVEAL_SHIFT_PX) на .page-landing — число живёт там. Сама анимация — WAAPI
+   в useReveal.ts; без JS и при prefers-reduced-motion класс не ставится вовсе. */
+.page-landing .reveal-pending {
+  opacity: 0;
+  transform: translateY(var(--landing-reveal-shift));
+}

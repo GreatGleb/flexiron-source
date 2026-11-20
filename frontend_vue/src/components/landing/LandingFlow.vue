@@ -1,7 +1,7 @@
 <template>
   <section id="flow" class="landing-section landing-flow" data-test="landing-flow">
     <div class="landing-container">
-      <h2 class="landing-h2">{{ flow.title }}</h2>
+      <h2 class="landing-h2" data-reveal>{{ flow.title }}</h2>
       <ol class="landing-flow-steps">
         <li
           v-for="step in flow.steps"
@@ -9,6 +9,7 @@
           class="landing-flow-step"
           :class="{ 'landing-flow-step--accent': step.accent }"
           data-test="landing-flow-step"
+          data-reveal
         >
           <span
             v-if="step.icon"
@@ -23,7 +24,7 @@
           <span class="landing-flow-arrow" aria-hidden="true" />
         </li>
       </ol>
-      <div class="landing-card landing-flow-note" data-test="landing-flow-note">
+      <div class="landing-card landing-flow-note" data-test="landing-flow-note" data-reveal>
         <span class="landing-icon-circle landing-icon-circle--dark">
           <LandingIcon :name="flow.note.icon" />
         </span>

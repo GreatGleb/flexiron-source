@@ -61,6 +61,20 @@ test.describe('landing demo strip and roadmap', () => {
     await expect(strip).toContainText('Вся программа на демонстрационных данных, без регистрации')
     // fixtures.ts ставит язык 'en' — снимаем, чтобы проверить ветку «язык не выбирали».
     await page.evaluate(() => localStorage.removeItem('flexiron_lang'))
+    // Полоса появляется при прокрутке (L-07): во время задержки анимации она стоит на месте
+    // со сдвигом, и клик Playwright уходит мимо кнопки, когда она начинает подниматься.
+    // Кликаем по проявившейся — как человек, который её видит.
+    const revealed = strip.locator('[data-reveal]')
+    await revealed.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    await expect
+      .poll(
+        () =>
+          revealed.evaluate(
+            (el) => el.getAnimations().length + Number(el.classList.contains('reveal-pending')),
+          ),
+        { timeout: DATA_READY_TIMEOUT },
+      )
+      .toBe(0)
     await page.getByTestId('landing-demo-open').click()
     await expect(page).toHaveURL(/\/admin\//, { timeout: DATA_READY_TIMEOUT })
     expect(await page.evaluate(() => localStorage.getItem('flexiron_lang'))).toBe('ru')

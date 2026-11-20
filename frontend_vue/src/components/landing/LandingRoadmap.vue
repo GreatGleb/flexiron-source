@@ -1,13 +1,14 @@
 <template>
   <section id="roadmap" class="landing-section landing-roadmap" data-test="landing-roadmap">
     <div class="landing-container">
-      <h2 class="landing-h2">{{ roadmap.title }}</h2>
+      <h2 class="landing-h2" data-reveal>{{ roadmap.title }}</h2>
       <div class="landing-roadmap-grid">
         <div
           v-for="column in columns"
           :key="column.kind"
           :class="['landing-card', 'landing-roadmap-col', `landing-roadmap-col--${column.kind}`]"
           :data-test="`landing-roadmap-${column.kind}`"
+          data-reveal
         >
           <h3 class="landing-h3 landing-roadmap-title">{{ column.title }}</h3>
           <ul class="landing-roadmap-list">

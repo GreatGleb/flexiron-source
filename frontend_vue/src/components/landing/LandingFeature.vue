@@ -9,7 +9,7 @@
   >
     <div class="landing-container landing-feature-inner">
       <div class="landing-feature-body">
-        <h2 class="landing-h2 landing-feature-title">{{ feature.title }}</h2>
+        <h2 class="landing-h2 landing-feature-title" data-reveal>{{ feature.title }}</h2>
 
         <ol v-if="feature.steps" class="landing-feature-steps">
           <li
@@ -34,6 +34,7 @@
             class="landing-feature-point"
             :class="{ 'landing-card': feature.pointsAsCards }"
             data-test="landing-feature-point"
+            :data-reveal="feature.pointsAsCards ? '' : undefined"
           >
             <span v-if="point.icon" class="landing-icon-circle landing-icon-circle--primary">
               <LandingIcon :name="point.icon" />
@@ -54,7 +55,7 @@
         </p>
       </div>
 
-      <LandingShot class="landing-feature-shot" :image="feature.image" />
+      <LandingShot class="landing-feature-shot" :image="feature.image" data-reveal />
     </div>
   </section>
 </template>

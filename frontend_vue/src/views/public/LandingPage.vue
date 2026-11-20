@@ -1,5 +1,5 @@
 <template>
-  <div class="page-landing" data-test="page-landing">
+  <div ref="pageRoot" class="page-landing" data-test="page-landing">
     <LandingHeader />
 
     <main class="landing-main">
@@ -28,9 +28,10 @@
  *
  * id="features" — обёртка секций 4–10: на неё ведёт пункт шапки «Возможности».
  */
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
+import { useReveal } from '@/composables/useReveal'
 import { landingRu } from '@/content/landing.ru'
 import LandingHeader from '@/components/landing/LandingHeader.vue'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
@@ -49,6 +50,10 @@ const LANDING_LANG = 'ru'
 
 const content = landingRu
 const { locale } = useI18n()
+const pageRoot = ref<HTMLElement | null>(null)
+
+/* Появление блоков (L-07): помеченные data-reveal элементы всех секций, один наблюдатель. */
+useReveal(pageRoot)
 
 useHead({ title: content.seo.title, description: content.seo.description })
 

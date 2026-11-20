@@ -1,13 +1,14 @@
 <template>
   <section class="landing-section landing-pains" data-test="landing-pains">
     <div class="landing-container">
-      <h2 class="landing-h2">{{ pains.title }}</h2>
+      <h2 class="landing-h2" data-reveal>{{ pains.title }}</h2>
       <ul class="landing-pains-grid">
         <li
           v-for="item in pains.items"
           :key="item.title"
           class="landing-card landing-pain"
           data-test="landing-pain"
+          data-reveal
         >
           <span v-if="item.icon" class="landing-icon-circle landing-icon-circle--accent">
             <LandingIcon :name="item.icon" />

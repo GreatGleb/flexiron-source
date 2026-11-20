@@ -2,7 +2,7 @@
   <section id="lead" class="landing-section landing-lead" data-test="landing-lead">
     <div class="landing-container landing-lead-inner">
       <div class="landing-lead-intro">
-        <h2 class="landing-h2">{{ lead.title }}</h2>
+        <h2 class="landing-h2" data-reveal>{{ lead.title }}</h2>
         <p class="landing-text">{{ lead.text }}</p>
       </div>
 

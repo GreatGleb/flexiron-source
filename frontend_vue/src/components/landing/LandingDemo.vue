@@ -1,7 +1,7 @@
 <template>
   <section class="landing-section landing-demo" data-test="landing-demo">
     <div class="landing-container">
-      <div class="landing-demo-strip">
+      <div class="landing-demo-strip" data-reveal>
         <div class="landing-demo-text">
           <h2 class="landing-h2 landing-demo-title">{{ demo.title }}</h2>
           <p class="landing-text">{{ demo.text }}</p>
