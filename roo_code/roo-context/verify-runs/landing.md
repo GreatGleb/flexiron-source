@@ -17,3 +17,26 @@
 Починено нормализацией пробелов в спеке; `npm run verify` выше — уже на исправленном дереве, новых находок нет. Свип чистый.
 
 Рассмотрено: `landing.ru.spec.ts:norm:перенос-строки-в-цитате-плана` — починено (схлопывание `\s+`).
+
+## L-02 — домен заявки, сервис, Apps Script
+
+**Итерация 1.** `npm run verify` на Node 18 (PATH сессии) → exit 2/1: typecheck (`noUncheckedIndexedAccess`
+в двух новых спеках), затем eslint упал на форматере (`util.styleText`, Node ≥20), затем два чужих спека
+(`crypto` глобален с Node 19). Починено: индексный доступ в спеках — через хелперы `at()`/`firstCall()`;
+`sonarjs/code-eval` — вызовы `doGet/doPost` свойством контекста, одна строка `runInContext` с обоснованным disable.
+
+**Итерация 2.** На Node 22.23.1 (nvm): `npm run verify` → exit 0, 89 файлов, 1349 passed, 3 skipped.
+`test:unit:coverage` → exit 0. Линзы:
+- Л1, Л2, Л4, Л6, Л7, Л8 — не применимы: ни компонентов, ни i18n, ни моков, ни маршрутов (тексты ошибок — L-01).
+- Л3 — внешний Apps Script, не наш API: метод/заголовок/тело/redirect/таймаут по разделу «Форма заявки» плана,
+  держит `landingLeadService.spec.ts`. `contract-conformance` зелёный (эндпоинт не в `api.ts`).
+- Л5 — правило валидации одно (`domain/landingLead.ts`), Code.gs — вторая среда: спека сверяет константы и
+  выражения разбором и вердикты исполнением в `node:vm`. Греп `EMAIL_RE|isValidEmail|validEmail` по `src/`:
+  вне лендинга только `ClientCreatePage.vue:EMAIL_REGEX` — другое правило админки, рассмотрено, не находка.
+- Л9 — 49 инверсий, все красные (таблица в progress.md, L-02).
+- Л10 — роутер, i18n, флаги не тронуты.
+
+Новых находок во второй итерации нет — свип чистый.
+
+Рассмотрено: `landingLead.spec.ts:*:noUncheckedIndexedAccess` — починено; `landingLead.spec.ts:loadCodeGs:sonarjs/code-eval` —
+починено (одна строка с disable и причиной); `ClientCreatePage.vue:EMAIL_REGEX:Л5` — отклонено (другое правило, вне путей).
