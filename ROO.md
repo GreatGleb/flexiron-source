@@ -290,6 +290,7 @@ When user mentions a page, bugs, work stage, section, or task continuation — *
 | [`implement-followups.js`](roo_code/workflows/implement-followups.js) | пункты `review-followups.md`: реализация → скептик → коммит |
 | [`inventory-plans.js`](roo_code/workflows/inventory-plans.js) | инвентаризация планов: что из них уже в коде |
 | [`contract-sync.js`](roo_code/workflows/contract-sync.js) | сверка API-контракта: аудит доменов → соглашения → написание → финал. Скил задачи — [`api-contract.md`](roo_code/skills/api-contract.md), план — [`contract-sync-plan.md`](roo_code/plans/api/contract-sync-plan.md) |
+| [`landing-night/night-run.sh`](roo_code/workflows/landing-night/README.md) | лендинг `/`: очередь [`plans/landing/tasks.json`](roo_code/plans/landing/tasks.json), автор → проверка путей → `check.sh` → приёмщик → коммит `night: L-xx`. Перенос ночи из 3D_website |
 | [`night-queue.js`](roo_code/workflows/night-queue.js) | очередь работ после класса 2: раскрой общего контекста → мок-долг → учёт → контракт → сквозные планы → доменные → закрытие сквозного. Потолок расхода на ночь, план — [`night-run-queue-plan.md`](roo_code/plans/general/night-run-queue-plan.md) |
 
 ## MCP Servers

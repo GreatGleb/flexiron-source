@@ -1,0 +1,290 @@
+{
+  "schema": "night-tasks/1",
+  "edition": "landing-1",
+  "created": "2026-11-20",
+  "status": "утверждён владельцем 2026-11-20, прогон не запускался",
+  "plan_refs": "roo_code/plans/landing/landing-plan.md (весь), roo_code/plans/landing/presentation/build.js (тексты слайдов)",
+  "agent_note": "Тексты — дословно из presentation/build.js, кроме прямо указанных в landing-plan.md. Ничего не выдумывать: ни клиентов, ни цифр, ни отзывов.",
+  "rules": [
+    "Задачи выполняются по порядку массива; зависящие (depends) от заблокированной пропускаются с отметкой в progress.md, независимые продолжаются.",
+    "Каждая задача — одна сессия агента. Час без заметного прогресса — остановиться, описать препятствие в progress.md, статус blocked.",
+    "Перед кодом прочитать ROO.md, roo_code/skills/vue-rules.md (целиком), roo_code/skills/verify.md, roo_code/skills/create-page.md и roo_code/plans/landing/landing-plan.md. Решения из раздела «Решения, принятые при написании плана» не пересматриваются.",
+    "Менять можно только: frontend_vue/src/ (кроме views/admin/ и styles/admin/), frontend_vue/tests/, frontend_vue/playwright.config.ts, frontend_vue/.env, frontend_vue/.env.example, apps-script/landing-leads/, roo_code/plans/landing/progress.md, roo_code/roo-context/verify-runs/landing.md. Оркестратор проверяет это по git status (ALLOWED в roo_code/workflows/landing-night/night.py). Не трогать backend/, roo_code/skills/, ROO.md, CLAUDE.md, package.json, другие планы, admin-страницы и их стили.",
+    "Агент не делает git commit/push/stash/reset/checkout/restore и не меняет ветку — коммит после приёмки делает оркестратор. Внешних запросов нет (кроме установки уже объявленных пакетов); новые npm-зависимости запрещены.",
+    "Неясность, которую план не закрывает, — не гадать: записать вопрос в progress.md и завершить задачу со статусом blocked.",
+    "Машинная приёмка каждой задачи — cd frontend_vue && npm run verify (exit 0). Вывод e2e — в файл целиком, вердикт по коду возврата и строкам failed/flaky (verify.md, «Прогон читается по коду возврата»). Без | tail.",
+    "Тест, который не краснеет на сломанном коде, — не тест (линза Л9): на каждое новое утверждение спеки — инверсия, результат инверсии записать в progress.md.",
+    "Все классы лендинга — с префиксом landing- и под .page-landing; в <template> без HTML-комментариев; каждый компонент импортирует свой CSS; e2e-спеки импортируют test из tests/e2e/fixtures.ts.",
+    "Ход работы, решения и непроверенное — в roo_code/plans/landing/progress.md (раздел на задачу).",
+    "Проверка оркестратора после каждой сессии — roo_code/workflows/landing-night/check.sh: npm run verify + e2e (navigation, smoke, i18n, tests/e2e/public/); у задач с e2e_full: true — полный набор. Dev-сервер e2e — порт PW_PORT из окружения."
+  ],
+  "tasks": [
+    {
+      "id": "L-01",
+      "title": "Тексты, конфиг и картинки лендинга",
+      "depends": [],
+      "inputs": [
+        "roo_code/plans/landing/landing-plan.md (структура страницы, форма, решения 1, 4, 8)",
+        "roo_code/plans/landing/presentation/build.js",
+        "roo_code/plans/landing/presentation/img/"
+      ],
+      "result": "src/content/landing.ru.ts — все тексты страницы, типизированные (интерфейс LandingContent в том же файле или src/types/landing.ts): шапка, hero, боли, контур, 7 фич (заголовок, пункты, картинка, alt, сторона), настройка, демо, дорожная карта, форма (подписи, плейсхолдеры, ошибки, состояния), подвал, seo.title/seo.description. src/config/landing.ts — LEADS_URL из import.meta.env.VITE_LANDING_LEADS_URL ('' по умолчанию) и CONTACTS { email, phone, telegram, company } с полем isPlaceholder: true. Скриншоты презентации скопированы в src/assets/images/landing/ (те, что нужны по таблице секций). VITE_LANDING_LEADS_URL= (пусто) добавлен в .env и .env.example с комментарием.",
+      "touches": [
+        "frontend_vue/src/content/landing.ru.ts",
+        "frontend_vue/src/types/landing.ts",
+        "frontend_vue/src/config/landing.ts",
+        "frontend_vue/src/assets/images/landing/",
+        "frontend_vue/.env",
+        "frontend_vue/.env.example",
+        "frontend_vue/src/content/landing.ru.spec.ts"
+      ],
+      "done": [
+        "Тексты слайдов 1–11 перенесены дословно; отличия от презентации — только перечисленные в landing-plan.md (CTA формы вместо «ответьте на письмо», секция демо, подписи формы).",
+        "Юнит-спека landing.ru.spec.ts: ни одной пустой строки в дереве текстов; у каждой фичи есть существующий файл картинки (проверка импортом/fs) и непустой alt; стороны фич чередуются; инверсия записана.",
+        "В текстах нет выдуманных фактов: числа только из презентации (30 минут, «16 из 40», три языка) — проверено грепом по цифрам, список в progress.md.",
+        "Заглушки контактов явно помечены и собраны в одном месте; grep по адресу заглушки находит только src/config/landing.ts."
+      ],
+      "checks": [
+        "cd frontend_vue && npm run verify"
+      ]
+    },
+    {
+      "id": "L-02",
+      "title": "Заявка: домен, сервис, Apps Script",
+      "depends": [
+        "L-01"
+      ],
+      "inputs": [
+        "roo_code/plans/landing/landing-plan.md (раздел «Форма заявки», решения 4, 5)",
+        "/home/greatgleb/PycharmProjects/dicktris/apps-script/Code.gs и README.md (образец, только читать)"
+      ],
+      "result": "src/domain/landingLead.ts — LIMITS, тип LeadDraft, validateLead(draft) → { ok, errors: Partial<Record<поле, код>> }, isHoneypot, toPayload. src/services/landingLeadService.ts — submitLead(payload, url, fetchImpl = fetch) → 'sent' | 'rejected' | 'failed' (POST text/plain, redirect follow, AbortSignal.timeout(15000)). apps-script/landing-leads/Code.gs и README.md (развёртывание по шагам на русском, как в dicktris; NOTIFY_EMAIL через свойства скрипта; проверка через GET).",
+      "touches": [
+        "frontend_vue/src/domain/landingLead.ts",
+        "frontend_vue/src/domain/landingLead.spec.ts",
+        "frontend_vue/src/services/landingLeadService.ts",
+        "frontend_vue/src/services/landingLeadService.spec.ts",
+        "apps-script/landing-leads/Code.gs",
+        "apps-script/landing-leads/README.md"
+      ],
+      "done": [
+        "Юнит-тесты домена: имя пустое/из пробелов/101 символ; контакт — телефон 6 и 7 цифр, e-mail без точки в домене, валидный e-mail; комментарий 1000/1001; ловушка; trim. Каждое утверждение с инверсией.",
+        "Юнит-тесты сервиса на подменённом fetch: тело — JSON строкой, заголовок text/plain, метод POST; ответ {ok:true} → sent, {ok:false} → rejected, сетевой сбой/таймаут/не-JSON → failed.",
+        "Спека разбирает Code.gs и сверяет лимиты с LIMITS домена (Л5): изменение числа в одном месте краснит тест — инверсия записана.",
+        "Code.gs: лист Leads создаётся сам, LockService, ведущий апостроф у всех значений, серверная валидация, doGet → {ok:true}; README объясняет обновление без смены URL («Новая версия» существующего развёртывания)."
+      ],
+      "checks": [
+        "cd frontend_vue && npm run verify"
+      ]
+    },
+    {
+      "id": "L-03",
+      "title": "Каркас страницы, шапка, подвал, язык",
+      "depends": [
+        "L-01"
+      ],
+      "inputs": [
+        "roo_code/plans/landing/landing-plan.md (структура, дизайн, решения 1–3)",
+        "frontend_vue/src/App.vue, src/router/index.ts, src/i18n/public.ts, src/styles/public/public.css, src/styles/erp-base.css",
+        "frontend_vue/tests/e2e/i18n.spec.ts, navigation.spec.ts, smoke.spec.ts, helpers/ready.ts"
+      ],
+      "result": "LandingPage.vue переписан: корень .page-landing data-test=\"page-landing\", все секции 0–14 из таблицы плана как пустые обёртки с data-test в указанном порядке, LandingHeader.vue и LandingFooter.vue готовы полностью (якоря, мобильное меню с aria-expanded и закрытием по Escape/клику по ссылке, липкий фон по скроллу). src/styles/public/landing.css с токенами плана и кнопками .landing-btn. Маршрут '/' получает meta.hideLangSwitcher; App.vue скрывает LangSwitcher по ней; на лендинге html[lang]=ru и возврат при уходе; useHead из landing.ru.ts. Ключи landing.* удалены из всех трёх локалей public.ts. Проверки переключателя в i18n.spec.ts перенесены на /login.",
+      "touches": [
+        "frontend_vue/src/views/public/LandingPage.vue",
+        "frontend_vue/src/components/landing/LandingHeader.vue",
+        "frontend_vue/src/components/landing/LandingFooter.vue",
+        "frontend_vue/src/styles/public/landing.css",
+        "frontend_vue/src/router/index.ts (только meta маршрута '/')",
+        "frontend_vue/src/App.vue (только условие LangSwitcher и lang)",
+        "frontend_vue/src/i18n/public.ts (удаление блоков landing)",
+        "frontend_vue/tests/e2e/i18n.spec.ts"
+      ],
+      "done": [
+        "npm run verify зелёный, включая localeParity.spec.ts; grep \"t('landing\\.\" по src/ пуст.",
+        "На / нет .lang-switcher, на /login есть; i18n.spec.ts зелёный на /login; navigation.spec.ts и smoke.spec.ts зелёные (e2e уровня 2: правка роутера, App.vue и i18n — общий пол, полный набор дважды подряд на одном дереве, verify.md).",
+        "Липкая шапка: слушатель scroll passive и снимается в onUnmounted (греп + чтение).",
+        "Ни одного класса без префикса landing- в новых файлах, кроме уже существующих глобальных (.container не используется)."
+      ],
+      "checks": [
+        "cd frontend_vue && npm run verify",
+        "cd frontend_vue && npx playwright test --reporter=line > /tmp/landing-l03-e2e.txt 2>&1; echo exit=$?"
+      ],
+      "e2e_full": true
+    },
+    {
+      "id": "L-04",
+      "title": "Hero, боли, контур",
+      "depends": [
+        "L-03"
+      ],
+      "inputs": [
+        "roo_code/plans/landing/landing-plan.md (секции 1–3, дизайн)",
+        "src/content/landing.ru.ts"
+      ],
+      "result": "LandingHero.vue, LandingPains.vue, LandingFlow.vue — по таблице плана, тексты только из landing.ru.ts. Кнопка «Открыть демо» — router-link на /admin, перед переходом ставит flexiron_lang='ru', если ключа нет (решение 3). «Заказать показ» — якорь на #lead. Рамка скриншота — компонент LandingShot.vue (используется и в L-05).",
+      "touches": [
+        "frontend_vue/src/components/landing/LandingHero.vue",
+        "frontend_vue/src/components/landing/LandingPains.vue",
+        "frontend_vue/src/components/landing/LandingFlow.vue",
+        "frontend_vue/src/components/landing/LandingShot.vue",
+        "frontend_vue/src/styles/public/landing.css (свои блоки секций)",
+        "frontend_vue/src/views/public/LandingPage.vue (подключение)"
+      ],
+      "done": [
+        "Ровно один h1 на странице — в hero.",
+        "Демо-кнопка: без ключа flexiron_lang после клика ключ = 'ru'; с ключом 'en' — остаётся 'en' (компонентный тест или e2e, с инверсией).",
+        "Иконки — инлайн SVG или существующие ассеты; внешних шрифтов/иконок с CDN нет.",
+        "Шаг «Резка» в контуре выделен акцентом --landing-accent."
+      ],
+      "checks": [
+        "cd frontend_vue && npm run verify"
+      ]
+    },
+    {
+      "id": "L-05",
+      "title": "Секции возможностей и настройки",
+      "depends": [
+        "L-04"
+      ],
+      "inputs": [
+        "roo_code/plans/landing/landing-plan.md (секции 4–10)",
+        "src/content/landing.ru.ts"
+      ],
+      "result": "LandingFeature.vue — один компонент на секции 4–9 (пропсы из данных фичи: id, надзаголовок, заголовок, пункты/шаги, сноска, картинка, сторона, вариант dark для резки). LandingConfig.vue (секция 10). Подключены в LandingPage.vue в порядке плана.",
+      "touches": [
+        "frontend_vue/src/components/landing/LandingFeature.vue",
+        "frontend_vue/src/components/landing/LandingConfig.vue",
+        "frontend_vue/src/styles/public/landing.css (блоки фич)",
+        "frontend_vue/src/views/public/LandingPage.vue (подключение)"
+      ],
+      "done": [
+        "Шесть секций фич рендерятся ОДНИМ компонентом через v-for по данным (греп: нет файлов LandingWarehouse*.vue и т.п.).",
+        "data-test секций совпадают с таблицей плана: landing-feature-warehouse, -cutting, -order, -money, -suppliers, -analytics, landing-config.",
+        "Секция резки — тёмный вариант с плашкой про обрезок; dashboard.jpg на странице встречается один раз.",
+        "Каждый img ниже hero — loading=lazy, width/height заданы."
+      ],
+      "checks": [
+        "cd frontend_vue && npm run verify"
+      ]
+    },
+    {
+      "id": "L-06",
+      "title": "Демо-полоса, дорожная карта, форма заявки",
+      "depends": [
+        "L-02",
+        "L-05"
+      ],
+      "inputs": [
+        "roo_code/plans/landing/landing-plan.md (секции 11–13, «Форма заявки»)",
+        "src/domain/landingLead.ts",
+        "src/services/landingLeadService.ts",
+        "src/config/landing.ts"
+      ],
+      "result": "LandingDemo.vue, LandingRoadmap.vue, LandingLeadForm.vue (+ composable src/composables/useLandingLead.ts: draft, errors, state, submit). Состояния формы idle/sending/success/error/disabled в data-state. В playwright.config.ts первому webServer добавлен env VITE_LANDING_LEADS_URL=https://leads.invalid/exec (решение 4). Спека tests/e2e/public/landing-lead.spec.ts.",
+      "touches": [
+        "frontend_vue/src/components/landing/LandingDemo.vue",
+        "frontend_vue/src/components/landing/LandingRoadmap.vue",
+        "frontend_vue/src/components/landing/LandingLeadForm.vue",
+        "frontend_vue/src/composables/useLandingLead.ts",
+        "frontend_vue/src/styles/public/landing.css (блоки формы)",
+        "frontend_vue/src/views/public/LandingPage.vue (подключение)",
+        "frontend_vue/playwright.config.ts (только env первого webServer)",
+        "frontend_vue/tests/e2e/public/landing-lead.spec.ts"
+      ],
+      "done": [
+        "e2e через page.route('https://leads.invalid/**'): успешная отправка → success и тело запроса содержит введённые имя/контакт (проверяется postData, а не только экран); ответ {ok:false} → error, введённое сохранено, контакты видны; сетевой сбой (route.abort) → error; пустое имя → ошибка у поля, запроса нет (счётчик вызовов route = 0); ловушка заполнена → success, запроса нет.",
+        "Состояние disabled проверено без VITE_LANDING_LEADS_URL: компонентным тестом useLandingLead / LandingLeadForm с пустым URL — кнопки отправки нет, контакты есть.",
+        "Во время sending кнопка disabled; повторный клик не шлёт второй запрос (счётчик).",
+        "Инверсия на каждое утверждение спеки записана в progress.md; правка playwright.config.ts — общий пол: полный e2e дважды подряд на одном дереве."
+      ],
+      "checks": [
+        "cd frontend_vue && npm run verify",
+        "cd frontend_vue && npx playwright test --reporter=line > /tmp/landing-l06-e2e.txt 2>&1; echo exit=$?"
+      ],
+      "e2e_full": true
+    },
+    {
+      "id": "L-07",
+      "title": "Движение: появление при прокрутке",
+      "depends": [
+        "L-06"
+      ],
+      "inputs": [
+        "roo_code/plans/landing/landing-plan.md (раздел «Движение»)"
+      ],
+      "result": "src/composables/useReveal.ts — единственный механизм появления, параметры ровно из плана. Подключён к заголовкам секций, карточкам, шагам контура, скриншотам. Hero появляется при загрузке. prefers-reduced-motion — без анимации.",
+      "touches": [
+        "frontend_vue/src/composables/useReveal.ts",
+        "frontend_vue/src/composables/useReveal.spec.ts",
+        "frontend_vue/src/components/landing/*.vue (только подключение reveal)",
+        "frontend_vue/src/styles/public/landing.css (классы reveal)"
+      ],
+      "done": [
+        "Элементы, видимые при загрузке, не получают скрывающий класс (проверка в e2e: сразу после загрузки hero и первый экран без .reveal-pending).",
+        "При emulateMedia({ reducedMotion: 'reduce' }) все секции видимы (opacity 1) без прокрутки.",
+        "Элемент ниже окна после scrollIntoView становится видимым (opacity 1) — e2e с инверсией (выключенный observer → тест красный).",
+        "Наблюдатель отключается в onUnmounted (греп + чтение); параметры 1.8s / 64px / cubic-bezier(.4,0,.2,1) / 0-160-320 мс / 78 % — грепом в коде."
+      ],
+      "checks": [
+        "cd frontend_vue && npm run verify"
+      ]
+    },
+    {
+      "id": "L-08",
+      "title": "Адаптив и доступность",
+      "depends": [
+        "L-07"
+      ],
+      "inputs": [
+        "roo_code/plans/landing/landing-plan.md (брейкпоинты)"
+      ],
+      "result": "Страница корректна на 320, 375, 600, 768, 992, 1200, 1440 по ширине; меню-кнопка на ≤768; клавиатурная навигация; видимый фокус; контраст текста. Спека tests/e2e/public/landing-layout.spec.ts.",
+      "touches": [
+        "frontend_vue/src/styles/public/landing.css",
+        "frontend_vue/src/components/landing/*.vue (только разметка доступности)",
+        "frontend_vue/tests/e2e/public/landing-layout.spec.ts"
+      ],
+      "done": [
+        "На каждой из 7 ширин document.documentElement.scrollWidth <= innerWidth (e2e, цикл с проверкой непустоты списка ширин).",
+        "На 375 меню открывается кнопкой, aria-expanded переключается, Escape закрывает и возвращает фокус на кнопку; клик по якорю закрывает меню.",
+        "Tab с начала страницы доходит до кнопки «Отправить заявку», каждый фокус видим (outline или box-shadow не none — проверка computed style на нескольких элементах).",
+        "У всех img непустой alt; у полей формы есть label, ошибки связаны aria-describedby."
+      ],
+      "checks": [
+        "cd frontend_vue && npm run verify"
+      ]
+    },
+    {
+      "id": "L-09",
+      "title": "Сквозная спека, сборка демо, финальный свип",
+      "depends": [
+        "L-08"
+      ],
+      "inputs": [
+        "roo_code/skills/verify.md",
+        "roo_code/skills/create-page.md (фазы 9–10)",
+        "README.md корня (раздел про демо)"
+      ],
+      "result": "tests/e2e/public/landing.spec.ts: загрузка без ошибок консоли, порядок секций по data-test, якоря шапки ведут к секциям, «Войти» → /login, «Открыть демо» → /admin/analytics/dashboard, ссылки подвала, снимки по секциям (SNAPSHOT_OPTIONS, после отключения анимаций), ready.ts — запись про '/' актуальна. npm run build проходит; dist в ../demo проверен статическим сервером под base /Flexiron-Enterprise/demo/: картинки лендинга грузятся (нет 404). Журнал цикла roo_code/roo-context/verify-runs/landing.md.",
+      "touches": [
+        "frontend_vue/tests/e2e/public/landing.spec.ts",
+        "frontend_vue/tests/e2e/public/landing.spec.ts-snapshots/",
+        "frontend_vue/tests/e2e/helpers/ready.ts (только строка про '/')",
+        "roo_code/roo-context/verify-runs/landing.md",
+        "roo_code/plans/landing/progress.md"
+      ],
+      "done": [
+        "Цикл verify.md по области Л1–Л10 дошёл до чистого свипа (или «не сошлось» с перечнем — тогда blocked); отчёт в формате verify.md в progress.md.",
+        "Полный e2e дважды подряд на одном дереве: exit 0, failed/flaky = 0.",
+        "npm run build exit 0; проверка собранной страницы под base без 404 по ресурсам лендинга (список запрошенных ресурсов в progress.md). Каталог ../demo в git не коммитится, если раньше не коммитился (git status).",
+        "В progress.md — чеклист публикации для владельца из landing-plan.md, ничего не опубликовано и не запушено."
+      ],
+      "checks": [
+        "cd frontend_vue && npm run verify",
+        "cd frontend_vue && npx playwright test --reporter=line > /tmp/landing-l09-e2e.txt 2>&1; echo exit=$?",
+        "cd frontend_vue && npm run build"
+      ],
+      "e2e_full": true
+    }
+  ]
+}
