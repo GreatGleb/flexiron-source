@@ -7,13 +7,8 @@
       <LandingPains />
       <LandingFlow />
       <div id="features" class="landing-features">
-        <section class="landing-section" data-test="landing-feature-warehouse"></section>
-        <section class="landing-section" data-test="landing-feature-cutting"></section>
-        <section class="landing-section" data-test="landing-feature-order"></section>
-        <section class="landing-section" data-test="landing-feature-money"></section>
-        <section class="landing-section" data-test="landing-feature-suppliers"></section>
-        <section class="landing-section" data-test="landing-feature-analytics"></section>
-        <section class="landing-section" data-test="landing-config"></section>
+        <LandingFeature v-for="feature in content.features" :key="feature.id" :feature="feature" />
+        <LandingConfig />
       </div>
       <section class="landing-section" data-test="landing-demo"></section>
       <section id="roadmap" class="landing-section" data-test="landing-roadmap"></section>
@@ -28,7 +23,8 @@
 /*
  * Каркас лендинга (L-03): секции 0–14 в порядке таблицы плана
  * roo_code/plans/landing/landing-plan.md. Секции 1–3 — компоненты L-04 (единственный h1
- * страницы — в LandingHero); содержимое секций 4–13 дописывают L-05…L-06.
+ * страницы — в LandingHero). Секции 4–9 — LandingFeature по landingRu.features, секция 10 —
+ * LandingConfig (L-05); содержимое секций 11–13 дописывает L-06.
  *
  * id="features" — обёртка секций 4–10: на неё ведёт пункт шапки «Возможности».
  */
@@ -41,6 +37,8 @@ import LandingFooter from '@/components/landing/LandingFooter.vue'
 import LandingHero from '@/components/landing/LandingHero.vue'
 import LandingPains from '@/components/landing/LandingPains.vue'
 import LandingFlow from '@/components/landing/LandingFlow.vue'
+import LandingFeature from '@/components/landing/LandingFeature.vue'
+import LandingConfig from '@/components/landing/LandingConfig.vue'
 import '@styles/public/landing.css'
 
 /** Язык текстов лендинга — только русский на первом этапе (решения 1 и 2 плана). */

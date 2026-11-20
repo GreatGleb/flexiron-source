@@ -67,3 +67,21 @@
 - Л10 — роутер не тронут; dev-сервер поднимается (e2e).
 Новых находок в итерации 2 нет — свип чистый.
 Рассмотрено: `landing-hero-pains-flow.spec.ts:inversion-cdn:промах` и `:inversion-icon-img:промах` — инверсии переделаны.
+
+## L-05 — фичи и настройка
+
+**Итерация 1 (финальная).** `npm run verify` → exit 0 (1349 passed); e2e check.sh-набора → exit 0, 83 passed;
+инверсии — 14, все красные (progress.md, раздел L-05).
+Линзы:
+- Л1 — `grep -n "watch(\|useHead(\|structuredClone\|toRaw("` по LandingFeature/LandingConfig — пусто; состояния нет.
+- Л2 — текстов в шаблонах нет, только интерполяция полей `landingRu`; ключей i18n не добавлено.
+- Л3/Л4/Л8 — API, моков и сохранения нет.
+- Л5 — секции 4–10 рисует один компонент; `ls src/components/landing | grep -iE "warehouse|cutting|order|money|supplier|analytic"`
+  — пусто; data-test секций порождается только `LandingFeature.vue` (греп по `src/`); рамка скриншота — `LandingShot` из L-04,
+  иконки — `LandingIcon`; jscpd клонов в файлах лендинга не нашёл.
+- Л6 — классы `landing-*` под `.page-landing`; `grep -L "landing.css" src/components/landing/*.vue` — пусто; `<!--` в шаблонах нет;
+  `scrollWidth` = ширине окна на 375/900/1440, тест L-03 на 320…1440 зелёный.
+- Л7 — ссылок и маршрутов задача не добавляет.
+- Л9 — 14 инверсий, по одной на утверждение; `grep -rn "await page.waitForLoadState" tests/` — 0.
+- Л10 — роутер не тронут; dev-сервер поднимается (e2e).
+Новых находок нет — свип чистый. Открытый вопрос владельцу (не находка): надзаголовки фич.

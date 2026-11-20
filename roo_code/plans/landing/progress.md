@@ -438,3 +438,75 @@ strict-mode локатора картинки, а не через проверк
 - Стрелки контура тестом не охраняются (критериев на них нет) — проверены глазами на трёх ширинах.
 - Хром только; Firefox/Safari не проверялись.
 - Полный e2e не гонялся: у L-04 нет `e2e_full`, общий пол (роутер, i18n, helpers, глобальный CSS) не тронут.
+
+## L-05
+
+**Статус: done (2026-11-20).** Секции возможностей (4–9) и настройки (10). Зависит от L-04 (сделана, 9945b96). Node v22.23.1, PW_PORT=5373.
+
+### Что сделано
+- `src/components/landing/LandingFeature.vue` — **один** компонент на секции 4–10, проп `feature: LandingFeature`
+  (данные `landingRu.features` / `landingRu.config`). Что рисовать, решают поля данных, а не id:
+  `steps` → нумерованные шаги в оранжевых кружках; `points` → пункты (иконка в синем кружке, если задана);
+  `pointsAsCards` → пункты стеклянными карточками (деньги); `note` → у `dark` плашка `landing-feature-plaque`
+  (обрезок), у остальных сноска `landing-note` (подбор обрезков в заказе); `shotSide` → сторона скриншота;
+  `dark` → тёмная полоса (резка). Скриншот — `LandingShot` из L-04 с `lazy` по умолчанию.
+  `data-test`: `landing-config` для id `config`, иначе `landing-feature-<id>` — совпадает с таблицей плана.
+- `src/components/landing/LandingConfig.vue` — секция 10: `<LandingFeature :feature="landingRu.config" />`.
+  Своей разметки нет — форма данных та же (Л5), компонент — только точка подключения, которую требует задача.
+- `src/views/public/LandingPage.vue` — семь пустых обёрток L-03 заменены на
+  `<LandingFeature v-for="feature in content.features">` + `<LandingConfig />` внутри `#features`.
+- `src/styles/public/landing.css` — блок «Секции 4–10» и медиа ≤992 (одна колонка, скриншот под текстом).
+- `tests/e2e/public/landing-features.spec.ts` — 8 тестов (ниже).
+
+### Решения (и почему)
+- **Надзаголовка у фич нет.** Задача перечисляет «надзаголовок» среди пропсов, но в презентации его нет, в типе
+  `LandingFeature` и в `landing.ru.ts` он не заведён (L-01 оставил это вопросом). Придумать надзаголовки
+  («Склад», «Резка»…) или разрезать заголовок слайда — правка текста, которую план не задаёт; критерии done
+  надзаголовка не требуют. Поэтому компонент его не рисует. **Вопрос владельцу:** нужны ли фичам надзаголовки
+  и какие — если да, это строка в `landing.ru.ts` + поле в типе + одна строка в `LandingFeature.vue`.
+- **В DOM текст всегда первым**, сторону скриншота меняет только CSS (`order: -1` у `--shot-left`): порядок
+  чтения не зависит от чередования, а на ≤992 скриншот под текстом у всех секций (план, «Дизайн»).
+- **Все секции 4–10 — две колонки с чередованием**, как требует план, хотя на слайде 4 скриншот партий во всю
+  ширину над пунктами. `batches.jpg` (2600×720) поэтому в колонке невысокий — читается, но мелко (глазами 1440).
+- Цвет кружков шагов резки — `--landing-accent` (на слайде `accent2` = `F2994A`, тот же оранжевый), плашка —
+  тёмная (`accent6` = `0F1424` на слайде) с оранжевой кромкой. Иконки пунктов — синие кружки `var(--primary)`
+  (на слайдах `accent1`), свой синий не заведён.
+- Заголовок секции 10 — «Настраивается под то, как работает ваша компания» (из `landing.ru.ts`, решение L-01).
+
+### Проверки (Node v22.23.1, PW_PORT=5373)
+- `cd frontend_vue && npm run verify` → **exit 0** (89 файлов, 1349 passed, 3 skipped); в отчёте jscpd файлов
+  `components/landing/` и `landing.css` нет (`grep -n "landing/\|Landing"` по выводу — пусто).
+- e2e как в check.sh (navigation, smoke, i18n, tests/e2e/public) → **exit 0, 83 passed**, failed/flaky нет
+  (`/tmp/l05/e2e-narrow.txt`; было 75 после L-04, +8 новых).
+- Греп-критерии: `ls src/components/landing | grep -iE "warehouse|cutting|order|money|supplier|analytic"` — пусто;
+  `data-test` секций 4–10 в `src/` порождает только `LandingFeature.vue:87`; `grep -n "<!--"` по компонентам
+  лендинга — пусто; `grep -L "landing.css" src/components/landing/*.vue` — пусто (все импортируют свой CSS);
+  `grep -rn "await page.waitForLoadState" tests/` — 0.
+- Глазами — временная спека скриншотов (удалена) на 1440 / 900 / 375: чередование сторон, тёмная резка с
+  оранжевыми шагами и плашкой, карточки денег; `scrollWidth` = ширине окна на всех трёх.
+
+### Тесты и инверсии (Л9) — скрипт `/tmp/l05/inv.py`: поломка → прогон спеки → возврат файла, сверка `cmp`
+| # | Поломка | Покраснело |
+|---|---|---|
+| 0 | `LandingConfig` раньше фич | seven sections in plan order (+ cutting dark, alternate sides — сдвиг индексов) |
+| 1 | h2 рисует `feature.id` | seven sections in plan order…, each with its title |
+| 2 | секция 10 своей разметкой (не через LandingFeature) | all seven are drawn by one component (+ points, lazy, narrow, alternate) |
+| 3 | пункты без первого | each section shows its own points, steps and icons |
+| 4 | иконки пунктов сняты | то же |
+| 5 | `pointsAsCards` игнорируется | то же |
+| 6 | тёмный вариант снят | cutting is the dark variant… |
+| 7 | плашка рисуется сноской | то же |
+| 8 | номера шагов с 0 | то же |
+| 9 | секция 10 получает `dashboard.jpg` | dashboard.jpg appears on the page exactly once |
+| 10 | скриншоты фич `lazy=false` | every image below the hero is lazy and has width and height |
+| 11 | `height` снят у `<img>` в LandingShot | то же |
+| 12 | `order: -1` снят (сторона не меняется) | screenshots alternate sides on a wide screen |
+| 13 | на ≤992 скриншот `--shot-left` остаётся над текстом | on a narrow screen the screenshot goes under the text |
+Все 14 — exit 1, красный ровно у своего утверждения; промахов (#71) нет. Вывод — `/tmp/l05/inv.txt`.
+
+### Не проверено / оставлено следующим задачам
+- Надзаголовки фич — вопрос владельцу (выше), не блокирует критерии done.
+- Появление при прокрутке — L-07; доступность (контраст текста на тёмной полосе, порядок чтения) и адаптив на всех
+  брейкпоинтах — L-08. Проверено глазами только 1440/900/375; тест L-03 «ничего не вылезает» на 320…1440 — зелёный.
+- Только Chromium; Firefox/Safari не проверялись.
+- Полный e2e не гонялся: у L-05 нет `e2e_full`, общий пол (роутер, i18n, helpers, глобальный CSS) не тронут.
