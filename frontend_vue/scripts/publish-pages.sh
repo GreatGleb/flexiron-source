@@ -29,7 +29,8 @@ if [ -n "$DRY" ]; then
   echo "Это был пробный прогон: в $TARGET ничего не изменено."
 else
   echo
-  git -C "$TARGET" status --short | head -40
+  # sed, а не head: head закрывает трубу раньше, git получает SIGPIPE, и pipefail роняет скрипт (код 141).
+  git -C "$TARGET" status --short | sed -n '1,40p'
   echo
   echo "Проверьте и опубликуйте:"
   echo "  cd $TARGET && git add -A && git commit -m 'build: сайт Flexiron' && git push"
