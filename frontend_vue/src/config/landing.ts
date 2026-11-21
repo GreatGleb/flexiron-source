@@ -42,7 +42,7 @@ export const TURNSTILE_SITE_KEY: string =
  */
 export const CONTACTS = {
   email: 'hello@flexiron.example',
-  phone: '+000 00 000 000',
+  phone: '+370 688 97926',
   telegram: 'flexiron_example',
   company: 'Flexiron (company details — placeholder)',
   isPlaceholder: true,
