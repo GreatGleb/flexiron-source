@@ -34,6 +34,8 @@ playwright/.cache/
 coverage/
 
 demo/
+# Сборка сайта (лендинг + программа) для GitHub Pages — npm run build:site
+site/
 xlx tables/
 
 # Python

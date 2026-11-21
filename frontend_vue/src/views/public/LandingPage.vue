@@ -37,6 +37,7 @@ import { useHead } from '@/composables/useHead'
 import { useReveal } from '@/composables/useReveal'
 import { useLandingContent, useLandingLang } from '@/composables/useLandingContent'
 import { useLandingAppLang } from '@/composables/useLandingAppLang'
+import { useLandingSeo } from '@/composables/useLandingSeo'
 import LandingHeader from '@/components/landing/LandingHeader.vue'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
 import LandingHero from '@/components/landing/LandingHero.vue'
@@ -61,6 +62,8 @@ useLandingAppLang()
 useReveal(pageRoot)
 
 useHead({ title: () => content.value.seo.title, description: () => content.value.seo.description })
+/* canonical, hreflang, noindex у /ru, Open Graph, JSON-LD (этап 2, SEO). */
+useLandingSeo(lang, content)
 
 watch(
   lang,

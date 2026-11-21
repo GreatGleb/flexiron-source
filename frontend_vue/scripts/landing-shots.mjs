@@ -2,6 +2,7 @@
 //
 //   npm run dev -- --port 5199 --strictPort      # демо на моках, в другом терминале
 //   node scripts/landing-shots.mjs lt en         # → src/assets/images/landing/<язык>/*.jpg
+//   node scripts/landing-shots.mjs --og lt en ru # → public/og/<язык>.jpg, превью для соцсетей
 //
 // Тот же сценарий, что снимал картинки презентации (сессия 2026-11-17): те же страницы, те же
 // кадры, тот же масштаб — меняется только язык интерфейса (`flexiron_lang`). Размер файла задаёт
@@ -20,7 +21,9 @@ const OUT_ROOT = join(
   'images',
   'landing',
 )
-const LANGS = process.argv.slice(2)
+const FRONTEND = join(dirname(fileURLToPath(import.meta.url)), '..')
+const OG_MODE = process.argv.includes('--og')
+const LANGS = process.argv.slice(2).filter((a) => a !== '--og')
 if (LANGS.length === 0) throw new Error('укажите языки: node scripts/landing-shots.mjs lt en')
 
 /** Кнопка «добавить обрезок» на экране резки — на всех языках интерфейса. */
@@ -69,6 +72,32 @@ async function windowShot(lang, out, prepare, clip, fileWidth) {
   await prepare(p)
   await p.screenshot({ path: out, clip, type: 'jpeg', quality: 90 })
   await p.context().close()
+}
+
+/**
+ * Превью для соцсетей (og:image, этап 2 лендинга, SEO): первый экран лендинга 1200×630 —
+ * размер, который Facebook, LinkedIn и мессенджеры показывают без обрезки.
+ */
+async function ogShot(lang) {
+  const p = await page(lang, 1200, 630, 1)
+  await p.goto(`${BASE}/${lang}`, { waitUntil: 'networkidle' })
+  // Появление первого экрана (useReveal) — дождаться, пока всё встанет на место.
+  await p.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'))
+  await p.waitForTimeout(300)
+  mkdirSync(join(FRONTEND, 'public', 'og'), { recursive: true })
+  await p.screenshot({
+    path: join(FRONTEND, 'public', 'og', `${lang}.jpg`),
+    type: 'jpeg',
+    quality: 85,
+  })
+  await p.context().close()
+}
+
+if (OG_MODE) {
+  for (const lang of LANGS) await ogShot(lang)
+  console.log(`превью: ${LANGS.join(', ')} → public/og/`)
+  await browser.close()
+  process.exit(0)
 }
 
 for (const lang of LANGS) {

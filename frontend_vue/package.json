@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
+    "build:site": "npm run build && node scripts/prerender-landing.mjs",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "lint": "eslint src/ tests/ *.ts --max-warnings=0 --cache --cache-location node_modules/.cache/eslint/",

@@ -125,3 +125,11 @@ describe('landing.lt — литовский, а не английский', () =
     expect(lithuanian.length / texts.length).toBeGreaterThan(0.5)
   })
 })
+
+describe('превью для соцсетей (og:image)', () => {
+  it.each(['lt', 'en', 'ru'])('public/og/%s.jpg есть и размером 1200×630', (lang) => {
+    const file = join(FRONTEND, 'public', 'og', `${lang}.jpg`)
+    expect(existsSync(file)).toBe(true)
+    expect(jpegSize(file)).toEqual({ width: 1200, height: 630 })
+  })
+})

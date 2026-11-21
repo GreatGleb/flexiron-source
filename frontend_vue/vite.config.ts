@@ -2,12 +2,15 @@ import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
-export default defineConfig(({ command, mode }) => {
+export default defineConfig(({ command, mode, isPreview }) => {
   // Load env variables for proxy
   const env = loadEnv(mode, process.cwd(), '')
 
   return {
-    base: command === 'build' ? '/Flexiron-Enterprise/demo/' : '/',
+    // Сайт целиком — лендинг и программа — в корне репозитория публикации (этап 2 лендинга, SEO):
+    // https://greatgleb.github.io/Flexiron-Enterprise/. Старые ссылки /demo/… ловит роутер.
+    // `vite preview` (пререндер, scripts/prerender-landing.mjs) отдаёт ту же сборку — и с той же базой.
+    base: command === 'build' || isPreview ? '/Flexiron-Enterprise/' : '/',
     plugins: [vue()],
     resolve: {
       alias: {
@@ -25,7 +28,7 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     build: {
-      outDir: '../demo',
+      outDir: '../site',
       emptyOutDir: true,
       assetsDir: 'app',
     },

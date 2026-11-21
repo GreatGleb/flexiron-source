@@ -11,7 +11,7 @@
         // вернёт путь через history.replaceState до инициализации роутера.
         // BASE совпадает с `base` из vite.config.ts; файлы в public/ Vite не
         // трансформирует, поэтому подставить его переменной нельзя.
-        var BASE = '/Flexiron-Enterprise/demo/'
+        var BASE = '/Flexiron-Enterprise/'
         var path = location.pathname
         // 404 отдал сам базовый index.html — редирект превратился бы в петлю.
         if (path === BASE || path === BASE + 'index.html') return
@@ -26,10 +26,10 @@
       })()
     </script>
     <noscript>
-      <meta http-equiv="refresh" content="0;url=/Flexiron-Enterprise/demo/" />
+      <meta http-equiv="refresh" content="0;url=/Flexiron-Enterprise/" />
     </noscript>
   </head>
   <body>
-    <a href="/Flexiron-Enterprise/demo/">Flexiron Enterprise Demo</a>
+    <a href="/Flexiron-Enterprise/">Flexiron Enterprise</a>
   </body>
 </html>

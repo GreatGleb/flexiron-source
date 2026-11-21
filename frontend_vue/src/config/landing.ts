@@ -12,6 +12,21 @@ const rawLeadsUrl: unknown = import.meta.env.VITE_LANDING_LEADS_URL
 export const LEADS_URL: string = typeof rawLeadsUrl === 'string' ? rawLeadsUrl.trim() : ''
 
 /**
+ * Адрес опубликованного сайта без слэша на конце — для canonical, hreflang, Open Graph и sitemap.xml
+ * (этап 2 лендинга, SEO). Поисковикам нужны полные адреса, относительные они не принимают.
+ */
+const rawSiteUrl: unknown = import.meta.env.VITE_SITE_URL
+export const SITE_URL: string = (
+  typeof rawSiteUrl === 'string' && rawSiteUrl.trim()
+    ? rawSiteUrl.trim()
+    : 'https://greatgleb.github.io/Flexiron-Enterprise'
+).replace(/\/+$/, '')
+
+/** Код подтверждения Google Search Console (мета-тег `google-site-verification`); пусто — тега нет. */
+const rawGsc: unknown = import.meta.env.VITE_GSC_VERIFICATION
+export const GSC_VERIFICATION: string = typeof rawGsc === 'string' ? rawGsc.trim() : ''
+
+/**
  * Публичный site key виджета Cloudflare Turnstile (капча формы заявки). Публичный по замыслу —
  * он виден в коде любой страницы с виджетом; секретная пара к нему живёт только в свойствах
  * скрипта Apps Script (`TURNSTILE_SECRET`). Пусто → виджета нет и токен не уходит.

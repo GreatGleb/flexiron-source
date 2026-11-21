@@ -263,3 +263,39 @@ Apps Script — заглушка повторяет документирован
 флаг (2 failed); `tf` снова русский запасным (2 failed); русский текст в истории демо-данных (2 failed, обе страницы).
 
 Не проверено: окна, вкладки и выпадающие списки программы — перепись видит только первый экран.
+
+---
+
+# Этап 2, пункт 3: SEO, сайт в корне, пререндер (2026-11-21, интерактивно)
+
+Область: `base` сборки `/Flexiron-Enterprise/` (и у `vite preview`), `outDir ../site`, роутер `/demo/*` → `/*`,
+`public/404.html`, `index.html` (снимает пререндер при восстановлении пути), `useLandingSeo` (canonical, hreflang lt/en
++ x-default, noindex у ru, Open Graph/Twitter, JSON-LD), `public/og/*.jpg`, `scripts/prerender-landing.mjs` +
+`build:site`, `scripts/publish-pages.sh`, `fetchpriority` у скриншота первого экрана, `public/.nojekyll`, README.
+
+## Находки по ходу
+
+- `vite preview` шёл с базой `/` (`command` у него `serve`) — файлы приложения 404, пререндер не находил h1; база
+  теперь и для `isPreview`.
+- `preview.kill()` убивал `npx`, а `vite` оставался на порту — своя группа процессов, `kill(-pid)`.
+- Правка `landing-shots.mjs` не легла (prettier перенёс строку), запуск со старым кодом принял `--og` за язык:
+  мусорная папка удалена, литовские/английские кадры пересняты тем же сценарием; два файла отличаются от коммита
+  байтами, попиксельно (порог 40) — нет. Вернуть байт в байт из git не разрешили — оставлены.
+- `public/public/index.html` — забытая переадресация первого коммита на `/demo/` — удалён.
+
+## Машинная приёмка
+
+- `npm run build:site` exit 0, самопроверка пререндера сошлась (lang, canonical, noindex только у ru, нет
+  `reveal-pending`, JSON-LD, og:image своего языка, h1 трёх языков различны, корень = lt, sitemap без ru).
+- Подобие GitHub Pages (`ghpages.py`: каталог → index.html, без слэша → 301, нет файла → 404.html с кодом 404):
+  `/`, `/lt/`, `/en/`, `/ru/` — 200 с текстом в сыром HTML; без JS видны 13 секций; LT → EN → демо (en, без RU);
+  F5 на `/admin/…` возвращает туда же без лендинга; `/demo/admin/…` → `/admin/…`; лендинг не мелькает на `/admin/orders`.
+- `npm run verify` exit 0: 1452 passed / 3 skipped. Полный e2e дважды на одном дереве: 1204/1204, 1204/1204, `tree same`.
+- `publish-pages.sh --dry-run`: уходит `demo/`, приходят `lt/ en/ ru/ og/ sitemap.xml`; репозиторий публикации не тронут.
+
+## Инверсии (все красные)
+
+ru в hreflang (3 failed); без очистки при смене языка (1); теги остаются после ухода (1); noindex не тому языку (2);
+пререндер оставляет `reveal-pending` — самопроверка роняет сборку (exit 1).
+
+Не проверено: настоящий GitHub Pages и Search Console — после push владельца.

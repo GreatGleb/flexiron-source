@@ -16,6 +16,11 @@
         var current = location.pathname + location.search + location.hash
         if (redirect && redirect !== current) {
           history.replaceState(null, '', redirect)
+          // Корневой index.html на сайте — заранее отрисованный лендинг (scripts/prerender-landing.mjs).
+          // Пришли сюда через 404 за другой страницей — убрать его разметку, иначе она мелькнёт
+          // до запуска приложения.
+          var app = document.getElementById('app')
+          if (app) app.innerHTML = ''
         }
       })()
     </script>
