@@ -4,7 +4,8 @@ import { DATA_READY_TIMEOUT } from './helpers/ready'
 test.describe('Navigation', () => {
   test('landing renders at /', async ({ page }) => {
     await page.goto('/')
-    await expect(page).toHaveURL('/', { timeout: DATA_READY_TIMEOUT })
+    // Корень ведёт на литовский лендинг (этап 2 лендинга, пункт 4).
+    await expect(page).toHaveURL('/lt', { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('h1')).toBeVisible()
   })
 

@@ -1,5 +1,6 @@
 import { testBare as test, expect } from './fixtures'
 import { ALL_FLAGS_ENABLED } from './helpers/flags'
+import { ADMIN_ROUTES } from './helpers/adminRoutes'
 import {
   DATA_READY_TIMEOUT,
   ROUTES_WITHOUT_DATA,
@@ -27,51 +28,7 @@ import {
 const DATA_FREE = [...ROUTES_WITHOUT_DATA_PATHS]
 
 /** Every admin route: all of these load data and must exit by `traffic-seen`. */
-const ADMIN = [
-  '/admin/analytics/dashboard',
-  '/admin/analytics/warehouse',
-  '/admin/analytics/sales',
-  '/admin/analytics/supply',
-  '/admin/analytics/staff',
-  '/admin/analytics/logistics',
-  '/admin/analytics/pl-report',
-  '/admin/analytics/deficit',
-  '/admin/products',
-  '/admin/products/prod-001',
-  '/admin/products/categories',
-  '/admin/products/categories/cat-1',
-  '/admin/products/services',
-  '/admin/clients',
-  '/admin/clients/CL-001',
-  '/admin/clients/new',
-  '/admin/suppliers',
-  '/admin/suppliers/1',
-  '/admin/suppliers/new',
-  '/admin/suppliers/config',
-  '/admin/suppliers/bcc-request',
-  '/admin/orders',
-  '/admin/orders/ORD-001',
-  '/admin/orders/new',
-  '/admin/sales-crm',
-  '/admin/warehouse',
-  '/admin/warehouse/map',
-  '/admin/warehouse/cutting',
-  '/admin/warehouse/batches/whb-001',
-  '/admin/warehouse/stock/prod-001',
-  '/admin/warehouse/offcuts/who-001',
-  '/admin/warehouse/movements/whm-001',
-  '/admin/warehouse/deficit/whd-001',
-  '/admin/finance/incoming',
-  '/admin/finance/outgoing',
-  '/admin/finance/archive',
-  '/admin/notifications',
-  '/admin/settings/profile',
-  '/admin/settings/company',
-  '/admin/settings/finance',
-  '/admin/settings/units',
-  '/admin/settings/order-statuses',
-  '/admin/settings/logs',
-]
+const ADMIN = ADMIN_ROUTES
 
 async function exitFor(
   page: import('@playwright/test').Page,

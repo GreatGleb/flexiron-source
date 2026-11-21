@@ -29,7 +29,7 @@ async function revealStates(page: Page): Promise<RevealState[]> {
 }
 
 async function openLanding(page: Page) {
-  await page.goto('/')
+  await page.goto('/ru')
   await expect(page.getByTestId('landing-hero')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
 }
 

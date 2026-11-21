@@ -15,9 +15,11 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { useVisibleLocales } from '@/composables/useVisibleLocales'
 
-const { locale, availableLocales } = useI18n()
-const locales = availableLocales
+const { locale } = useI18n()
+// Русский — только если он не скрыт (src/i18n/ruVisibility.ts).
+const locales = useVisibleLocales()
 
 function switchTo(code: string) {
   locale.value = code

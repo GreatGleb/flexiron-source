@@ -29,6 +29,6 @@ export const CONTACTS = {
   email: 'hello@flexiron.example',
   phone: '+000 00 000 000',
   telegram: 'flexiron_example',
-  company: 'Flexiron (реквизиты — заглушка)',
+  company: 'Flexiron (company details — placeholder)',
   isPlaceholder: true,
 } as const

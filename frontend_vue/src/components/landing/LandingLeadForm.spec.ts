@@ -17,6 +17,8 @@ vi.mock('@/config/landing', async (importOriginal) => {
 
 const { default: LandingLeadForm } = await import('./LandingLeadForm.vue')
 const { CONTACTS } = await import('@/config/landing')
+// Без роутера язык лендинга — по умолчанию, литовский (useLandingContent).
+const { landingLt } = await import('@/content/landing.lt')
 
 describe('LandingLeadForm без адреса Apps Script', () => {
   const fetchSpy = vi.fn()
@@ -38,7 +40,7 @@ describe('LandingLeadForm без адреса Apps Script', () => {
     expect(wrapper.find('button[type="submit"]').exists()).toBe(false)
 
     const direct = wrapper.get('[data-test="landing-lead-disabled"]')
-    expect(direct.text()).toContain('Напишите нам напрямую')
+    expect(direct.text()).toContain(landingLt.lead.disabled)
     expect(direct.get('a[href^="mailto:"]').text()).toBe(CONTACTS.email)
     expect(direct.text()).toContain(CONTACTS.phone)
   })

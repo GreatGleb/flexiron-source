@@ -73,7 +73,7 @@ const SECTION_IDS = SECTIONS.map((s) => s.id)
 
 test.describe('landing features and config (sections 4–10)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/ru')
     await expect(page.getByTestId('landing-config')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 

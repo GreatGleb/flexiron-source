@@ -1,8 +1,11 @@
 /**
- * Тексты лендинга `/` — типизированный модуль вместо vue-i18n (решение 1 плана
- * roo_code/plans/landing/landing-plan.md): переводов пока нет, а localeParity требует
- * одинаковый набор ключей во всех трёх локалях. Данные — src/content/landing.ru.ts.
+ * Тексты лендинга — типизированный модуль вместо vue-i18n (решение 1 плана
+ * roo_code/plans/landing/landing-plan.md). Три набора одной формы — src/content/landing.{lt,en,ru}.ts;
+ * язык выбирается адресом (`/lt`, `/en`, `/ru`; этап 2, пункт 4 — landing-stage-2-plan.md).
  */
+
+/** Языки лендинга; у каждого свой адрес. */
+export type LandingLang = 'lt' | 'en' | 'ru'
 
 /** Иконки из презентации (react-icons/fa6 в presentation/build.js), имена без префикса Fa. */
 export type LandingIcon =
@@ -26,7 +29,7 @@ export type LandingIcon =
 type LandingAnchor = 'features' | 'flow' | 'roadmap' | 'lead'
 
 export interface LandingImage {
-  /** URL после сборки Vite (импорт из src/assets/images/landing/). */
+  /** URL после сборки Vite (импорт из src/assets/images/landing/<язык>/). */
   src: string
   alt: string
   /** Натуральный размер файла — для атрибутов width/height у <img>. */
@@ -95,6 +98,8 @@ export interface LandingContent {
     login: LandingRouteLink
     cta: LandingAnchorLink
     menuLabel: string
+    /** Подпись группы переключателя LT / EN для экранного диктора. */
+    langLabel: string
   }
   hero: {
     eyebrow: string

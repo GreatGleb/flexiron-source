@@ -43,9 +43,11 @@
  * accent (резка) — акцентом --landing-accent, остальные — var(--primary). Стрелка между
  * шагами — у каждого шага, кроме последнего (скрывается в CSS).
  */
+import { computed } from 'vue'
 import '@styles/public/landing.css'
-import { landingRu } from '@/content/landing.ru'
+import { useLandingContent } from '@/composables/useLandingContent'
 import LandingIcon from './LandingIcon.vue'
 
-const flow = landingRu.flow
+const content = useLandingContent()
+const flow = computed(() => content.value.flow)
 </script>

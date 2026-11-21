@@ -1,5 +1,6 @@
 import { useI18n } from 'vue-i18n'
 import type { TranslatedString } from '@/types/i18n'
+import { ruVisible } from '@/i18n/ruVisibility'
 
 /**
  * Reactive helper that picks the right language variant from a TranslatedString
@@ -20,14 +21,15 @@ export function useTranslatedField() {
   const { locale } = useI18n()
 
   /**
-   * Returns the translated string for the current locale.
-   * Falls back to Russian if the current locale is not found.
+   * Returns the translated string for the current locale; otherwise the first non-empty
+   * of the others. Russian is never a fallback while it is hidden (src/i18n/ruVisibility.ts):
+   * a Lithuanian or English user must not see Russian text just because a translation is missing.
    */
   function tf(field: TranslatedString | null | undefined): string {
     if (!field) return ''
     const currentLocale = locale.value as keyof TranslatedString
     if (field[currentLocale]) return field[currentLocale]
-    // Fallback to any non-empty language
+    if (!ruVisible.value) return field.en || field.lt || ''
     return field.ru || field.en || field.lt || ''
   }
 

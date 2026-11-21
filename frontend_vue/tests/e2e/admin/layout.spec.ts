@@ -331,6 +331,9 @@ test.describe('admin layout › lang switcher', () => {
   })
 
   test('topbar RU click sets html[lang]=ru', async ({ page }) => {
+    // Русский в переключателях виден только пришедшим с /ru (src/i18n/ruVisibility.ts);
+    // этот тест проверяет именно русский — открываем его, как сделал бы уход с /ru.
+    await page.addInitScript(() => localStorage.setItem('flexiron_ru', '1'))
     await page.goto(DASHBOARD)
     // Переход и сразу действие: без ожидания тест зависит от того,
     // успела ли страница подняться, а этого он не контролирует.

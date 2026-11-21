@@ -28,12 +28,17 @@
  * «Уже в системе» зелёный (--landing-ok), «В разработке» оранжевый (--landing-accent).
  * Перенос честный, как на слайде (решение 6 плана).
  */
+import { computed } from 'vue'
 import '@styles/public/landing.css'
-import { landingRu } from '@/content/landing.ru'
+import { useLandingContent } from '@/composables/useLandingContent'
 
-const roadmap = landingRu.roadmap
-const columns = [
-  { kind: 'done', ...roadmap.done },
-  { kind: 'next', ...roadmap.next },
-] as const
+const content = useLandingContent()
+const roadmap = computed(() => content.value.roadmap)
+const columns = computed(
+  () =>
+    [
+      { kind: 'done', ...roadmap.value.done },
+      { kind: 'next', ...roadmap.value.next },
+    ] as const,
+)
 </script>

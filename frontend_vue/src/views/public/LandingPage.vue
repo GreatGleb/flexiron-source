@@ -23,16 +23,20 @@
 /*
  * Каркас лендинга (L-03): секции 0–14 в порядке таблицы плана
  * roo_code/plans/landing/landing-plan.md. Секции 1–3 — компоненты L-04 (единственный h1
- * страницы — в LandingHero). Секции 4–9 — LandingFeature по landingRu.features, секция 10 —
+ * страницы — в LandingHero). Секции 4–9 — LandingFeature по content.features, секция 10 —
  * LandingConfig (L-05). Секции 11–13 — LandingDemo, LandingRoadmap, LandingLeadForm (L-06).
  *
  * id="features" — обёртка секций 4–10: на неё ведёт пункт шапки «Возможности».
+ *
+ * Язык — по адресу (`/lt`, `/en`, `/ru`; useLandingContent). Переход между языками не
+ * пересоздаёт страницу, поэтому `<html lang>`, заголовок и описание следят за языком.
  */
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useReveal } from '@/composables/useReveal'
-import { landingRu } from '@/content/landing.ru'
+import { useLandingContent, useLandingLang } from '@/composables/useLandingContent'
+import { useLandingAppLang } from '@/composables/useLandingAppLang'
 import LandingHeader from '@/components/landing/LandingHeader.vue'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
 import LandingHero from '@/components/landing/LandingHero.vue'
@@ -45,21 +49,26 @@ import LandingRoadmap from '@/components/landing/LandingRoadmap.vue'
 import LandingLeadForm from '@/components/landing/LandingLeadForm.vue'
 import '@styles/public/landing.css'
 
-/** Язык текстов лендинга — только русский на первом этапе (решения 1 и 2 плана). */
-const LANDING_LANG = 'ru'
-
-const content = landingRu
+const lang = useLandingLang()
+const content = useLandingContent()
 const { locale } = useI18n()
 const pageRoot = ref<HTMLElement | null>(null)
+
+/* Уход в программу (демо, вход, подвал) — на языке этой версии лендинга. */
+useLandingAppLang()
 
 /* Появление блоков (L-07): помеченные data-reveal элементы всех секций, один наблюдатель. */
 useReveal(pageRoot)
 
-useHead({ title: content.seo.title, description: content.seo.description })
+useHead({ title: () => content.value.seo.title, description: () => content.value.seo.description })
 
-onMounted(() => {
-  document.documentElement.lang = LANDING_LANG
-})
+watch(
+  lang,
+  (value) => {
+    document.documentElement.lang = value
+  },
+  { immediate: true },
+)
 
 onUnmounted(() => {
   document.documentElement.lang = locale.value

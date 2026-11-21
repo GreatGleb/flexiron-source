@@ -5,7 +5,7 @@
     data-test="landing-header"
   >
     <div class="landing-header-inner">
-      <router-link :to="{ name: 'landing' }" class="landing-header-logo">
+      <router-link :to="LANDING_PATH[lang]" class="landing-header-logo">
         <img :src="logoUrl" :alt="header.logoAlt" width="180" height="24" />
       </router-link>
 
@@ -51,6 +51,20 @@
           </a>
         </nav>
         <div class="landing-header-actions">
+          <nav class="landing-lang" :aria-label="header.langLabel" data-test="landing-lang">
+            <router-link
+              v-for="code in SWITCHER_LANGS"
+              :key="code"
+              :to="LANDING_PATH[code]"
+              :class="['landing-lang-link', { 'landing-lang-link--active': code === lang }]"
+              :aria-current="code === lang ? 'page' : undefined"
+              :lang="code"
+              :data-test="`landing-lang-${code}`"
+              @click="closeMenu"
+            >
+              {{ code.toUpperCase() }}
+            </router-link>
+          </nav>
           <router-link
             :to="header.login.to"
             class="landing-btn landing-btn--ghost"
@@ -74,15 +88,22 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import '@styles/public/landing.css'
 import logoUrl from '@/assets/images/Flexiron_Logo_White.svg'
-import { landingRu } from '@/content/landing.ru'
+import {
+  LANDING_PATH,
+  SWITCHER_LANGS,
+  useLandingContent,
+  useLandingLang,
+} from '@/composables/useLandingContent'
 
 /** Порог прокрутки, после которого шапка получает стеклянный фон (план, «Движение»). */
 const SCROLL_THRESHOLD = 8
 
-const header = landingRu.header
+const lang = useLandingLang()
+const content = useLandingContent()
+const header = computed(() => content.value.header)
 const scrolled = ref(false)
 const menuOpen = ref(false)
 const toggleEl = ref<HTMLElement | null>(null)

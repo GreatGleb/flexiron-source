@@ -19,7 +19,6 @@
             :to="hero.ctaDemo.to"
             class="landing-btn landing-btn--ghost"
             data-test="landing-hero-demo"
-            @click="prepareDemoLang"
           >
             {{ hero.ctaDemo.label }}
           </router-link>
@@ -40,14 +39,14 @@
 /*
  * Секция 1 лендинга (план, таблица «Структура страницы»; слайд 1 презентации).
  * Единственный h1 страницы. «Заказать показ» — якорь на форму заявки, «Открыть демо» —
- * переход в демо по-русски (решение 3, useLandingDemoLang). Скриншот на первом экране —
+ * переход в демо на языке лендинга (useLandingAppLang в LandingPage). Скриншот на первом экране —
  * без lazy.
  */
+import { computed } from 'vue'
 import '@styles/public/landing.css'
-import { landingRu } from '@/content/landing.ru'
-import { useLandingDemoLang } from '@/composables/useLandingDemoLang'
+import { useLandingContent } from '@/composables/useLandingContent'
 import LandingShot from './LandingShot.vue'
 
-const hero = landingRu.hero
-const { prepareDemoLang } = useLandingDemoLang()
+const content = useLandingContent()
+const hero = computed(() => content.value.hero)
 </script>

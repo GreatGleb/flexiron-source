@@ -29,9 +29,11 @@
  * Секция 2 лендинга: четыре потери металлобазы и строка о происхождении продукта
  * (слайд 2 презентации). Кружки иконок — оранжевые, как на слайде.
  */
+import { computed } from 'vue'
 import '@styles/public/landing.css'
-import { landingRu } from '@/content/landing.ru'
+import { useLandingContent } from '@/composables/useLandingContent'
 import LandingIcon from './LandingIcon.vue'
 
-const pains = landingRu.pains
+const content = useLandingContent()
+const pains = computed(() => content.value.pains)
 </script>

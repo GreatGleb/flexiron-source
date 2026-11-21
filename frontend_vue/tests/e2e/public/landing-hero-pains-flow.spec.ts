@@ -12,7 +12,7 @@ const LANG_KEY = 'flexiron_lang'
 
 test.describe('landing hero, pains, flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/ru')
     await expect(page.getByTestId('landing-hero')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 
@@ -124,7 +124,7 @@ test.describe('landing hero, pains, flow', () => {
 
 test.describe('landing hero — demo opens in Russian (decision 3)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/ru')
     await expect(page.getByTestId('landing-hero-demo')).toBeVisible({
       timeout: DATA_READY_TIMEOUT,
     })
@@ -140,11 +140,12 @@ test.describe('landing hero — demo opens in Russian (decision 3)', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
   })
 
-  test('a language the person chose is kept', async ({ page }) => {
+  test('the demo follows the landing language even over an earlier choice', async ({ page }) => {
+    // Решение владельца 2026-11-21: пришёл с /ru — программа по-русски, что бы ни было выбрано раньше.
     expect(await page.evaluate((key) => localStorage.getItem(key), LANG_KEY)).toBe('en')
     await page.getByTestId('landing-hero-demo').click()
     await expect(page).toHaveURL(/\/admin\//, { timeout: DATA_READY_TIMEOUT })
-    expect(await page.evaluate((key) => localStorage.getItem(key), LANG_KEY)).toBe('en')
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    expect(await page.evaluate((key) => localStorage.getItem(key), LANG_KEY)).toBe('ru')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
   })
 })

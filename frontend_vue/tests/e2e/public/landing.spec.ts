@@ -45,7 +45,7 @@ const FOOTER_LINKS = [
 const DEMO_PATH = '/admin/analytics/dashboard'
 
 async function openLanding(page: Page) {
-  await page.goto('/')
+  await page.goto('/ru')
   await expect(page.getByTestId('landing-hero')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
 }
 

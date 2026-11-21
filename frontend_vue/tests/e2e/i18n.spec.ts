@@ -3,10 +3,13 @@ import { DATA_READY_TIMEOUT, waitForDataReady } from './helpers/ready'
 
 const LANGS = ['ru', 'en', 'lt'] as const
 
-// Переключатель проверяется на /login: лендинг `/` пока только русский и переключатель
-// прячет (решение 2 roo_code/plans/landing/landing-plan.md, meta.hideLangSwitcher).
+// Переключатель проверяется на /login: у лендинга свой переключатель LT / EN, а общий он
+// прячет (meta.hideLangSwitcher). Что русский скрыт без /ru — tests/e2e/ru-hidden.spec.ts.
 test.describe('Language switching — public page (via LangSwitcher)', () => {
   test('all three locales are reachable via switcher', async ({ page }) => {
+    // Русский в переключателях виден только пришедшим с /ru (src/i18n/ruVisibility.ts);
+    // этот тест проверяет именно русский — открываем его, как сделал бы уход с /ru.
+    await page.addInitScript(() => localStorage.setItem('flexiron_ru', '1'))
     await page.goto('/login')
     // /login объявлен в `ROUTES_WITHOUT_DATA`: ждать нечего, и хелпер говорит это
     // прямо — в отличие от `networkidle`, который «ждал» и на страницах с данными.

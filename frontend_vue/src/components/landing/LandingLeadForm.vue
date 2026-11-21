@@ -139,7 +139,7 @@
 /*
  * Секция 13 лендинга — форма заявки (план, «Форма заявки»). Логика — useLandingLead,
  * правило валидации — src/domain/landingLead.ts, отправка — landingLeadService. Здесь только
- * разметка, тексты из landingRu.lead и фокус на первое неверное поле после отправки.
+ * разметка, тексты из useLandingContent().lead и фокус на первое неверное поле после отправки.
  *
  * data-state на <form>: idle / sending / success / error / disabled. В success поля
  * заменяются благодарностью; в error введённое остаётся, ниже — контакты; в disabled
@@ -148,14 +148,16 @@
  * Капча — useTurnstile: виджет появляется над кнопкой при первом касании формы (focusin), не
  * раньше; в disabled не грузится вовсе. Не загрузилась — вместо неё контакты.
  */
+import { computed } from 'vue'
 import '@styles/public/landing.css'
-import { landingRu } from '@/content/landing.ru'
+import { useLandingContent } from '@/composables/useLandingContent'
 import { useLandingLead } from '@/composables/useLandingLead'
 import { useTurnstile } from '@/composables/useTurnstile'
 import type { LeadField } from '@/domain/landingLead'
 import LandingContacts from './LandingContacts.vue'
 
-const lead = landingRu.lead
+const content = useLandingContent()
+const lead = computed(() => content.value.lead)
 const {
   status: captchaStatus,
   token: captchaToken,
@@ -171,18 +173,20 @@ const { draft, errors, state, captchaMissing, validateField, firstInvalid, submi
     reset: resetCaptcha,
   })
 
-const fields: {
-  key: LeadField
-  label: string
-  placeholder?: string
-  required: boolean
-  autocomplete: string
-}[] = [
-  { key: 'name', ...lead.fields.name, required: true, autocomplete: 'name' },
-  { key: 'company', ...lead.fields.company, required: false, autocomplete: 'organization' },
-  { key: 'contact', ...lead.fields.contact, required: true, autocomplete: 'on' },
-  { key: 'message', ...lead.fields.message, required: false, autocomplete: 'off' },
-]
+const fields = computed<
+  {
+    key: LeadField
+    label: string
+    placeholder?: string
+    required: boolean
+    autocomplete: string
+  }[]
+>(() => [
+  { key: 'name', ...lead.value.fields.name, required: true, autocomplete: 'name' },
+  { key: 'company', ...lead.value.fields.company, required: false, autocomplete: 'organization' },
+  { key: 'contact', ...lead.value.fields.contact, required: true, autocomplete: 'on' },
+  { key: 'message', ...lead.value.fields.message, required: false, autocomplete: 'off' },
+])
 
 const inputs: Partial<Record<LeadField, HTMLElement>> = {}
 
@@ -193,7 +197,7 @@ function setInput(field: LeadField, el: unknown) {
 
 function errorText(field: LeadField): string {
   const code = errors.value[field]
-  return code ? lead.errors[code] : ''
+  return code ? lead.value.errors[code] : ''
 }
 
 /** Ошибку поля, которую человек уже увидел, снимаем, как только значение стало верным. */

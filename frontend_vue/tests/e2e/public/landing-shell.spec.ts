@@ -9,18 +9,17 @@ import { DATA_READY_TIMEOUT } from '../helpers/ready'
 
 test.describe('landing shell', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/ru')
     await expect(page.getByTestId('page-landing')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 
-  test('html lang is ru on the landing and returns to the app locale after leaving', async ({
-    page,
-  }) => {
-    // fixtures.ts ставит flexiron_lang = 'en': до лендинга документ был английским.
+  test('html lang is ru on /ru and stays ru in the app after leaving', async ({ page }) => {
+    // fixtures.ts ставит flexiron_lang = 'en'; уход с /ru переводит программу на русский
+    // (решение владельца 2026-11-21: язык программы — по версии лендинга).
     await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
     await page.getByTestId('landing-login').click()
     await expect(page).toHaveURL('/login', { timeout: DATA_READY_TIMEOUT })
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
   })
 
   test('document title comes from the landing content', async ({ page }) => {

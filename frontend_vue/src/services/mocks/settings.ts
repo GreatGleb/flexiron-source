@@ -187,24 +187,24 @@ export const MOCK_SETTINGS: AppSettings = {
   warehouseMap: null,
 
   users: [
-    { id: 'usr-0', email: 'owner@flexiron.com', name: 'Миндаугас В.', role: 'owner', active: true },
-    { id: 'usr-1', email: 'admin@flexiron.com', name: 'Максим В.', role: 'admin', active: true },
-    { id: 'usr-2', email: 'manager@flexiron.com', name: 'Анна М.', role: 'manager', active: true },
+    { id: 'usr-0', email: 'owner@flexiron.com', name: 'Mindaugas V.', role: 'owner', active: true },
+    { id: 'usr-1', email: 'admin@flexiron.com', name: 'Maxim V.', role: 'admin', active: true },
+    { id: 'usr-2', email: 'manager@flexiron.com', name: 'Anna M.', role: 'manager', active: true },
     {
       id: 'usr-3',
       email: 'warehouse@flexiron.com',
-      name: 'Петр К.',
+      name: 'Petr K.',
       role: 'warehouse',
       active: true,
     },
     {
       id: 'usr-4',
       email: 'accounting@flexiron.com',
-      name: 'Елена С.',
+      name: 'Elena S.',
       role: 'accounting',
       active: true,
     },
-    { id: 'usr-5', email: 'viewer@flexiron.com', name: 'Иван Д.', role: 'viewer', active: false },
+    { id: 'usr-5', email: 'viewer@flexiron.com', name: 'Ivan D.', role: 'viewer', active: false },
   ] satisfies SettingUser[],
 
   orderStatuses: [

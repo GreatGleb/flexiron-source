@@ -28,7 +28,7 @@ const mockStockOverview_SEED: AuditSeeded<StockOverviewItem>[] = [
         userInitials: 'SY',
         property: { ru: 'Позиция создана', en: 'Stock item created', lt: 'Sandėlio prekė sukurta' },
         oldValue: '',
-        newValue: 'Лист нержавеющий 2мм',
+        newValue: 'Stainless Sheet 2mm',
       },
       {
         timestamp: '2025-03-20T14:30:00Z',

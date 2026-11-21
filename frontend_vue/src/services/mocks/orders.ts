@@ -4659,7 +4659,7 @@ function issueSeedInvoices(): void {
       mockAddOrderPayment(order.id, {
         amount: issued.amountGross,
         purpose: 'balance',
-        note: 'Оплата по счёту',
+        note: 'Payment against invoice',
         invoiceId: issued.id,
       })
     } catch {

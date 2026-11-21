@@ -260,6 +260,9 @@ const RETURN_COPY: Record<string, { label: string; needQty: string; needReason: 
 
 test.describe('followups №1 · Л1 · смена языка на лету', () => {
   test('строка про почту переписывается без перезагрузки страницы', async ({ page }) => {
+    // Русский в переключателях виден только пришедшим с /ru (src/i18n/ruVisibility.ts);
+    // этот тест проверяет именно русский — открываем его, как сделал бы уход с /ru.
+    await page.addInitScript(() => localStorage.setItem('flexiron_ru', '1'))
     await setLang(page, 'en')
     await page.goto('/admin/settings/mail')
     const line = page.locator('[data-test="settings-mail-test-target"]')

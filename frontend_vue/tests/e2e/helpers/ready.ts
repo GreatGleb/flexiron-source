@@ -95,7 +95,10 @@ export type ReadyExit =
  * `no-traffic`, громко и по имени.
  */
 export const ROUTES_WITHOUT_DATA: Readonly<Record<string, string>> = {
-  '/': 'landing page: static copy; the lead form posts only on submit, past the mock layer',
+  '/': 'redirects to /lt — the Lithuanian landing',
+  '/lt': 'landing page: static copy; the lead form posts only on submit, past the mock layer',
+  '/en': 'landing page in English: same page as /lt, other texts',
+  '/ru': 'landing page in Russian: same page as /lt, other texts',
   '/login': 'auth form: nothing is fetched until submit',
   '/register': 'auth form: nothing is fetched until submit',
   '/about': 'static text page',

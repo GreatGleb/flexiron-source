@@ -1,5 +1,5 @@
 <template>
-  <LandingFeature :feature="landingRu.config" />
+  <LandingFeature :feature="content.config" />
 </template>
 
 <script setup lang="ts">
@@ -10,6 +10,8 @@
  * секции 10 в LandingPage по таблице плана.
  */
 import '@styles/public/landing.css'
-import { landingRu } from '@/content/landing.ru'
+import { useLandingContent } from '@/composables/useLandingContent'
 import LandingFeature from './LandingFeature.vue'
+
+const content = useLandingContent()
 </script>

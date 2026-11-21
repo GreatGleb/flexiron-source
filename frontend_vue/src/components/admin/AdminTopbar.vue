@@ -2,12 +2,15 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useVisibleLocales } from '@/composables/useVisibleLocales'
 import SvgIcon from './SvgIcon.vue'
 import NotificationDropdown from './NotificationDropdown.vue'
 import { useSidebar } from '@/composables/useSidebar'
 import { useAuth } from '@/composables/useAuth'
 
-const { t, locale, availableLocales } = useI18n()
+const { t, locale } = useI18n()
+// Русский — только если он не скрыт (src/i18n/ruVisibility.ts).
+const visibleLocales = useVisibleLocales()
 const { toggle } = useSidebar()
 const { user: authUser, logout: authLogout } = useAuth()
 const router = useRouter()
@@ -80,7 +83,7 @@ function switchLang(code: string) {
       </div>
       <div class="lang-switcher" data-test="topbar-lang-switcher">
         <a
-          v-for="code in availableLocales"
+          v-for="code in visibleLocales"
           :key="code"
           href="#"
           class="lang-btn"

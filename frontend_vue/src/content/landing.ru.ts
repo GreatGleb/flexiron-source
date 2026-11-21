@@ -1,5 +1,5 @@
 /**
- * Все тексты лендинга `/` (русский — единственный язык первого этапа).
+ * Русские тексты лендинга (`/ru` — по ссылке, в переключателе его нет; этап 2, пункт 4).
  *
  * Источник — презентация roo_code/plans/landing/presentation/build.js, дословно.
  * Отличия от неё — только те, что прямо заданы в roo_code/plans/landing/landing-plan.md
@@ -8,14 +8,14 @@
  * держит landing.ru.spec.ts. Ни клиентов, ни отзывов, ни цифр сверх презентации.
  */
 import type { LandingContent, LandingImage } from '@/types/landing'
-import dashboardJpg from '@/assets/images/landing/dashboard.jpg'
-import batchesJpg from '@/assets/images/landing/batches.jpg'
-import cuttingJpg from '@/assets/images/landing/cutting.jpg'
-import orderLinesJpg from '@/assets/images/landing/order-lines.jpg'
-import orderFinJpg from '@/assets/images/landing/order-fin.jpg'
-import bccJpg from '@/assets/images/landing/bcc.jpg'
-import plJpg from '@/assets/images/landing/pl.jpg'
-import statusesJpg from '@/assets/images/landing/statuses.jpg'
+import dashboardJpg from '@/assets/images/landing/ru/dashboard.jpg'
+import batchesJpg from '@/assets/images/landing/ru/batches.jpg'
+import cuttingJpg from '@/assets/images/landing/ru/cutting.jpg'
+import orderLinesJpg from '@/assets/images/landing/ru/order-lines.jpg'
+import orderFinJpg from '@/assets/images/landing/ru/order-fin.jpg'
+import bccJpg from '@/assets/images/landing/ru/bcc.jpg'
+import plJpg from '@/assets/images/landing/ru/pl.jpg'
+import statusesJpg from '@/assets/images/landing/ru/statuses.jpg'
 
 const img = (src: string, alt: string, width: number, height: number): LandingImage => ({
   src,
@@ -42,6 +42,7 @@ export const landingRu: LandingContent = {
     login: { label: 'Войти', to: '/login' },
     cta: { label: 'Оставить заявку', anchor: 'lead' },
     menuLabel: 'Меню',
+    langLabel: 'Язык',
   },
 
   hero: {

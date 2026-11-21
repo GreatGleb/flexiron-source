@@ -16,6 +16,8 @@ import { getStoredToken } from '@/services/authToken'
 /** List of route names that are publicly accessible without auth. */
 const PUBLIC_ROUTES = new Set<string>([
   'landing',
+  'landing-en',
+  'landing-ru',
   'login',
   'register',
   'about',
@@ -37,11 +39,26 @@ function hasAuthToken(): boolean {
 
 const routes: RouteRecordRaw[] = [
   /* ── Public pages ── */
+  /* Лендинг: у каждого языка свой адрес, корень — литовский (этап 2 лендинга, пункт 4).
+     Переключатель языка приложения скрыт — у лендинга свой, LT / EN. */
+  { path: '/', redirect: '/lt' },
   {
-    path: '/',
+    path: '/lt',
     name: 'landing',
     component: LandingPage,
-    meta: { hideLangSwitcher: true },
+    meta: { hideLangSwitcher: true, landingLang: 'lt' },
+  },
+  {
+    path: '/en',
+    name: 'landing-en',
+    component: LandingPage,
+    meta: { hideLangSwitcher: true, landingLang: 'en' },
+  },
+  {
+    path: '/ru',
+    name: 'landing-ru',
+    component: LandingPage,
+    meta: { hideLangSwitcher: true, landingLang: 'ru' },
   },
   {
     path: '/login',

@@ -9,6 +9,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { jpegSize } from './jpegSize'
 import { join, relative, resolve } from 'node:path'
 import { landingRu } from './landing.ru'
 import { CONTACTS } from '@/config/landing'
@@ -118,20 +119,6 @@ describe('landing.ru — тексты лендинга', () => {
   })
 })
 
-/** Ширина и высота из маркера SOF — чтобы width/height у <img> были правдой о файле. */
-function jpegSize(file: string): { width: number; height: number } {
-  const d = readFileSync(file)
-  let i = 2
-  while (i < d.length) {
-    const marker = d[i + 1] ?? 0
-    if (marker >= 0xc0 && marker <= 0xc2) {
-      return { height: d.readUInt16BE(i + 5), width: d.readUInt16BE(i + 7) }
-    }
-    i += 2 + d.readUInt16BE(i + 2)
-  }
-  throw new Error(`нет SOF в ${file}`)
-}
-
 describe('landing.ru — картинки', () => {
   const shots = [
     ['hero', landingRu.hero.image] as const,
@@ -139,9 +126,9 @@ describe('landing.ru — картинки', () => {
   ]
 
   it.each(shots)('%s: файл существует, alt не пустой, размеры совпадают с файлом', (_, image) => {
-    // Vitest отдаёт импорт ассета путём от корня проекта: /src/assets/images/landing/<файл>.
+    // Vitest отдаёт импорт ассета путём от корня проекта: /src/assets/images/landing/ru/<файл>.
     const file = join(FRONTEND, image.src)
-    expect(image.src).toMatch(/^\/src\/assets\/images\/landing\/[\w-]+\.jpg$/)
+    expect(image.src).toMatch(/^\/src\/assets\/images\/landing\/ru\/[\w-]+\.jpg$/)
     expect(existsSync(file)).toBe(true)
     expect(image.alt.trim()).not.toBe('')
     expect({ width: image.width, height: image.height }).toEqual(jpegSize(file))

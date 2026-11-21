@@ -19,9 +19,11 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import '@styles/public/landing.css'
-import { landingRu } from '@/content/landing.ru'
+import { useLandingContent } from '@/composables/useLandingContent'
 import LandingContacts from './LandingContacts.vue'
 
-const footer = landingRu.footer
+const content = useLandingContent()
+const footer = computed(() => content.value.footer)
 </script>

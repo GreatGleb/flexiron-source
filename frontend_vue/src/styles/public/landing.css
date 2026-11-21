@@ -202,6 +202,36 @@
   gap: 12px;
 }
 
+/* Переключатель языка LT / EN — две половинки одной пилюли; активная залита. */
+.page-landing .landing-lang {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+}
+
+.page-landing .landing-lang-link {
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.page-landing .landing-lang-link:hover {
+  color: #fff;
+}
+
+.page-landing .landing-lang-link--active {
+  background: var(--primary);
+  color: #fff;
+}
+
 /* ── Подвал ── */
 
 .page-landing .landing-footer {
@@ -824,8 +854,9 @@
     height: 20px;
   }
 
+  /* 14, а не 18: с переключателем языка русская шапка на 993px выходила за край на 2px. */
   .page-landing .landing-header-nav {
-    gap: 18px;
+    gap: 14px;
   }
 
   .page-landing .landing-header-link {
@@ -898,6 +929,11 @@
     align-items: stretch;
     order: 2;
     margin-left: 0;
+  }
+
+  /* Кнопки меню растянуты на ширину, переключатель языка — нет: две буквы во всю строку теряются. */
+  .page-landing .landing-lang {
+    align-self: flex-start;
   }
 
   .page-landing .landing-footer-inner {

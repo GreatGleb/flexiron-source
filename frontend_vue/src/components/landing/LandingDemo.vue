@@ -10,7 +10,6 @@
           :to="demo.cta.to"
           class="landing-btn landing-btn--primary"
           data-test="landing-demo-open"
-          @click="prepareDemoLang"
         >
           {{ demo.cta.label }}
         </router-link>
@@ -23,12 +22,12 @@
 /*
  * Секция 11 лендинга — полоса «Посмотрите сами» (план, таблица «Структура страницы»).
  * Кнопка ведёт в демо тем же механизмом языка, что и кнопка hero (решение 3,
- * useLandingDemoLang) — второго правила здесь нет.
+ * useLandingAppLang в LandingPage) — второго правила здесь нет.
  */
+import { computed } from 'vue'
 import '@styles/public/landing.css'
-import { landingRu } from '@/content/landing.ru'
-import { useLandingDemoLang } from '@/composables/useLandingDemoLang'
+import { useLandingContent } from '@/composables/useLandingContent'
 
-const demo = landingRu.demo
-const { prepareDemoLang } = useLandingDemoLang()
+const content = useLandingContent()
+const demo = computed(() => content.value.demo)
 </script>

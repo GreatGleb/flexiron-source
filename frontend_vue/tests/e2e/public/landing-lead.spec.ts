@@ -55,7 +55,7 @@ async function fillValid(page: Page) {
 
 test.describe('landing demo strip and roadmap', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/ru')
     await expect(page.getByTestId('landing-hero')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   })
 
@@ -101,7 +101,7 @@ test.describe('landing demo strip and roadmap', () => {
 test.describe('landing lead form', () => {
   test.beforeEach(async ({ page }) => {
     await stubTurnstile(page)
-    await page.goto('/')
+    await page.goto('/ru')
     await expect(page.getByTestId('landing-lead-form')).toHaveAttribute('data-state', 'idle', {
       timeout: DATA_READY_TIMEOUT,
     })
@@ -233,7 +233,7 @@ test.describe('landing lead form: captcha', () => {
     page,
   }) => {
     const turnstile = await stubTurnstile(page)
-    await page.goto('/')
+    await page.goto('/ru')
     const form = page.getByTestId('landing-lead-form')
     await expect(form).toHaveAttribute('data-state', 'idle', { timeout: DATA_READY_TIMEOUT })
     await form.scrollIntoViewIfNeeded()
@@ -247,7 +247,7 @@ test.describe('landing lead form: captcha', () => {
 
   test('submit before the check passes waits, then sends by itself', async ({ page }) => {
     await stubTurnstile(page, 'manual')
-    await page.goto('/')
+    await page.goto('/ru')
     await expect(page.getByTestId('landing-lead-form')).toHaveAttribute('data-state', 'idle', {
       timeout: DATA_READY_TIMEOUT,
     })
@@ -269,7 +269,7 @@ test.describe('landing lead form: captcha', () => {
 
   test('captcha script blocked: contacts instead, nothing is sent', async ({ page }) => {
     await stubTurnstile(page, 'blocked')
-    await page.goto('/')
+    await page.goto('/ru')
     await expect(page.getByTestId('landing-lead-form')).toHaveAttribute('data-state', 'idle', {
       timeout: DATA_READY_TIMEOUT,
     })
