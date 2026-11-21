@@ -36,7 +36,7 @@ export interface LeadDraft {
   website: string
 }
 
-/** Что уходит в Apps Script; лист `Leads` хранит ровно эти поля и дату. */
+/** Что уходит в Apps Script; лист `Leads` хранит эти поля (кроме `captcha`) и дату. */
 export interface LeadPayload {
   name: string
   company: string
@@ -44,6 +44,8 @@ export interface LeadPayload {
   message: string
   page: string
   userAgent: string
+  /** Токен Cloudflare Turnstile; сервер проверяет его до записи. Пусто — капча на сайте выключена. */
+  captcha: string
 }
 
 export interface LeadValidation {
@@ -83,7 +85,12 @@ export function isHoneypot(draft: LeadDraft): boolean {
 }
 
 /** Тело запроса: строки постриженные, ловушка не уходит. */
-export function toPayload(draft: LeadDraft, page: string, userAgent: string): LeadPayload {
+export function toPayload(
+  draft: LeadDraft,
+  page: string,
+  userAgent: string,
+  captcha = '',
+): LeadPayload {
   return {
     name: draft.name.trim(),
     company: draft.company.trim(),
@@ -91,5 +98,6 @@ export function toPayload(draft: LeadDraft, page: string, userAgent: string): Le
     message: draft.message.trim(),
     page,
     userAgent,
+    captcha,
   }
 }

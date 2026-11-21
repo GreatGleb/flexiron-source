@@ -12,6 +12,7 @@
         :data-state="state"
         novalidate
         @submit.prevent="onSubmit"
+        @focusin="onFocusIn"
       >
         <p v-if="state === 'success'" class="landing-lead-success" data-test="landing-lead-success">
           {{ lead.success }}
@@ -85,6 +86,30 @@
             <LandingContacts />
           </div>
           <template v-else>
+            <div
+              v-if="captchaActive"
+              :ref="setCaptchaBox"
+              class="landing-lead-captcha"
+              :data-status="captchaStatus"
+              data-test="landing-lead-captcha"
+            ></div>
+            <div
+              v-if="captchaStatus === 'failed'"
+              class="landing-lead-direct landing-lead-direct--error"
+              role="alert"
+              data-test="landing-lead-captcha-failed"
+            >
+              <p class="landing-lead-direct-text">{{ lead.captcha.failed }}</p>
+              <LandingContacts />
+            </div>
+            <p
+              v-else-if="captchaMissing"
+              class="landing-lead-error"
+              role="status"
+              data-test="landing-lead-captcha-required"
+            >
+              {{ lead.captcha.required }}
+            </p>
             <button
               type="submit"
               class="landing-btn landing-btn--primary landing-lead-submit"
@@ -119,15 +144,32 @@
  * data-state на <form>: idle / sending / success / error / disabled. В success поля
  * заменяются благодарностью; в error введённое остаётся, ниже — контакты; в disabled
  * (адрес Apps Script пуст, решение 4) вместо кнопки — «Напишите нам напрямую» и контакты.
+ *
+ * Капча — useTurnstile: виджет появляется над кнопкой при первом касании формы (focusin), не
+ * раньше; в disabled не грузится вовсе. Не загрузилась — вместо неё контакты.
  */
 import '@styles/public/landing.css'
 import { landingRu } from '@/content/landing.ru'
 import { useLandingLead } from '@/composables/useLandingLead'
+import { useTurnstile } from '@/composables/useTurnstile'
 import type { LeadField } from '@/domain/landingLead'
 import LandingContacts from './LandingContacts.vue'
 
 const lead = landingRu.lead
-const { draft, errors, state, validateField, firstInvalid, submit } = useLandingLead()
+const {
+  status: captchaStatus,
+  token: captchaToken,
+  container: captchaBox,
+  active: captchaActive,
+  start: startCaptcha,
+  reset: resetCaptcha,
+} = useTurnstile()
+const { draft, errors, state, captchaMissing, validateField, firstInvalid, submit } =
+  useLandingLead(undefined, {
+    required: () => captchaStatus.value !== 'off',
+    token: captchaToken,
+    reset: resetCaptcha,
+  })
 
 const fields: {
   key: LeadField
@@ -157,6 +199,14 @@ function errorText(field: LeadField): string {
 /** Ошибку поля, которую человек уже увидел, снимаем, как только значение стало верным. */
 function onInput(field: LeadField) {
   if (errors.value[field]) validateField(field)
+}
+
+function setCaptchaBox(el: unknown) {
+  captchaBox.value = el instanceof HTMLElement ? el : null
+}
+
+function onFocusIn() {
+  if (state.value !== 'disabled') void startCaptcha()
 }
 
 async function onSubmit() {

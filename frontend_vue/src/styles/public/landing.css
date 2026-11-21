@@ -766,6 +766,11 @@
   justify-self: start;
 }
 
+/* Виджет Turnstile (size: flexible) — во всю ширину формы; высоту задаёт сам виджет. */
+.page-landing .landing-lead-captcha {
+  width: 100%;
+}
+
 .page-landing .landing-lead-submit:disabled {
   cursor: wait;
   opacity: 0.6;

@@ -1,6 +1,7 @@
 import type { Page, Route } from '@playwright/test'
 import { test, expect } from '../fixtures'
 import { DATA_READY_TIMEOUT } from '../helpers/ready'
+import { solveTurnstile, stubTurnstile, turnstileResets } from './turnstileStub'
 
 /**
  * Секции 11–13 лендинга `/` (задача L-06, roo_code/plans/landing/landing-plan.md):
@@ -13,6 +14,9 @@ import { DATA_READY_TIMEOUT } from '../helpers/ready'
  *
  * Состояние `disabled` (адрес пуст) здесь не проверить — адрес задан на весь сервер; его
  * проверяет компонентный тест LandingLeadForm.spec.ts.
+ *
+ * Капча — подставной Turnstile (turnstileStub.ts): site key берётся из .env, а скрипт с
+ * challenges.cloudflare.com перехвачен, так что в сеть тест не ходит.
  */
 
 const LEADS = 'https://leads.invalid/**'
@@ -96,6 +100,7 @@ test.describe('landing demo strip and roadmap', () => {
 
 test.describe('landing lead form', () => {
   test.beforeEach(async ({ page }) => {
+    await stubTurnstile(page)
     await page.goto('/')
     await expect(page.getByTestId('landing-lead-form')).toHaveAttribute('data-state', 'idle', {
       timeout: DATA_READY_TIMEOUT,
@@ -118,6 +123,7 @@ test.describe('landing lead form', () => {
     const body = JSON.parse(leads.bodies[0]!) as Record<string, string>
     expect(body).toMatchObject({ name: NAME, company: COMPANY, contact: CONTACT, message: MESSAGE })
     expect(body.page).toBe(page.url())
+    expect(body.captcha).toBe('e2e-token-1')
     expect(body).not.toHaveProperty('website')
   })
 
@@ -136,6 +142,15 @@ test.describe('landing lead form', () => {
     await expect(page.getByTestId('landing-lead-contact')).toHaveValue(CONTACT)
     await expect(page.getByTestId('landing-lead-message')).toHaveValue(MESSAGE)
     expect(leads.calls()).toBe(1)
+    // Токен израсходован сервером — форма берёт новый, повторная отправка уходит с ним.
+    expect(await turnstileResets(page)).toBe(1)
+    await page.unroute(LEADS)
+    const retry = await interceptLeads(page, okReply)
+    await expect(page.getByTestId('landing-lead-captcha')).toHaveAttribute('data-status', 'solved')
+    await page.getByTestId('landing-lead-submit').click()
+    await expect(page.getByTestId('landing-lead-form')).toHaveAttribute('data-state', 'success')
+    expect(retry.calls()).toBe(1)
+    expect((JSON.parse(retry.bodies[0]!) as Record<string, string>).captcha).toBe('e2e-token-2')
   })
 
   test('network failure → error', async ({ page }) => {
@@ -210,5 +225,62 @@ test.describe('landing lead form', () => {
 
     await expect(form).toHaveAttribute('data-state', 'success')
     expect(leads.calls()).toBe(1)
+  })
+})
+
+test.describe('landing lead form: captcha', () => {
+  test('the captcha script loads on the first touch of the form, not with the page', async ({
+    page,
+  }) => {
+    const turnstile = await stubTurnstile(page)
+    await page.goto('/')
+    const form = page.getByTestId('landing-lead-form')
+    await expect(form).toHaveAttribute('data-state', 'idle', { timeout: DATA_READY_TIMEOUT })
+    await form.scrollIntoViewIfNeeded()
+    await expect(page.getByTestId('landing-lead-captcha')).toHaveCount(0)
+    expect(turnstile.requests()).toBe(0)
+
+    await page.getByTestId('landing-lead-name').focus()
+    await expect(page.getByTestId('turnstile-stub')).toBeVisible()
+    expect(turnstile.requests()).toBe(1)
+  })
+
+  test('submit before the check passes waits, then sends by itself', async ({ page }) => {
+    await stubTurnstile(page, 'manual')
+    await page.goto('/')
+    await expect(page.getByTestId('landing-lead-form')).toHaveAttribute('data-state', 'idle', {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    const leads = await interceptLeads(page, okReply)
+    await fillValid(page)
+    await page.getByTestId('landing-lead-submit').click()
+
+    await expect(page.getByTestId('landing-lead-captcha-required')).toHaveText(
+      'Подтвердите, что вы не робот, — заявка уйдёт сразу после проверки',
+    )
+    await expect(page.getByTestId('landing-lead-form')).toHaveAttribute('data-state', 'idle')
+    expect(leads.calls()).toBe(0)
+
+    await solveTurnstile(page)
+    await expect(page.getByTestId('landing-lead-form')).toHaveAttribute('data-state', 'success')
+    expect(leads.calls()).toBe(1)
+    expect((JSON.parse(leads.bodies[0]!) as Record<string, string>).captcha).toBe('e2e-token-1')
+  })
+
+  test('captcha script blocked: contacts instead, nothing is sent', async ({ page }) => {
+    await stubTurnstile(page, 'blocked')
+    await page.goto('/')
+    await expect(page.getByTestId('landing-lead-form')).toHaveAttribute('data-state', 'idle', {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    const leads = await interceptLeads(page, okReply)
+    await fillValid(page)
+
+    const failed = page.getByTestId('landing-lead-captcha-failed')
+    await expect(failed).toContainText('Проверка от ботов не загрузилась')
+    await expect(failed.locator('a[href^="mailto:"]')).toBeVisible()
+    await page.getByTestId('landing-lead-submit').click()
+    await expect(page.getByTestId('landing-lead-form')).toHaveAttribute('data-state', 'idle')
+    expect(leads.calls()).toBe(0)
   })
 })

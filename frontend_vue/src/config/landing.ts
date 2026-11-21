@@ -12,6 +12,15 @@ const rawLeadsUrl: unknown = import.meta.env.VITE_LANDING_LEADS_URL
 export const LEADS_URL: string = typeof rawLeadsUrl === 'string' ? rawLeadsUrl.trim() : ''
 
 /**
+ * Публичный site key виджета Cloudflare Turnstile (капча формы заявки). Публичный по замыслу —
+ * он виден в коде любой страницы с виджетом; секретная пара к нему живёт только в свойствах
+ * скрипта Apps Script (`TURNSTILE_SECRET`). Пусто → виджета нет и токен не уходит.
+ */
+const rawTurnstileKey: unknown = import.meta.env.VITE_TURNSTILE_SITE_KEY
+export const TURNSTILE_SITE_KEY: string =
+  typeof rawTurnstileKey === 'string' ? rawTurnstileKey.trim() : ''
+
+/**
  * ЗАГЛУШКИ. Настоящих контактов в репозитории нет — владелец заменит значения здесь
  * и снимет флаг isPlaceholder. Этот объект — единственное место, где они записаны:
  * остальной код берёт контакты только отсюда.

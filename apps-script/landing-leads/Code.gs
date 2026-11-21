@@ -1,14 +1,30 @@
 // Приём заявок с лендинга Flexiron. Привязан к Google Таблице, опубликован как веб-приложение.
 //
 //   GET                                   -> { ok: true }                 проверка развёртывания
-//   POST {name, company, contact, message, page, userAgent}  (Content-Type: text/plain)
+//   POST {name, company, contact, message, page, userAgent, captcha}  (Content-Type: text/plain)
 //                                         -> { ok: true } | { ok: false, error }
 //
-// Лист "Leads" — одна строка на заявку: Дата | Имя | Компания | Контакт | Комментарий | Страница | Браузер.
-// Уведомление на почту уходит, если в свойствах скрипта задан NOTIFY_EMAIL (см. README.md).
+// Порядок: поля → капча Cloudflare Turnstile → сообщение в Telegram → строка в таблицу.
+// Лист "Leads": Дата | Имя | Компания | Контакт | Комментарий | Страница | Браузер | Telegram.
+// Последний столбец — чем кончилась отправка в Telegram: сбой там заявку не теряет.
+//
+// Свойства скрипта (Настройки проекта → Свойства скрипта; см. README.md):
+//   TURNSTILE_SECRET  — секретный ключ виджета Turnstile. Не задан → заявки не принимаются;
+//   TG_BOT_TOKEN, TG_CHAT_ID — бот и чат для уведомлений. Не заданы → только таблица;
+//   NOTIFY_EMAIL      — необязательно: ещё и письмо о каждой заявке.
 
 const SHEET_NAME = 'Leads';
-const HEADER = ['Дата', 'Имя', 'Компания', 'Контакт', 'Комментарий', 'Страница', 'Браузер'];
+const HEADER = [
+  'Дата',
+  'Имя',
+  'Компания',
+  'Контакт',
+  'Комментарий',
+  'Страница',
+  'Браузер',
+  'Telegram',
+];
+const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
 // Те же лимиты и выражения, что у формы: frontend_vue/src/domain/landingLead.ts (LIMITS, EMAIL_RE,
 // PHONE_RE). Правило одно, среды исполнения две; frontend_vue/src/domain/landingLead.spec.ts
@@ -48,6 +64,13 @@ function doPost(e) {
   const error = validate(lead);
   if (error) return json({ ok: false, error: error });
 
+  const captchaError = verifyCaptcha(text(body.captcha));
+  if (captchaError) return json({ ok: false, error: captchaError });
+
+  // Telegram — до записи и вне замка: медленная сеть не держит очередь других заявок,
+  // а исход отправки ложится в ту же строку.
+  const telegram = sendTelegram(lead);
+
   const row = [
     new Date().toISOString(),
     lead.name,
@@ -56,6 +79,7 @@ function doPost(e) {
     lead.message,
     lead.page,
     lead.userAgent,
+    telegram,
   ].map(function (value) {
     // Ведущий апостроф хранит значение как текст: "=..." никогда не исполнится как формула
     return "'" + value;
@@ -71,6 +95,75 @@ function doPost(e) {
 
   notify(lead);
   return json({ ok: true });
+}
+
+function prop(name) {
+  return PropertiesService.getScriptProperties().getProperty(name);
+}
+
+// '' — проверка пройдена; иначе код ошибки для ответа формы. Без секрета заявки не принимаются:
+// забытая настройка не должна тихо выключать защиту.
+function verifyCaptcha(token) {
+  const secret = prop('TURNSTILE_SECRET');
+  if (!secret) {
+    console.error('TURNSTILE_SECRET не задан — заявка отклонена');
+    return 'captcha not configured';
+  }
+  if (!token) return 'captcha required';
+  try {
+    const response = UrlFetchApp.fetch(TURNSTILE_VERIFY_URL, {
+      method: 'post',
+      payload: { secret: secret, response: token },
+      muteHttpExceptions: true,
+    });
+    const data = JSON.parse(response.getContentText());
+    return data && data.success === true ? '' : 'captcha failed';
+  } catch (err) {
+    console.error('TURNSTILE: ' + err);
+    return 'captcha unavailable';
+  }
+}
+
+// Исход отправки для столбца "Telegram": ok | off (бот не настроен) | код ответа | error.
+// Токен бота стоит в адресе запроса — из текста ошибки он вырезается до записи в журнал.
+function sendTelegram(lead) {
+  const token = prop('TG_BOT_TOKEN');
+  const chatId = prop('TG_CHAT_ID');
+  if (!token || !chatId) return 'off';
+  try {
+    const response = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        chat_id: chatId,
+        text: telegramText(lead),
+        disable_web_page_preview: true,
+      }),
+      muteHttpExceptions: true,
+    });
+    const code = response.getResponseCode();
+    return code === 200 ? 'ok' : 'http ' + code;
+  } catch (err) {
+    console.error('TELEGRAM: ' + String(err).split(token).join('***'));
+    return 'error';
+  }
+}
+
+// Простой текст без разметки: в заявке может быть что угодно, экранировать под HTML/Markdown нечего.
+// Предел сообщения Telegram (4096) не достижим: поля ограничены лимитами выше и META_MAX —
+// это доказывает спека фронтенда, а не обрезка здесь.
+function telegramText(lead) {
+  return [
+    '📝 Заявка с сайта Flexiron',
+    '',
+    'Имя: ' + lead.name,
+    'Компания: ' + (lead.company || '—'),
+    'Контакт: ' + lead.contact,
+    'Комментарий: ' + (lead.message || '—'),
+    '',
+    'Страница: ' + lead.page,
+  ]
+    .join('\n');
 }
 
 function text(value) {
@@ -95,7 +188,7 @@ function isValidContact(value) {
 
 // Заявка уже в таблице; сбой почты её не отменяет и ответ формы не портит
 function notify(lead) {
-  const to = PropertiesService.getScriptProperties().getProperty('NOTIFY_EMAIL');
+  const to = prop('NOTIFY_EMAIL');
   if (!to) return;
   try {
     MailApp.sendEmail(

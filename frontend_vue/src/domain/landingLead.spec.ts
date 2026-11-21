@@ -167,7 +167,12 @@ describe('toPayload', () => {
       message: 'Два склада',
       page: 'https://example.test/#lead',
       userAgent: 'UA/1.0',
+      captcha: '',
     })
+  })
+
+  it('токен капчи уходит как есть', () => {
+    expect(toPayload(draft(), '', '', 'tok-1').captcha).toBe('tok-1')
   })
 
   it('пустые и пробельные поля → пустая строка', () => {
@@ -220,11 +225,45 @@ interface FakeSheet {
   frozen: number
 }
 
+interface FakeFetch {
+  url: string
+  options: {
+    method?: string
+    payload?: unknown
+    contentType?: string
+    muteHttpExceptions?: boolean
+  }
+}
+
+/** Ответ UrlFetchApp: код и тело; `throw` — сеть упала. */
+type FetchReply = { code: number; body: string } | 'throw'
+
+const TURNSTILE_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
+const TG_TOKEN = '123456:SECRET-bot-token'
+const BOT_URL = `https://api.telegram.org/bot${TG_TOKEN}/sendMessage`
+/** Свойства по умолчанию: капча настроена, бот — нет. */
+const BASE_PROPS = { TURNSTILE_SECRET: 'ts-secret' }
+const WITH_BOT = { ...BASE_PROPS, TG_BOT_TOKEN: TG_TOKEN, TG_CHAT_ID: '42' }
+
 /** Заглушки сервисов Google ровно в том объёме, в каком их зовёт Code.gs. */
 function loadCodeGs(
-  opts: { sheets?: FakeSheet[]; notifyEmail?: string; mailFails?: boolean } = {},
+  opts: {
+    sheets?: FakeSheet[]
+    mailFails?: boolean
+    props?: Record<string, string>
+    /** Ответ на siteverify; по умолчанию — успех. */
+    captcha?: FetchReply
+    /** Ответ Telegram; по умолчанию — 200. */
+    telegram?: FetchReply
+  } = {},
 ) {
   const sheets = opts.sheets ?? []
+  const props: Record<string, string> = opts.props ?? BASE_PROPS
+  const fetches: FakeFetch[] = []
+  const reply = (r: FetchReply) => {
+    if (r === 'throw') throw new Error(`Address unavailable: ${fetches.at(-1)?.url ?? ''}`)
+    return { getResponseCode: () => r.code, getContentText: () => r.body }
+  }
   const mails: { to: string; subject: string; body: string }[] = []
   const lock = { waits: 0, releases: 0 }
   const sheetApi = (sheet: FakeSheet) => ({
@@ -269,8 +308,17 @@ function loadCodeGs(
     },
     PropertiesService: {
       getScriptProperties: () => ({
-        getProperty: (key: string) => (key === 'NOTIFY_EMAIL' ? (opts.notifyEmail ?? null) : null),
+        getProperty: (key: string) => props[key] ?? null,
       }),
+    },
+    UrlFetchApp: {
+      fetch: (url: string, options: FakeFetch['options']) => {
+        fetches.push({ url, options })
+        if (url === TURNSTILE_URL)
+          return reply(opts.captcha ?? { code: 200, body: '{"success":true}' })
+        if (url === BOT_URL) return reply(opts.telegram ?? { code: 200, body: '{"ok":true}' })
+        throw new Error(`неожиданный адрес ${url}`)
+      },
     },
     MailApp: {
       sendEmail: (to: string, subject: string, body: string) => {
@@ -298,6 +346,7 @@ function loadCodeGs(
   return {
     sheets,
     mails,
+    fetches,
     lock,
     errors,
     get: () => call('doGet'),
@@ -308,8 +357,8 @@ function loadCodeGs(
   }
 }
 
-const payloadOf = (patch: Partial<LeadDraft> = {}) =>
-  toPayload(draft(patch), 'https://example.test/', 'UA/1.0')
+const payloadOf = (patch: Partial<LeadDraft> = {}, captcha = 'tok-ok') =>
+  toPayload(draft(patch), 'https://example.test/', 'UA/1.0', captcha)
 
 describe('Code.gs — исполнение', () => {
   it('doGet → { ok: true }', () => {
@@ -329,6 +378,7 @@ describe('Code.gs — исполнение', () => {
       'Комментарий',
       'Страница',
       'Браузер',
+      'Telegram',
     ])
     expect(sheet.frozen).toBe(1)
     expect(sheet.rows).toHaveLength(2)
@@ -351,7 +401,7 @@ describe('Code.gs — исполнение', () => {
     gs.post(payloadOf({ name: '=HYPERLINK("x")', company: '+1', message: '' }))
     const row = at(at(gs.sheets, 0).rows, 1)
     const date = at(row, 0).slice(1)
-    expect(row).toHaveLength(7)
+    expect(row).toHaveLength(8)
     expect(row.every((v) => v.startsWith("'"))).toBe(true)
     expect(row.slice(1)).toEqual([
       `'=HYPERLINK("x")`,
@@ -360,6 +410,7 @@ describe('Code.gs — исполнение', () => {
       "'",
       "'https://example.test/",
       "'UA/1.0",
+      "'off",
     ])
     expect(new Date(date).toISOString()).toBe(date)
   })
@@ -432,7 +483,7 @@ describe('Code.gs — уведомление на почту', () => {
   })
 
   it('NOTIFY_EMAIL задан — письмо на этот адрес с контактом заявки', () => {
-    const gs = loadCodeGs({ notifyEmail: 'owner@example.test' })
+    const gs = loadCodeGs({ props: { ...BASE_PROPS, NOTIFY_EMAIL: 'owner@example.test' } })
     gs.post(payloadOf({ contact: 'ivan@mail.ru' }))
     expect(gs.mails).toHaveLength(1)
     expect(at(gs.mails, 0).to).toBe('owner@example.test')
@@ -440,15 +491,126 @@ describe('Code.gs — уведомление на почту', () => {
   })
 
   it('сбой почты не отменяет заявку и ответ', () => {
-    const gs = loadCodeGs({ notifyEmail: 'owner@example.test', mailFails: true })
+    const gs = loadCodeGs({
+      props: { ...BASE_PROPS, NOTIFY_EMAIL: 'owner@example.test' },
+      mailFails: true,
+    })
     expect(gs.post(payloadOf()).ok).toBe(true)
     expect(at(gs.sheets, 0).rows).toHaveLength(2)
     expect(gs.errors).toEqual(['NOTIFY_EMAIL: Error: quota'])
   })
 
   it('отвергнутая заявка письма не порождает', () => {
-    const gs = loadCodeGs({ notifyEmail: 'owner@example.test' })
+    const gs = loadCodeGs({ props: { ...BASE_PROPS, NOTIFY_EMAIL: 'owner@example.test' } })
     gs.post(payloadOf({ name: '' }))
     expect(gs.mails).toEqual([])
+  })
+})
+
+describe('Code.gs — капча Turnstile', () => {
+  it('токен уходит на siteverify методом POST вместе с секретом из свойств', () => {
+    const gs = loadCodeGs()
+    expect(gs.post(payloadOf({}, 'tok-7')).ok).toBe(true)
+    const call = at(gs.fetches, 0)
+    expect(call.url).toBe(TURNSTILE_URL)
+    expect(call.options.method).toBe('post')
+    expect(call.options.payload).toEqual({ secret: 'ts-secret', response: 'tok-7' })
+    expect(call.options.muteHttpExceptions).toBe(true)
+  })
+
+  it.each([
+    ['secret не задан', { props: {} }, '', 'captcha not configured'],
+    ['токена нет', {}, '', 'captcha required'],
+    [
+      'Cloudflare сказал «нет»',
+      { captcha: { code: 200, body: '{"success":false}' } },
+      'tok',
+      'captcha failed',
+    ],
+    ['ответ не JSON', { captcha: { code: 502, body: '<html>' } }, 'tok', 'captcha unavailable'],
+    ['сеть упала', { captcha: 'throw' as const }, 'tok', 'captcha unavailable'],
+  ])('%s → { ok: false }, строки и сообщения нет', (_label, opts, token, error) => {
+    const gs = loadCodeGs({ ...opts, telegram: { code: 200, body: '' } })
+    const answer = gs.post(payloadOf({}, token))
+    expect(answer).toEqual({ ok: false, error })
+    expect(gs.sheets).toEqual([])
+    expect(gs.fetches.filter((f) => f.url === BOT_URL)).toEqual([])
+  })
+
+  it('без secret заявка не принимается даже с токеном — и это видно в журнале', () => {
+    const gs = loadCodeGs({ props: {} })
+    expect(gs.post(payloadOf({}, 'tok')).ok).toBe(false)
+    expect(gs.fetches).toEqual([])
+    expect(gs.errors).toEqual(['TURNSTILE_SECRET не задан — заявка отклонена'])
+  })
+
+  it('неверная заявка до Cloudflare не доходит', () => {
+    const gs = loadCodeGs()
+    gs.post(payloadOf({ name: '' }))
+    expect(gs.fetches).toEqual([])
+  })
+})
+
+describe('Code.gs — сообщение в Telegram', () => {
+  it('бот настроен — сообщение в чат из свойств, с полями заявки, без превью ссылок', () => {
+    const gs = loadCodeGs({ props: WITH_BOT })
+    expect(gs.post(payloadOf({ company: '', contact: 'ivan@mail.ru' })).ok).toBe(true)
+    const call = at(gs.fetches, 1)
+    expect(call.url).toBe(BOT_URL)
+    expect(call.options.method).toBe('post')
+    expect(call.options.contentType).toBe('application/json')
+    const message = JSON.parse(String(call.options.payload)) as Record<string, unknown>
+    expect(message.chat_id).toBe('42')
+    expect(message.disable_web_page_preview).toBe(true)
+    expect(message.text).toContain('Контакт: ivan@mail.ru')
+    expect(message.text).toContain('Компания: —')
+    expect(message.text).toContain('Страница: https://example.test/')
+    expect(at(at(gs.sheets, 0).rows, 1).at(-1)).toBe("'ok")
+  })
+
+  it('самая длинная допустимая заявка влезает в одно сообщение Telegram (4096)', () => {
+    const gs = loadCodeGs({ props: WITH_BOT })
+    const longest = payloadOf({
+      name: 'я'.repeat(LIMITS.name),
+      company: 'к'.repeat(LIMITS.company),
+      contact: `${'a'.repeat(LIMITS.contact - 8)}@mail.ru`,
+      message: 'м'.repeat(LIMITS.message),
+    })
+    // Страница от формы приходит без лимита — сервер режет её сам (META_MAX).
+    expect(gs.post({ ...longest, page: 'p'.repeat(5000) }).ok).toBe(true)
+    const message = JSON.parse(String(at(gs.fetches, 1).options.payload)) as { text: string }
+    expect(message.text).toContain('м'.repeat(LIMITS.message))
+    expect(message.text.split('Страница: ')[1]).toBe('p'.repeat(Number(gsConst('META_MAX'))))
+    expect(message.text.length).toBeLessThanOrEqual(4096)
+  })
+
+  it('бот не настроен — запроса нет, в строке «off»', () => {
+    const gs = loadCodeGs()
+    gs.post(payloadOf())
+    expect(gs.fetches.map((f) => f.url)).toEqual([TURNSTILE_URL])
+    expect(at(at(gs.sheets, 0).rows, 1).at(-1)).toBe("'off")
+  })
+
+  it('Telegram ответил ошибкой — заявка записана и принята, код в строке', () => {
+    const gs = loadCodeGs({ props: WITH_BOT, telegram: { code: 403, body: '{}' } })
+    expect(gs.post(payloadOf()).ok).toBe(true)
+    expect(at(at(gs.sheets, 0).rows, 1).at(-1)).toBe("'http 403")
+  })
+
+  it('сеть упала — заявка записана, токен бота в журнал не попадает', () => {
+    const gs = loadCodeGs({ props: WITH_BOT, telegram: 'throw' })
+    expect(gs.post(payloadOf()).ok).toBe(true)
+    expect(at(at(gs.sheets, 0).rows, 1).at(-1)).toBe("'error")
+    expect(gs.errors).toHaveLength(1)
+    expect(at(gs.errors, 0)).toContain('TELEGRAM:')
+    expect(at(gs.errors, 0)).toContain('***')
+    expect(gs.errors.join()).not.toContain(TG_TOKEN)
+  })
+
+  it('отправка в Telegram — вне замка таблицы', () => {
+    const gs = loadCodeGs({ props: WITH_BOT })
+    gs.post(payloadOf())
+    expect(gs.lock).toEqual({ waits: 1, releases: 1 })
+    expect(gs.fetches).toHaveLength(2)
   })
 })

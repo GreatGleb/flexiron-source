@@ -17,6 +17,7 @@ const payload: LeadPayload = {
   message: 'Два склада',
   page: 'https://example.test/',
   userAgent: 'UA/1.0',
+  captcha: 'tok',
 }
 
 const respond = (body: string, status = 200) =>

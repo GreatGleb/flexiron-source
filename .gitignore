@@ -53,5 +53,8 @@ typecheck_errors.txt
 
 # Local environment (machine-specific; see backend/.env.example)
 backend/.env
+# Секреты фронтенда на этой машине (токен бота, secret Turnstile). Без префикса VITE_ Vite их в сборку
+# не кладёт; frontend_vue/.env, в отличие от этого файла, лежит в git — секретам туда нельзя.
+frontend_vue/.env.local
 # Конфиг харнесса Zoo Code (auto-approve) — локальная настройка исполнителя, не часть продукта.
 roo_code/zoo-code-auto-approve.json

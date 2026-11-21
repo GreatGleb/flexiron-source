@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures'
 import { DATA_READY_TIMEOUT } from '../helpers/ready'
+import { stubTurnstile } from './turnstileStub'
 
 /**
  * Адаптив и доступность лендинга `/` (задача L-08, roo_code/plans/landing/landing-plan.md,
@@ -15,6 +16,8 @@ const WIDTHS = [...PLAN_WIDTHS, 769, 993]
 const MENU_MAX_WIDTH = 768
 
 async function openLanding(page: import('@playwright/test').Page) {
+  // Обход Tab касается формы — без подмены грузился бы настоящий скрипт Turnstile.
+  await stubTurnstile(page)
   await page.goto('/')
   await expect(page.getByTestId('landing-header')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
   // Последняя секция страницы отрисована — значит вся вёрстка на месте.

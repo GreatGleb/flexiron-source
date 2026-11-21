@@ -144,6 +144,12 @@ export interface LandingContent {
     error: string
     disabled: string
     errors: Record<LandingLeadErrorCode, string>
+    captcha: {
+      /** Заявка верна, а проверка от ботов ещё не пройдена. */
+      required: string
+      /** Скрипт капчи не загрузился — отправить нельзя, ниже контакты. */
+      failed: string
+    }
   }
   footer: {
     links: LandingRouteLink[]

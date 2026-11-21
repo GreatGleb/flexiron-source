@@ -38,7 +38,9 @@ const norm = (s: string) => s.replace(/\s+/g, ' ').toLowerCase()
 const SOURCES = norm(
   readFileSync(join(PLAN_DIR, 'presentation', 'build.js'), 'utf8').replace(/\\u00A0/g, ' ') +
     '\n' +
-    readFileSync(join(PLAN_DIR, 'landing-plan.md'), 'utf8'),
+    readFileSync(join(PLAN_DIR, 'landing-plan.md'), 'utf8') +
+    '\n' +
+    readFileSync(join(PLAN_DIR, 'landing-stage-2-plan.md'), 'utf8'),
 )
 
 /**

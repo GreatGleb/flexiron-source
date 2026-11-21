@@ -155,3 +155,42 @@ e2e check.sh-набора → exit 0, 119 passed, failed/flaky нет; повт�
 - Л9 — 20 инверсий (progress.md, L-09); `grep -rn "await page.waitForLoadState" tests/` → 0.
 - Л10 — роутер не тронут; dev-сервер поднимается (e2e); `npm run build` exit 0.
 Новых находок нет — свип чистый.
+
+---
+
+# Этап 2, пункт 1: капча Turnstile + Telegram + таблица (2026-11-21, интерактивно)
+
+Область: `apps-script/landing-leads/` (Code.gs, README), форма заявки — `useLandingLead`, новые
+`useTurnstile` и `services/turnstile.ts`, тексты и типы, `landing.css`; e2e `landing-lead`,
+`landing-layout` и подставной Turnstile `tests/e2e/public/turnstileStub.ts`. План —
+`roo_code/plans/landing/landing-stage-2-plan.md`, пункт 1.
+
+## Итерация 1
+
+Машинная приёмка: `npm run verify` — красный: TS6133 (строковый `ref="captchaBox"` vue-tsc не видит →
+функциональный `:ref`), TS7053 в спеке; затем prettier на 2 файла; затем `landing.ru.spec` —
+новые тексты капчи не из источника. Починено: тексты записаны в план этапа 2, план добавлен в SOURCES
+спеки. Находка спеки домена: обрезка до 4096 в `telegramText` недостижима (поля ограничены, страница —
+META_MAX) — обрезка убрана, вместо неё тест «самая длинная допустимая заявка влезает в 4096».
+
+## Итерация 2
+
+- `npm run verify` exit 0: 93 файла, 1395 passed / 3 skipped.
+- e2e `tests/e2e/public` на PW_PORT=5373: 99 passed, exit 0 (ур. 1 — правка в одной области; общий пол
+  не тронут: helpers/, fixtures, playwright.config без изменений, подмена Turnstile — файл рядом со спеками).
+- Л1 — `watch(captcha.token)` на ref, без getter/toRaw; `onBeforeUnmount` снимает виджет.
+- Л2 — тексты в `landing.ru.ts`, источник — план; i18n не тронут.
+- Л3 — Code.gs: siteverify `post` + `muteHttpExceptions`; Telegram `post` JSON; фронт — тот же `text/plain`.
+- Л5 — «нужен ли токен» решает одна функция `required` (форма → composable); правило полей не дублировано.
+- Л6 — новые классы `landing-lead-captcha`; комментариев в шаблоне нет.
+- Л8 — неверная форма о капче молчит (сначала поля); после отказа сервера введённое остаётся, токен новый.
+- Л9 — инверсии, все красные: Code.gs без проверки капчи (6 failed), токен бота в журнале (1), без
+  столбца Telegram (5), форма шлёт без токена (1), без сброса после отказа (1), без автоотправки (1),
+  загрузчик без повтора (3); e2e — капча грузится со страницей → «first touch» failed.
+- Л10 — настоящий виджет на временном dev-сервере (5390, подставной адрес заявок): статус `ready`,
+  русский, тёмная тема, ошибок страницы нет. Headless-браузеру Cloudflare показал галочку — Managed.
+
+Не проверено: Code.gs в настоящем Apps Script (ставит владелец по README), настоящий siteverify и
+настоящий Telegram — первая живая заявка после установки.
+
+Новых находок нет — свип чистый.
