@@ -50,6 +50,17 @@ if [ ! -d "$ROOT/frontend_vue/node_modules" ]; then
   exit 3
 fi
 
+# Node. Под systemd-run nvm не подключён, и PATH даёт системный /usr/bin/node — на этой машине 18.19,
+# где юнит-тесты гейта падают (нет глобального crypto). Так 2026-11-20 заблокированы L-02 и L-03.
+# Берём самый новый node из ~/.nvm, если он есть, и не стартуем ниже 20.
+nvm_bin="$(ls -d "$HOME"/.nvm/versions/node/v*/bin 2>/dev/null | sort -V | tail -1 || true)"
+if [ -n "$nvm_bin" ]; then export PATH="$nvm_bin:$PATH"; fi
+node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+if [ "$node_major" -lt 20 ]; then
+  echo "Node $(node -v 2>/dev/null || echo 'не найден') — нужен 20+ (гейт frontend_vue). Поставьте через nvm." >&2
+  exit 3
+fi
+
 stamp="$(date +%F-%H%M)"
 if [ "$resume" = 1 ]; then
   branch="$(git branch --show-current)"
@@ -70,7 +81,7 @@ restore_push() {
 trap restore_push EXIT
 git config --local remote.origin.pushurl "$NO_PUSH"
 
-echo "Ночь: ветка $branch, журнал $out, PW_PORT=$PW_PORT"
+echo "Ночь: ветка $branch, журнал $out, PW_PORT=$PW_PORT, node $(node -v)"
 status=0
 python3 "$HERE/night.py" --out "$out" --tasks "${LANDING_TASKS:-roo_code/plans/landing/tasks.json}" \
   --hours "${LANDING_HOURS:-7}" --task-minutes "${LANDING_TASK_MINUTES:-120}" \

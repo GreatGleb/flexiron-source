@@ -73,7 +73,9 @@ describe('receivableStatus', () => {
    * считается граница просрочки, иначе пилюля спорит с колонкой рядом.
    */
   it('счёт с нулевой отсрочкой не просрочен через миг после выдачи', () => {
-    const issued = new Date()
+    // Полдень, а не `new Date()`: прогон в последнюю минуту суток уводил «миг
+    // спустя» в следующий день, и тест краснел по часам, а не по коду.
+    const issued = new Date(2026, 2, 31, 12, 0, 0)
     const dueDate = receivableDueDate(issued.toISOString(), 0)
     const now = new Date(issued.getTime() + 60_000)
     expect(receivableStatus({ amount: 1000, paidAmount: 0, dueDate, now })).toBe('pending')

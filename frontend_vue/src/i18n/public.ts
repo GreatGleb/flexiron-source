@@ -172,22 +172,6 @@ export const publicRu = {
       'Мгновенное резервирование позиций. Визуальные маркеры «В резерве», «Ожидает оплату», «Готово к отгрузке».',
     btnTrial: 'Попробовать бесплатно',
   },
-  landing: {
-    seo: {
-      title: 'Flexiron — Умное управление металлоцентром',
-      description:
-        'Экосистема для управления металлоцентром: складской учет, CRM и автоматизация документов.',
-    },
-    title: 'Экосистема управления металлоцентром',
-    subtitle:
-      'Прозрачный учет, умный склад и автоматизация обрезков в один клик.<br>ERP-система нового поколения для производства и торговли металлом.',
-    btnReg: 'Регистрация',
-    btnDemo: 'Демо-версия',
-    support: 'Поддержка',
-    about: 'О продукте',
-    terms: 'Условия использования',
-    indexMap: 'Карта экранов',
-  },
 }
 
 export const publicEn = {
@@ -357,21 +341,6 @@ export const publicEn = {
     f4Desc:
       "Instant reservation of items. Visual markers 'In reserve', 'Awaiting payment', 'Ready for shipment'.",
     btnTrial: 'Try for free',
-  },
-  landing: {
-    seo: {
-      title: 'Flexiron — Smart Metal Center Management',
-      description: 'Metal service center ecosystem: warehouse, CRM, and document automation.',
-    },
-    title: 'Metal Service Center Ecosystem',
-    subtitle:
-      'Transparent accounting, smart warehouse, and automated offcuts in one click.<br>Next-generation ERP system for metal production and trading.',
-    btnReg: 'Registration',
-    btnDemo: 'Watch Demo',
-    support: 'Support',
-    about: 'About Product',
-    terms: 'Terms of Use',
-    indexMap: 'Screen Catalog',
   },
 }
 
@@ -544,20 +513,5 @@ export const publicLt = {
     f4Title: 'Statusai ir rezervai',
     f4Desc: 'Momentinis prekių rezervavimas. Vizualūs žymekliai patogiam sandėlio valdymui.',
     btnTrial: 'Išbandyti nemokamai',
-  },
-  landing: {
-    seo: {
-      title: 'Flexiron — Išmanus metalo centrų valdymas',
-      description: 'Metalo centrų ekosistema: sandėlis, CRM ir dokumentų automatizavimas.',
-    },
-    title: 'Metalo centrų valdymo ekosistema',
-    subtitle:
-      'Skaidri apskaita, išmanus sandėlis ir atnašų automatizavimas vienu paspaudimu.<br>Naujos kartos ERP metalo gamybai ir prekybai.',
-    btnReg: 'Registracija',
-    btnDemo: 'Demo versija',
-    support: 'Pagalba',
-    about: 'Apie produktą',
-    terms: 'Naudojimo sąlygos',
-    indexMap: 'Ekranų katalogas',
   },
 }

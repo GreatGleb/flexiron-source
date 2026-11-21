@@ -1,45 +1,67 @@
 <template>
-  <div class="container">
-    <div class="hero-card">
-      <div class="logo-container">
-        <img
-          :src="logoUrl"
-          alt="Flexiron Logo"
-          class="logo-icon"
-          style="width: auto; height: 48px"
-        />
+  <div ref="pageRoot" class="page-landing" data-test="page-landing">
+    <LandingHeader />
+
+    <main class="landing-main">
+      <LandingHero />
+      <LandingPains />
+      <LandingFlow />
+      <div id="features" class="landing-features">
+        <LandingFeature v-for="feature in content.features" :key="feature.id" :feature="feature" />
+        <LandingConfig />
       </div>
+      <LandingDemo />
+      <LandingRoadmap />
+      <LandingLeadForm />
+    </main>
 
-      <h1>{{ t('landing.title') }}</h1>
-
-      <p class="subtitle" v-html="t('landing.subtitle')"></p>
-
-      <div class="cta-group">
-        <router-link to="/register" class="cta-button">{{ t('landing.btnReg') }}</router-link>
-        <router-link to="/admin" class="cta-button secondary">{{
-          t('landing.btnDemo')
-        }}</router-link>
-      </div>
-    </div>
+    <LandingFooter />
   </div>
-
-  <footer class="footer">
-    <router-link to="/support" class="footer-link">{{ t('landing.support') }}</router-link>
-    <router-link to="/about" class="footer-link">{{ t('landing.about') }}</router-link>
-    <router-link to="/terms" class="footer-link">{{ t('landing.terms') }}</router-link>
-    <router-link to="/screens" class="footer-link">{{ t('landing.indexMap') }}</router-link>
-  </footer>
 </template>
 
-<script setup>
+<script setup lang="ts">
+/*
+ * Каркас лендинга (L-03): секции 0–14 в порядке таблицы плана
+ * roo_code/plans/landing/landing-plan.md. Секции 1–3 — компоненты L-04 (единственный h1
+ * страницы — в LandingHero). Секции 4–9 — LandingFeature по landingRu.features, секция 10 —
+ * LandingConfig (L-05). Секции 11–13 — LandingDemo, LandingRoadmap, LandingLeadForm (L-06).
+ *
+ * id="features" — обёртка секций 4–10: на неё ведёт пункт шапки «Возможности».
+ */
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
-import logoUrl from '@images/Flexiron_Logo_White.svg'
+import { useReveal } from '@/composables/useReveal'
+import { landingRu } from '@/content/landing.ru'
+import LandingHeader from '@/components/landing/LandingHeader.vue'
+import LandingFooter from '@/components/landing/LandingFooter.vue'
+import LandingHero from '@/components/landing/LandingHero.vue'
+import LandingPains from '@/components/landing/LandingPains.vue'
+import LandingFlow from '@/components/landing/LandingFlow.vue'
+import LandingFeature from '@/components/landing/LandingFeature.vue'
+import LandingConfig from '@/components/landing/LandingConfig.vue'
+import LandingDemo from '@/components/landing/LandingDemo.vue'
+import LandingRoadmap from '@/components/landing/LandingRoadmap.vue'
+import LandingLeadForm from '@/components/landing/LandingLeadForm.vue'
+import '@styles/public/landing.css'
 
-const { t } = useI18n()
+/** Язык текстов лендинга — только русский на первом этапе (решения 1 и 2 плана). */
+const LANDING_LANG = 'ru'
 
-useHead({
-  title: () => t('landing.seo.title'),
-  description: () => t('landing.seo.description'),
+const content = landingRu
+const { locale } = useI18n()
+const pageRoot = ref<HTMLElement | null>(null)
+
+/* Появление блоков (L-07): помеченные data-reveal элементы всех секций, один наблюдатель. */
+useReveal(pageRoot)
+
+useHead({ title: content.seo.title, description: content.seo.description })
+
+onMounted(() => {
+  document.documentElement.lang = LANDING_LANG
+})
+
+onUnmounted(() => {
+  document.documentElement.lang = locale.value
 })
 </script>
