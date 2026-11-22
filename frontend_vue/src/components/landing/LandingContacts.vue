@@ -1,16 +1,7 @@
 <template>
   <address class="landing-contacts">
-    <span class="landing-contacts-company">{{ CONTACTS.company }}</span>
     <a :href="`mailto:${CONTACTS.email}`" class="landing-contacts-link">{{ CONTACTS.email }}</a>
     <a :href="phoneHref" class="landing-contacts-link">{{ CONTACTS.phone }}</a>
-    <a
-      :href="`https://t.me/${CONTACTS.telegram}`"
-      class="landing-contacts-link"
-      target="_blank"
-      rel="noopener"
-    >
-      @{{ CONTACTS.telegram }}
-    </a>
   </address>
 </template>
 

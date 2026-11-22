@@ -36,14 +36,11 @@ export const TURNSTILE_SITE_KEY: string =
   typeof rawTurnstileKey === 'string' ? rawTurnstileKey.trim() : ''
 
 /**
- * ЗАГЛУШКИ. Настоящих контактов в репозитории нет — владелец заменит значения здесь
- * и снимет флаг isPlaceholder. Этот объект — единственное место, где они записаны:
- * остальной код берёт контакты только отсюда.
+ * Контакты лендинга (решение владельца 2026-11-22): почта сайта и телефон владельца. Telegram и
+ * реквизиты фирмы убраны — появятся, когда будут. Этот объект — единственное место, где контакты
+ * записаны: подвал и форма заявки берут их только отсюда (LandingContacts.vue).
  */
 export const CONTACTS = {
-  email: 'hello@flexiron.example',
+  email: 'flexiron.erp@gmail.com',
   phone: '+370 688 97926',
-  telegram: 'flexiron_example',
-  company: 'Flexiron (company details — placeholder)',
-  isPlaceholder: true,
 } as const

@@ -258,11 +258,6 @@
   font-size: 0.95rem;
 }
 
-.page-landing .landing-contacts-company {
-  color: #fff;
-  font-weight: 600;
-}
-
 .page-landing .landing-contacts-link,
 .page-landing .landing-footer-link {
   color: var(--text-dim);

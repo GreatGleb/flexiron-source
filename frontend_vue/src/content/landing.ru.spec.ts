@@ -4,7 +4,7 @@
  * Что держит спека: в дереве текстов нет пустых строк; каждая строка взята из
  * презентации или плана, а не придумана; цифр сверх презентации нет; у каждой
  * фичи есть настоящий файл картинки с верными размерами и alt; стороны скриншота
- * у соседних секций чередуются; заглушки контактов живут только в конфиге.
+ * у соседних секций чередуются; контакты живут только в конфиге.
  * Инверсия каждого утверждения — в roo_code/plans/landing/progress.md, раздел L-01.
  */
 import { describe, it, expect } from 'vitest'
@@ -141,25 +141,26 @@ describe('landing.ru — картинки', () => {
   })
 })
 
-describe('config/landing — заглушки контактов', () => {
+describe('config/landing — контакты', () => {
   function sourceFiles(dir: string): string[] {
     return readdirSync(dir).flatMap((name) => {
       const p = join(dir, name)
       if (statSync(p).isDirectory()) return sourceFiles(p)
-      return /\.(ts|vue|js|css|html)$/.test(name) ? [p] : []
+      return /\.(ts|vue|js|css|html)$/.test(name) && !name.endsWith('.spec.ts') ? [p] : []
     })
   }
 
-  it('помечены как заглушки', () => {
-    expect(CONTACTS.isPlaceholder).toBe(true)
+  it('заглушек не осталось: только почта и телефон, без example-домена и нулевого номера', () => {
+    expect(Object.keys(CONTACTS)).toEqual(['email', 'phone'])
+    expect(CONTACTS.email).not.toMatch(/example/)
+    expect(CONTACTS.phone).not.toMatch(/\+0{3}/)
   })
 
-  it('адрес и телеграм заглушки записаны только в src/config/landing.ts', () => {
-    const files = [...sourceFiles(join(FRONTEND, 'src')), ...sourceFiles(join(FRONTEND, 'tests'))]
-    const holders = files
+  it('почта и телефон записаны в коде приложения только в src/config/landing.ts', () => {
+    const holders = sourceFiles(join(FRONTEND, 'src'))
       .filter((f) => {
         const text = readFileSync(f, 'utf8')
-        return text.includes(CONTACTS.email) || text.includes(CONTACTS.telegram)
+        return text.includes(CONTACTS.email) || text.includes(CONTACTS.phone)
       })
       .map((f) => relative(FRONTEND, f))
     expect(holders).toEqual(['src/config/landing.ts'])
