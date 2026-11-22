@@ -79,7 +79,9 @@ async function windowShot(lang, out, prepare, clip, fileWidth) {
  * размер, который Facebook, LinkedIn и мессенджеры показывают без обрезки.
  */
 async function ogShot(lang) {
-  const p = await page(lang, 1200, 630, 1)
+  // Окно 1600×840 при масштабе 0.75 даёт ровно 1200×630, и первый экран влезает целиком:
+  // в окне 1200×630 крупный заголовок обрезался снизу, без подзаголовка и кнопок (2026-11-22).
+  const p = await page(lang, 1600, 840, 0.75)
   await p.goto(`${BASE}/${lang}`, { waitUntil: 'networkidle' })
   // Появление первого экрана (useReveal) — дождаться, пока всё встанет на место.
   await p.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'))
