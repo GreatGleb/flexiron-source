@@ -66,7 +66,7 @@
 
 ## 3. SEO на github.io
 
-**Сделано 2026-11-21** (кроме шага 6 — ждёт код подтверждения Search Console от владельца). Журнал —
+**Сделано 2026-11-21**, шаг 6 — 2026-11-22. Журнал —
 `roo_code/roo-context/verify-runs/landing.md`, раздел «Этап 2, пункт 3».
 
 Ограничение честно: чужой домен второго уровня и вложенный путь продвигаются хуже своего домена;
@@ -97,8 +97,10 @@
    проверяет: h1 своего языка, `canonical`, `noindex` у ru, нет `reveal-pending` — не сошлось, сборка падает.
    Команда — `npm run build:site`. GitHub отдаёт эти страницы с кодом 200, а не через 404-переадресацию.
 5. **Скорость:** скриншот первого экрана — `fetchpriority="high"`, остальные — `loading="lazy"`.
-6. **Search Console:** свойство по префиксу URL, подтверждение мета-тегом — `VITE_GSC_VERIFICATION` (код даёт
-   владелец), затем отправить `sitemap.xml`.
+6. **Search Console:** свойство по префиксу URL `https://greatgleb.github.io/Flexiron-Enterprise/`,
+   аккаунт `flexiron.erp@gmail.com`. Подтверждено **HTML-файлом** `public/googleec9ee7e6eaa8cd90.html` —
+   удалять нельзя, Google перепроверяет его регулярно. `sitemap.xml` отправлен (2026-11-22).
+   Мета-тег через `VITE_GSC_VERIFICATION` остаётся запасным способом и сейчас не задан.
 7. **Публикация:** `scripts/publish-pages.sh` — сборка, копирование `site/` в `../Flexiron-Enterprise/` с
    сохранением `.git`, `README.md`, `.nojekyll`; старая папка `demo/` уходит (её ссылки ловит роутер).
    Push — владелец.
